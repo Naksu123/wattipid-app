@@ -62,10 +62,10 @@ export default function RoomsScreen() {
     for (const room of (r || [])) {
       if (room.status === 'occupied') {
         const now = new Date();
-        const current = await getMonthlyConsumptionFiltered(room.room_id, now.getFullYear(), now.getMonth() + 1, room.tenant_start_date, room.move_out_date);
+        const current = await getMonthlyConsumptionFiltered(room.room_id, now.getFullYear(), now.getMonth() + 1, room.tenant_start_date, room.move_out_date, room.tenant_name);
         const prevMonth = now.getMonth() === 0 ? 12 : now.getMonth();
         const prevYear = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
-        const previous = await getMonthlyConsumptionFiltered(room.room_id, prevYear, prevMonth, room.tenant_start_date, room.move_out_date);
+        const previous = await getMonthlyConsumptionFiltered(room.room_id, prevYear, prevMonth, room.tenant_start_date, room.move_out_date, room.tenant_name);
         cData[room.room_id] = { current, previous, diff: current.totalEnergy - previous.totalEnergy };
       }
     }

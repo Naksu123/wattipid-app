@@ -1,4 +1,4 @@
-export const API_BASE_URL = 'http://192.168.254.105/wattipid_backend';
+export const API_BASE_URL = 'http://172.20.10.12/wattipid_backend';
 
 export async function apiCall(action, data = {}) {
   try {

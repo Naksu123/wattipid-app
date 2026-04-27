@@ -165,13 +165,13 @@ export async function getDailyBreakdown(roomId, year, month) {
   }));
 }
 
-export async function getMonthlyConsumptionFiltered(roomId, year, month, tenantStartDate, moveOutDate) {
-  const data = await apiCall('getMonthlyConsumptionFiltered', { roomId, year, month, tenantStartDate, moveOutDate });
+export async function getMonthlyConsumptionFiltered(roomId, year, month, tenantStartDate, moveOutDate, tenantName = null) {
+  const data = await apiCall('getMonthlyConsumptionFiltered', { roomId, year, month, tenantStartDate, moveOutDate, tenantName });
   return data ? { totalEnergy: parseFloat(data.totalEnergy || 0), totalCost: parseFloat(data.totalCost || 0), entryCount: parseInt(data.entryCount || 0) } : { totalEnergy: 0, totalCost: 0, entryCount: 0 };
 }
 
-export async function getDailyBreakdownFiltered(roomId, year, month, tenantStartDate, moveOutDate) {
-  const data = await apiCall('getDailyBreakdownFiltered', { roomId, year, month, tenantStartDate, moveOutDate });
+export async function getDailyBreakdownFiltered(roomId, year, month, tenantStartDate, moveOutDate, tenantName = null) {
+  const data = await apiCall('getDailyBreakdownFiltered', { roomId, year, month, tenantStartDate, moveOutDate, tenantName });
   return (data || []).map(d => ({
     ...d,
     totalEnergy: parseFloat(d.totalEnergy || 0),
