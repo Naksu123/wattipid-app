@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, RefreshControl } from 'react-native
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../contexts/AuthContext';
-import { getAllRooms, getSetting, getMonthlyConsumptionFiltered } from '../../services/database';
+import { getBuildingSummary, getSetting } from '../../services/database';
 import GlassCard from '../../components/GlassCard';
 import StatusBadge from '../../components/StatusBadge';
 import { COLORS, FONT_SIZE, FONT_WEIGHT, RADIUS, SPACING, GRADIENTS } from '../../constants/theme';
@@ -11,35 +11,35 @@ import { COLORS, FONT_SIZE, FONT_WEIGHT, RADIUS, SPACING, GRADIENTS } from '../.
 export default function OverviewScreen() {
   const { user } = useAuth();
   const [rooms, setRooms] = useState([]);
+  const [stats, setStats] = useState({ totalRooms: 0, occupiedRooms: 0, offlineMeters: 0 });
+  const [totals, setTotals] = useState({ totalEnergy: 0, totalCost: 0 });
   const [rate, setRate] = useState(12.5);
   const [refreshing, setRefreshing] = useState(false);
-  const [consumption, setConsumption] = useState({ total: 0, revenue: 0 });
 
   useEffect(() => { loadData(); }, []);
 
   const loadData = async () => {
-    const [r, rateVal] = await Promise.all([getAllRooms(), getSetting('rate_per_kwh')]);
-    setRooms(r || []);
-    const currentRate = rateVal ? parseFloat(rateVal) : 12.5;
-    if (rateVal) setRate(currentRate);
-
-    // Calculate real consumption for occupied rooms
-    const now = new Date();
-    let totalEnergy = 0;
-    for (const room of (r || [])) {
-      if (room.status === 'occupied') {
-        const c = await getMonthlyConsumptionFiltered(room.room_id, now.getFullYear(), now.getMonth() + 1, room.tenant_start_date, room.move_out_date);
-        totalEnergy += c.totalEnergy;
-      }
+    const [summary, rateVal] = await Promise.all([
+      getBuildingSummary(),
+      getSetting('rate_per_kwh')
+    ]);
+    
+    if (summary) {
+      setRooms(summary.rooms || []);
+      setStats(summary.stats || { totalRooms: 0, occupiedRooms: 0, offlineMeters: 0 });
+      setTotals(summary.totals || { totalEnergy: 0, totalCost: 0 });
     }
-    setConsumption({ total: totalEnergy, revenue: totalEnergy * currentRate });
+    if (rateVal) setRate(parseFloat(rateVal));
   };
 
   const onRefresh = async () => { setRefreshing(true); await loadData(); setRefreshing(false); };
 
-  const occupiedRooms = rooms.filter(r => r.status === 'occupied');
-  const onProcessRooms = rooms.filter(r => r.status === 'on_process');
-  const vacantRooms = rooms.filter(r => r.status === 'vacant');
+  const isOffline = (lastSeen) => {
+    if (!lastSeen) return true;
+    const last = new Date(lastSeen).getTime();
+    const now = new Date().getTime();
+    return (now - last) > 300000; // 5 minutes
+  };
 
   const SummaryCard = ({ icon, label, value, color, gradient: g }) => (
     <LinearGradient colors={g || GRADIENTS.card} style={ss.summaryCard}>
@@ -61,10 +61,10 @@ export default function OverviewScreen() {
 
         {/* Summary Grid */}
         <View style={ss.grid}>
-          <SummaryCard icon="home" label="Total Rooms" value={rooms.length} color={COLORS.primary} />
-          <SummaryCard icon="flash" label="Occupied" value={occupiedRooms.length} color={COLORS.primary} />
-          <SummaryCard icon="time-outline" label="On Process" value={onProcessRooms.length} color={COLORS.warning} />
-          <SummaryCard icon="bed-outline" label="Vacant" value={vacantRooms.length} color={COLORS.textMuted} />
+          <SummaryCard icon="home" label="Total Rooms" value={stats.totalRooms} color={COLORS.primary} />
+          <SummaryCard icon="flash" label="Occupied" value={stats.occupiedRooms} color={COLORS.success} />
+          <SummaryCard icon="cloud-offline-outline" label="Offline" value={stats.offlineMeters} color={COLORS.danger} />
+          <SummaryCard icon="cash-outline" label="Avg Rate" value={`₱${rate.toFixed(1)}`} color={COLORS.warning} />
         </View>
 
         {/* Facility Stats */}
@@ -72,39 +72,37 @@ export default function OverviewScreen() {
           <Text style={ss.facilityTitle}>This Month's Facility Stats</Text>
           <View style={ss.facilityRow}>
             <View style={ss.facilityStat}>
-              <Text style={ss.facilityValue}>{Number(consumption.total || 0).toFixed(2)}</Text>
-              <Text style={ss.facilityLabel}>kWh Total</Text>
+              <Text style={ss.facilityValue}>{Number(totals.totalEnergy || 0).toFixed(2)}</Text>
+              <Text style={ss.facilityLabel}>kWh Building</Text>
             </View>
             <View style={ss.divider} />
             <View style={ss.facilityStat}>
-              <Text style={ss.facilityValue}>₱{Number(consumption.revenue || 0).toFixed(2)}</Text>
-              <Text style={ss.facilityLabel}>Est. Revenue</Text>
-            </View>
-            <View style={ss.divider} />
-            <View style={ss.facilityStat}>
-              <Text style={ss.facilityValue}>₱{rate.toFixed(2)}</Text>
-              <Text style={ss.facilityLabel}>Rate/kWh</Text>
+              <Text style={ss.facilityValue}>₱{Number(totals.totalCost || 0).toFixed(2)}</Text>
+              <Text style={ss.facilityLabel}>Total Revenue</Text>
             </View>
           </View>
         </GlassCard>
 
-        {/* Room Quick List */}
-        <Text style={ss.sectionTitle}>Room Status</Text>
-        {rooms.map(room => (
-          <GlassCard key={room.room_id} style={ss.roomItem}>
-            <View style={ss.roomLeft}>
-              <View style={[ss.roomDot, {
-                backgroundColor: room.status === 'occupied' ? COLORS.primary
-                  : room.status === 'on_process' ? COLORS.warning : COLORS.textMuted
-              }]} />
-              <View>
-                <Text style={ss.roomId}>{room.room_id}</Text>
-                <Text style={ss.roomTenant}>{room.tenant_name || 'No tenant'}</Text>
+        {/* Room List with Health Status */}
+        <Text style={ss.sectionTitle}>Room Connectivity & Usage</Text>
+        {rooms.map(room => {
+          const offline = isOffline(room.last_seen);
+          return (
+            <GlassCard key={room.room_id} style={[ss.roomItem, offline && { opacity: 0.8 }]}>
+              <View style={ss.roomLeft}>
+                <View style={[ss.roomDot, { backgroundColor: offline ? COLORS.danger : COLORS.success }]} />
+                <View>
+                  <Text style={ss.roomId}>{room.room_id} {offline && <Text style={{ color: COLORS.danger, fontSize: 10 }}>[OFFLINE]</Text>}</Text>
+                  <Text style={ss.roomTenant}>{room.tenant_name || 'Vacant'}</Text>
+                </View>
               </View>
-            </View>
-            <StatusBadge status={room.status} size="sm" />
-          </GlassCard>
-        ))}
+              <View style={{ alignItems: 'flex-end' }}>
+                <Text style={ss.roomEnergy}>{Number(room.monthlyEnergy || 0).toFixed(2)} kWh</Text>
+                <Text style={ss.roomStatusText}>{room.status}</Text>
+              </View>
+            </GlassCard>
+          );
+        })}
       </ScrollView>
     </View>
   );
@@ -133,4 +131,6 @@ const ss = StyleSheet.create({
   roomDot: { width: 10, height: 10, borderRadius: 5 },
   roomId: { fontSize: FONT_SIZE.md, fontWeight: FONT_WEIGHT.semibold, color: COLORS.textPrimary },
   roomTenant: { fontSize: FONT_SIZE.sm, color: COLORS.textSecondary },
+  roomEnergy: { fontSize: FONT_SIZE.sm, fontWeight: FONT_WEIGHT.bold, color: COLORS.primary },
+  roomStatusText: { fontSize: FONT_SIZE.xs, color: COLORS.textMuted, textTransform: 'capitalize' },
 });

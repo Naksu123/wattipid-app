@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity } 
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { fetchRealtimeData } from '../../services/esp32Api';
-import { getSetting, getTotalConsumptionToday, getBudget, getConsumptionComparison } from '../../services/database';
+import { getSetting, getTotalConsumptionToday, getBudget, getConsumptionComparison, getRoomById } from '../../services/database';
 import { detectHighConsumption, getSmartPopupTip } from '../../services/tipsEngine';
 import PowerGauge from '../../components/PowerGauge';
 import GlassCard from '../../components/GlassCard';
@@ -20,6 +20,7 @@ export default function DashboardScreen() {
   const [budget, setBudgetData] = useState(null);
   const [comparison, setComparison] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [lastSeen, setLastSeen] = useState(null);
   // Alert & tip state
   const [alertVisible, setAlertVisible] = useState(false);
   const [alertData, setAlertData] = useState(null);
@@ -31,12 +32,13 @@ export default function DashboardScreen() {
 
   const fetchData = useCallback(async () => {
     try {
-      const [sensorData, rateVal, today, budgetVal, comp] = await Promise.all([
+      const [sensorData, rateVal, today, budgetVal, comp, roomInfo] = await Promise.all([
         fetchRealtimeData(roomId),
         getSetting('rate_per_kwh'),
         getTotalConsumptionToday(roomId, user?.name),
         getBudget(roomId),
         getConsumptionComparison(roomId, 'daily', user?.name),
+        getRoomById(roomId),
       ]);
       setData(sensorData);
       setRelayOn(sensorData.relayState !== false);
@@ -44,6 +46,7 @@ export default function DashboardScreen() {
       setTodayUsage(today);
       if (budgetVal) setBudgetData(budgetVal);
       setComparison(comp);
+      if (roomInfo) setLastSeen(roomInfo.last_seen);
 
       // Generate smart tip
       const tip = getSmartPopupTip(sensorData.power, today.totalCost, budgetVal);
@@ -89,6 +92,21 @@ export default function DashboardScreen() {
   const amountDue = todayUsage.totalEnergy * rate;
   const budgetPct = budget && budget.daily_allowance > 0 ? (todayUsage.totalCost / budget.daily_allowance) * 100 : 0;
 
+  const isDeviceOffline = () => {
+    if (!lastSeen) return true;
+    const last = new Date(lastSeen).getTime();
+    const now = new Date().getTime();
+    return (now - last) > 60000; // Offline if > 1 minute
+  };
+
+  const offline = isDeviceOffline();
+
+  const formatLastSeen = () => {
+    if (!lastSeen) return 'Never seen';
+    const last = new Date(lastSeen);
+    return last.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  };
+
   const MetricCard = ({ icon, label, value, unit, color = COLORS.textPrimary }) => (
     <GlassCard style={ms.metricCard}>
       <Ionicons name={icon} size={20} color={color} />
@@ -106,9 +124,15 @@ export default function DashboardScreen() {
         <View style={ms.header}>
           <View>
             <Text style={ms.greeting}>Hello, {user?.name || 'Tenant'} 👋</Text>
-            <Text style={ms.roomLabel}>Room: {roomId}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
+              <Text style={ms.roomLabel}>Room: {roomId}</Text>
+              <Text style={ms.lastSeenDot}>•</Text>
+              <Text style={[ms.lastSeenText, { color: offline ? COLORS.danger : COLORS.success }]}>
+                {offline ? 'Offline' : `Live: ${formatLastSeen()}`}
+              </Text>
+            </View>
           </View>
-          <StatusBadge status={relayOn ? 'active' : 'offline'} />
+          <StatusBadge status={offline ? 'offline' : (relayOn ? 'active' : 'idle')} />
         </View>
 
         {/* High Consumption Banner (inline) */}
@@ -155,8 +179,8 @@ export default function DashboardScreen() {
         )}
 
         {/* Power Gauge */}
-        <GlassCard gradient style={ms.gaugeCard}>
-          <PowerGauge value={data.power} maxValue={2000} unit="W" label="Real-Time Power" size={180} />
+        <GlassCard gradient style={[ms.gaugeCard, offline && { opacity: 0.6 }]}>
+          <PowerGauge value={offline ? 0 : data.power} maxValue={2000} unit="W" label={offline ? 'Device Offline' : 'Real-Time Power'} size={180} />
           <View style={ms.pf}>
             <Text style={ms.pfLabel}>Power Factor</Text>
             <Text style={ms.pfValue}>{data.powerFactor}</Text>
@@ -233,7 +257,9 @@ const ms = StyleSheet.create({
   scroll: { padding: SPACING.lg, paddingTop: SPACING.xxl + 10 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.lg },
   greeting: { fontSize: FONT_SIZE.xl, fontWeight: FONT_WEIGHT.bold, color: COLORS.textPrimary },
-  roomLabel: { fontSize: FONT_SIZE.sm, color: COLORS.textSecondary, marginTop: 2 },
+  roomLabel: { fontSize: FONT_SIZE.sm, color: COLORS.textSecondary },
+  lastSeenDot: { fontSize: FONT_SIZE.xs, color: COLORS.textMuted },
+  lastSeenText: { fontSize: FONT_SIZE.xs, fontWeight: FONT_WEIGHT.medium },
   // Alert Banner
   alertBanner: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md, padding: SPACING.md, marginBottom: SPACING.md, borderLeftWidth: 3 },
   alertBannerIcon: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },

@@ -5,7 +5,8 @@ import { LineChart, BarChart } from 'react-native-chart-kit';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { useAuth } from '../../contexts/AuthContext';
-import { getConsumptionHistory, getConsumptionComparison, getDailyBreakdown, getHourlyBreakdown, getTransactionHistory, getTotalConsumptionToday, getTotalConsumptionWeek, getTotalConsumptionMonth } from '../../services/database';
+import { getConsumptionHistory, getConsumptionComparison, getDailyBreakdown, getHourlyBreakdown, getTransactionHistory, getTotalConsumptionToday, getTotalConsumptionWeek, getTotalConsumptionMonth, getSetting } from '../../services/database';
+import { generateConsumptionReport } from '../../services/reportService';
 import GlassCard from '../../components/GlassCard';
 import { COLORS, FONT_SIZE, FONT_WEIGHT, RADIUS, SPACING } from '../../constants/theme';
 
@@ -26,18 +27,20 @@ export default function AnalyticsScreen() {
   const [activeView, setActiveView] = useState('charts'); // 'charts' | 'history' | 'breakdown'
   const [generatingPdf, setGeneratingPdf] = useState(false);
   const [selectedPoint, setSelectedPoint] = useState(null);
+  const [rate, setRate] = useState(12.5);
   const roomId = user?.room_id || 'Room 1';
 
   const loadData = useCallback(async () => {
     if (!user || !roomId) return;
     const tenantName = user?.name;
-    const [data, comp, today, week, month, txns] = await Promise.all([
+    const [data, comp, today, week, month, txns, rateVal] = await Promise.all([
       getConsumptionHistory(roomId, period, tenantName),
       getConsumptionComparison(roomId, period, tenantName),
       getTotalConsumptionToday(roomId, tenantName),
       getTotalConsumptionWeek(roomId, tenantName),
       getTotalConsumptionMonth(roomId, tenantName),
       getTransactionHistory(roomId, 50, period, tenantName),
+      getSetting('rate_per_kwh')
     ]);
     
     setHistory(data || []);
@@ -46,6 +49,7 @@ export default function AnalyticsScreen() {
     setWeekUsage(week);
     setMonthUsage(month);
     setTransactions(txns || []);
+    if (rateVal) setRate(parseFloat(rateVal));
 
     // Load breakdown based on period
     if (period === 'daily') {

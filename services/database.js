@@ -42,6 +42,10 @@ export async function getRoomById(roomId) {
   return await apiCall('getRoomById', { roomId });
 }
 
+export async function getBuildingSummary() {
+  return await apiCall('getBuildingSummary');
+}
+
 export async function updateRoomStatus(roomId, status, tenantName = null, startDate = null) {
   await apiCall('updateRoomStatus', { roomId, status, tenantName, startDate });
 }

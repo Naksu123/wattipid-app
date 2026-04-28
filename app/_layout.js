@@ -2,8 +2,21 @@ import React, { useEffect, useState } from 'react';
 import { Slot } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
-import { AuthProvider } from '../contexts/AuthContext';
+import { AuthProvider, useAuth } from '../contexts/AuthContext';
 import { getDatabase } from '../services/database';
+import { registerForPushNotificationsAsync } from '../services/notificationService';
+
+function NotificationHandler({ children }) {
+  const { isAuthenticated } = useAuth();
+  
+  useEffect(() => {
+    if (isAuthenticated) {
+      registerForPushNotificationsAsync();
+    }
+  }, [isAuthenticated]);
+
+  return children;
+}
 
 export default function RootLayout() {
   const [dbReady, setDbReady] = useState(false);
@@ -31,8 +44,10 @@ export default function RootLayout() {
 
   return (
     <AuthProvider>
-      <StatusBar style="light" />
-      <Slot />
+      <NotificationHandler>
+        <StatusBar style="light" />
+        <Slot />
+      </NotificationHandler>
     </AuthProvider>
   );
 }

@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
 import { getSetting, setSetting, getDatabase } from '../../services/database';
+import { getCurrentEnv, setApiEnvironment, ENVIRONMENTS } from '../../services/config';
 import GlassCard from '../../components/GlassCard';
 import { BaseModal, ModalHeader, ModalBody, ModalFooter } from '../../components/BaseModal';
 import { COLORS, FONT_SIZE, FONT_WEIGHT, RADIUS, SPACING, SHADOWS } from '../../constants/theme';
@@ -20,6 +21,7 @@ export default function TenantSettings() {
   const [notifEnabled, setNotifEnabled] = useState(true);
   const [budgetAlerts, setBudgetAlerts] = useState(true);
   const [highConsAlerts, setHighConsAlerts] = useState(true);
+  const [env, setEnv] = useState('local');
   const [aboutVisible, setAboutVisible] = useState(false);
   const [helpVisible, setHelpVisible] = useState(false);
 
@@ -35,6 +37,8 @@ export default function TenantSettings() {
     const hc = await getSetting('high_cons_alerts');
     if (hc !== null) setHighConsAlerts(hc === 'true');
 
+    const currentEnv = await getCurrentEnv();
+    setEnv(currentEnv);
   };
 
   const handleSave = async () => {
@@ -76,6 +80,18 @@ export default function TenantSettings() {
     const db = await getDatabase();
     await db.runAsync('DELETE FROM consumption_logs WHERE room_id = ?', [user?.room_id || 'Room 1']);
     Alert.alert('Cleared', 'Consumption history has been deleted');
+  };
+
+  const handleSwitchEnv = () => {
+    Alert.alert(
+      'Switch Environment',
+      'Choose the API server you want to connect to. The app will reload its configuration.',
+      [
+        { text: `Local (${ENVIRONMENTS.local})`, onPress: async () => { await setApiEnvironment('local'); setEnv('local'); } },
+        { text: `Production (Hostinger)`, onPress: async () => { await setApiEnvironment('production'); setEnv('production'); } },
+        { text: 'Cancel', style: 'cancel' }
+      ]
+    );
   };
 
 
@@ -157,6 +173,17 @@ export default function TenantSettings() {
             desc="Alert when power usage spikes"
             value={highConsAlerts} onToggle={toggleHighConsAlerts}
             disabled={!notifEnabled}
+          />
+        </GlassCard>
+
+        {/* ── Connectivity ── */}
+        <Text style={s.sectionLabel}>Connectivity</Text>
+        <GlassCard style={s.menuCard}>
+          <MenuItem 
+            icon="server-outline" 
+            label="API Environment" 
+            value={env === 'local' ? 'Local' : 'Production'} 
+            onPress={handleSwitchEnv} 
           />
         </GlassCard>
 

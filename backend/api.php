@@ -4,18 +4,65 @@ require 'db.php';
 // Set response header to JSON
 header('Content-Type: application/json');
 
+// --- PRODUCTION CONFIG ---
+define('DEBUG_MODE', false);
+define('SECRET_KEY', 'wattipid_secure_key_2026'); // CHANGE THIS IN PRODUCTION!
+
 // Get POST data
 $json = file_get_contents('php://input');
 $data = json_decode($json, true);
 $action = $data['action'] ?? '';
 
-// Debug log
-file_put_contents('debug_api.log', date('[Y-m-d H:i:s] ') . "Action: $action | Data: " . $json . "\n", FILE_APPEND);
+// Debug log (Only in debug mode)
+if (DEBUG_MODE) {
+    file_put_contents('debug_api.log', date('[Y-m-d H:i:s] ') . "Action: $action | Data: " . $json . "\n", FILE_APPEND);
+}
 
 $response = ["success" => false, "message" => "Invalid action"];
 
+function generateToken($user) {
+    $header = base64_encode(json_encode(['alg' => 'HS256', 'typ' => 'JWT']));
+    $payload = base64_encode(json_encode([
+        'id' => $user['id'],
+        'email' => $user['email'],
+        'role' => $user['role'],
+        'room_id' => $user['room_id'] ?? null,
+        'exp' => time() + (86400 * 30) // 30 days
+    ]));
+    $signature = base64_encode(hash_hmac('sha256', "$header.$payload", SECRET_KEY, true));
+    return "$header.$payload.$signature";
+}
+
+function verifyToken($token) {
+    $parts = explode('.', $token);
+    if (count($parts) !== 3) return false;
+    list($header, $payload, $signature) = $parts;
+    $validSig = base64_encode(hash_hmac('sha256', "$header.$payload", SECRET_KEY, true));
+    if ($signature !== $validSig) return false;
+    
+    $data = json_decode(base64_decode($payload), true);
+    if ($data['exp'] < time()) return false;
+    return $data;
+}
+
 if (isset($data['action'])) {
     $action = $data['action'];
+
+    // --- TOKEN SECURITY CHECK ---
+    $publicActions = ['login', 'register', 'logConsumption', 'getSetting'];
+    $authenticatedUser = null;
+
+    if (!in_array($action, $publicActions)) {
+        $headers = getallheaders();
+        $authHeader = $headers['Authorization'] ?? $headers['authorization'] ?? '';
+        $token = str_replace('Bearer ', '', $authHeader);
+        
+        $authenticatedUser = verifyToken($token);
+        if (!$authenticatedUser) {
+            echo json_encode(["success" => false, "message" => "Unauthorized access. Please log in again."]);
+            exit;
+        }
+    }
 
     // --- AUTO-MIGRATION (Self-Healing) ---
     try {
@@ -29,8 +76,85 @@ if (isset($data['action'])) {
     } catch (Exception $e) {}
 
     try {
+        $conn->exec("ALTER TABLE rooms ADD COLUMN last_seen TIMESTAMP NULL DEFAULT NULL AFTER status");
+    } catch (Exception $e) {}
+
+    try {
+        $conn->exec("CREATE TABLE IF NOT EXISTS settings (
+            setting_key VARCHAR(255) PRIMARY KEY,
+            setting_value VARCHAR(255)
+        )");
+        $conn->exec("INSERT IGNORE INTO settings (setting_key, setting_value) VALUES ('rate_per_kwh', '12.50')");
+    } catch (Exception $e) {}
+
+    try {
+        $conn->exec("CREATE TABLE IF NOT EXISTS monthly_archives (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            room_id VARCHAR(50),
+            tenant_name VARCHAR(255),
+            month_year VARCHAR(7),
+            total_energy DECIMAL(15,4),
+            total_cost DECIMAL(15,2),
+            archived_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )");
+    } catch (Exception $e) {}
+
+    function checkMonthlyReset($conn) {
+        $currentMonth = date('Y-m');
+        
+        $stmt = $conn->prepare("SELECT setting_value FROM settings WHERE setting_key = 'last_archive_month'");
+        $stmt->execute();
+        $lastReset = $stmt->fetchColumn();
+
+        if ($lastReset !== $currentMonth) {
+            if (!$lastReset) {
+                // First time setup
+                $stmt = $conn->prepare("INSERT INTO settings (setting_key, setting_value) VALUES ('last_archive_month', ?)");
+                $stmt->execute([$currentMonth]);
+                return;
+            }
+
+            // A new month has started! Archive previous month totals
+            $prevMonth = date('Y-m', strtotime('first day of last month'));
+            
+            $stmt = $conn->query("SELECT room_id, tenant_name FROM rooms WHERE status = 'Occupied'");
+            $rooms = $stmt->fetchAll();
+
+            foreach ($rooms as $room) {
+                $stmt = $conn->prepare("SELECT SUM(energy) as energy, SUM(cost) as cost FROM consumption_logs 
+                                      WHERE room_id = ? AND DATE_FORMAT(timestamp, '%Y-%m') = ?");
+                $stmt->execute([$room['room_id'], $prevMonth]);
+                $totals = $stmt->fetch();
+
+                if ($totals && $totals['energy'] > 0) {
+                    $stmt = $conn->prepare("INSERT INTO monthly_archives (room_id, tenant_name, month_year, total_energy, total_cost) 
+                                          VALUES (?, ?, ?, ?, ?)");
+                    $stmt->execute([$room['room_id'], $room['tenant_name'], $prevMonth, $totals['energy'], $totals['cost']]);
+                }
+            }
+
+            // Update setting
+            $stmt = $conn->prepare("UPDATE settings SET setting_value = ? WHERE setting_key = 'last_archive_month'");
+            $stmt->execute([$currentMonth]);
+        }
+    }
+
+    checkMonthlyReset($conn);
+
+    try {
+        $conn->exec("ALTER TABLE users ADD COLUMN push_token VARCHAR(255) DEFAULT NULL");
+    } catch (Exception $e) {}
+
+    try {
         switch ($action) {
             // ============ AUTHENTICATION ============
+            case 'updatePushToken':
+                if (!$authenticatedUser) break;
+                $stmt = $conn->prepare("UPDATE users SET push_token = ? WHERE id = ?");
+                $stmt->execute([$data['pushToken'], $authenticatedUser['id']]);
+                $response['success'] = true;
+                break;
+
             case 'login':
                 $stmt = $conn->prepare("SELECT * FROM users WHERE email = ?");
                 $stmt->execute([$data['email']]);
@@ -39,6 +163,7 @@ if (isset($data['action'])) {
                     unset($user['password_hash']);
                     $response['success'] = true;
                     $response['data'] = $user;
+                    $response['authToken'] = generateToken($user);
                 } else {
                     $response['message'] = "Invalid email or password";
                 }
@@ -79,6 +204,37 @@ if (isset($data['action'])) {
                 $stmt->execute([$data['userId'] ?? 0, $data['userName'] ?? '']);
                 $response['data'] = $stmt->fetchAll();
                 $response['success'] = true;
+                break;
+
+            case 'getBuildingSummary':
+                $month = (int)date('m');
+                $year = (int)date('Y');
+                
+                // 1. Overall stats
+                $stmt = $conn->query("SELECT 
+                    COUNT(*) as totalRooms,
+                    SUM(CASE WHEN status = 'Occupied' THEN 1 ELSE 0 END) as occupiedRooms,
+                    SUM(CASE WHEN last_seen < DATE_SUB(NOW(), INTERVAL 5 MINUTE) OR last_seen IS NULL THEN 1 ELSE 0 END) as offlineMeters
+                    FROM rooms");
+                $stats = $stmt->fetch();
+
+                // 2. Total consumption for the month (All rooms)
+                $stmt = $conn->prepare("SELECT COALESCE(SUM(energy), 0) as totalEnergy, COALESCE(SUM(cost), 0) as totalCost FROM consumption_logs WHERE DATE_FORMAT(timestamp, '%Y-%m') = ?");
+                $stmt->execute([date('Y-m')]);
+                $totals = $stmt->fetch();
+
+                // 3. Room details with their monthly totals
+                $stmt = $conn->query("SELECT r.*, 
+                    (SELECT COALESCE(SUM(energy), 0) FROM consumption_logs WHERE room_id = r.room_id AND DATE_FORMAT(timestamp, '%Y-%m') = '" . date('Y-m') . "') as monthlyEnergy
+                    FROM rooms r");
+                $rooms = $stmt->fetchAll();
+
+                $response['success'] = true;
+                $response['data'] = [
+                    'stats' => $stats,
+                    'totals' => $totals,
+                    'rooms' => $rooms
+                ];
                 break;
 
             case 'getRoomById':
@@ -292,6 +448,9 @@ if (isset($data['action'])) {
                 $room = $stmt->fetch();
                 $tenantName = $room ? $room['tenant_name'] : null;
                 
+                $stmt = $conn->prepare("UPDATE rooms SET last_seen = NOW() WHERE room_id = ?");
+                $stmt->execute([$roomId]);
+
                 $stmt = $conn->prepare("INSERT INTO consumption_logs (room_id, tenant_name, voltage, current_val, power, energy, energy_cumulative, cost) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
                 $stmt->execute([$roomId, $tenantName, $voltage, $current, $power, $energyDelta, $cumulativeEnergy, $cost]);
 

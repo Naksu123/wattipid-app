@@ -6,7 +6,7 @@ import {
 } from '../services/database';
 import { sendVerificationCode, verifyCode, getLastMockCode } from '../services/emailService';
 
-import { API_BASE_URL } from '../services/api';
+import { getBaseUrl } from '../services/config';
 
 const AuthContext = createContext(null);
 
@@ -36,10 +36,11 @@ export function AuthProvider({ children }) {
   const login = async (email, password) => {
     setIsLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/login.php`, {
+      const baseUrl = await getBaseUrl();
+      const response = await fetch(`${baseUrl}/api.php`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ action: 'login', email, password }),
       });
       const result = await response.json();
 
@@ -47,11 +48,10 @@ export function AuthProvider({ children }) {
         return { success: false, message: result.message };
       }
       
-      const userData = result.user;
+      const userData = result.data;
       
-      // Store session securely, NOT the password
       await AsyncStorage.setItem('@auth_user', JSON.stringify(userData));
-      await AsyncStorage.setItem('@auth_token', result.token);
+      await AsyncStorage.setItem('@auth_token', result.authToken);
 
       setUser(userData);
       setIsAuthenticated(true);
