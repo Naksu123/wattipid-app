@@ -51,10 +51,19 @@ export default function DashboardScreen() {
 
       // Detect high consumption & trigger alert
       const alert = await detectHighConsumption(roomId, sensorData.power);
-      if (alert) {
-        const alertKey = `${alert.title}-${alert.type}`;
+      
+      // Also check API flags for budget and anomalies
+      let finalAlert = alert;
+      if (comp?.isBudgetExceeded) {
+        finalAlert = { type: 'danger', title: 'Monthly Budget Exceeded', message: "You have exceeded your monthly budget. Power usage may be limited or extra charges may apply.", tip: "Reduce your consumption immediately to stay within bounds." };
+      } else if (comp?.isAbnormal) {
+        finalAlert = { type: 'warning', title: 'Abnormal Usage Detected', message: "Your current consumption is significantly different (±30%) from your usual patterns.", tip: "Check if any heavy appliances were left on by mistake." };
+      }
+
+      if (finalAlert) {
+        const alertKey = `${finalAlert.title}-${finalAlert.type}`;
         if (alertKey !== lastAlertKey) {
-          setAlertData(alert);
+          setAlertData(finalAlert);
           setAlertVisible(true);
           setLastAlertKey(alertKey);
         }
@@ -132,10 +141,15 @@ export default function DashboardScreen() {
         {/* Comparison Chip */}
         {comparison && comparison.costPctChange !== 0 && (
           <GlassCard style={ms.compChip}>
-            <Ionicons name={(comparison.costPctChange || 0) > 0 ? 'trending-up' : 'trending-down'} size={16}
-              color={(comparison.costPctChange || 0) > 0 ? COLORS.danger : COLORS.primary} />
-            <Text style={[ms.compText, { color: (comparison.costPctChange || 0) > 0 ? COLORS.danger : COLORS.primary }]}>
-              {Math.abs(Number(comparison.costPctChange || 0)).toFixed(0)}% {(comparison.costPctChange || 0) > 0 ? 'higher' : 'lower'} than yesterday
+            <Ionicons 
+              name={(comparison.costPctChange || 0) > 0 ? 'trending-up' : 'trending-down'} 
+              size={16}
+              color={(comparison.costPctChange || 0) > 0 ? COLORS.success : COLORS.danger} 
+            />
+            <Text style={[ms.compText, { color: (comparison.costPctChange || 0) > 0 ? COLORS.success : COLORS.danger }]}>
+              {(comparison.costPctChange || 0) > 0 ? '+' : ''}
+              {Number(comparison.costPctChange || 0).toFixed(0)}% 
+              {(comparison.costPctChange || 0) > 0 ? ' higher' : ' lower'} than yesterday
             </Text>
           </GlassCard>
         )}

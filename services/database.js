@@ -149,7 +149,9 @@ export async function getConsumptionComparison(roomId, period = 'weekly', tenant
     costDiff, 
     energyDiff, 
     costPctChange, 
-    energyPctChange 
+    energyPctChange,
+    isAbnormal: !!data?.isAbnormal,
+    isBudgetExceeded: !!data?.isBudgetExceeded
   };
 }
 
@@ -200,6 +202,10 @@ export async function setBudget(roomId, monthlyBudget) {
 
 export async function getBudget(roomId) {
   return await apiCall('getBudget', { roomId });
+}
+
+export async function resetBudget(roomId) {
+  await apiCall('resetBudget', { roomId });
 }
 
 // ============ SETTINGS ============

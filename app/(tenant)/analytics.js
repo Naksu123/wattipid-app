@@ -247,13 +247,13 @@ export default function AnalyticsScreen() {
         {comparison && comparison.costPctChange !== 0 && (
           <GlassCard style={s.compBanner}>
             <View style={s.compBannerRow}>
-              <View style={[s.compIcon, { backgroundColor: comparison.costPctChange > 0 ? 'rgba(239,68,68,0.12)' : 'rgba(34,197,94,0.12)' }]}>
+              <View style={[s.compIcon, { backgroundColor: comparison.costPctChange > 0 ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.12)' }]}>
                 <Ionicons name={comparison.costPctChange > 0 ? 'trending-up' : 'trending-down'} size={20}
-                  color={comparison.costPctChange > 0 ? COLORS.danger : COLORS.primary} />
+                  color={comparison.costPctChange > 0 ? COLORS.success : COLORS.danger} />
               </View>
               <View style={s.compBannerContent}>
                 <Text style={s.compBannerTitle}>
-                  {Math.abs(Number(comparison.costPctChange || 0)).toFixed(1)}% {comparison.costPctChange > 0 ? 'Higher' : 'Lower'}
+                  {(comparison.costPctChange || 0) > 0 ? '+' : ''}{Math.abs(Number(comparison.costPctChange || 0)).toFixed(1)}% {comparison.costPctChange > 0 ? 'Higher' : 'Lower'}
                 </Text>
                 <Text style={s.compBannerSub}>
                   vs previous {period === 'daily' ? 'day' : period === 'weekly' ? 'week' : 'month'} (₱{Number(comparison.previous?.totalCost || 0).toFixed(2)} → ₱{Number(comparison.current?.totalCost || 0).toFixed(2)})
@@ -263,14 +263,14 @@ export default function AnalyticsScreen() {
             <View style={s.compDetails}>
               <View style={s.compDetailItem}>
                 <Text style={s.compDetailLabel}>Energy Change</Text>
-                <Text style={[s.compDetailVal, { color: (comparison.energyPctChange || 0) > 0 ? COLORS.danger : COLORS.primary }]}>
+                <Text style={[s.compDetailVal, { color: (comparison.energyPctChange || 0) > 0 ? COLORS.success : COLORS.danger }]}>
                   {(comparison.energyPctChange || 0) > 0 ? '+' : ''}{Number(comparison.energyPctChange || 0).toFixed(1)}%
                 </Text>
               </View>
               <View style={s.compDetailDivider} />
               <View style={s.compDetailItem}>
                 <Text style={s.compDetailLabel}>Cost Difference</Text>
-                <Text style={[s.compDetailVal, { color: (comparison.costDiff || 0) > 0 ? COLORS.danger : COLORS.primary }]}>
+                <Text style={[s.compDetailVal, { color: (comparison.costDiff || 0) > 0 ? COLORS.success : COLORS.danger }]}>
                   {(comparison.costDiff || 0) > 0 ? '+' : ''}₱{Number(comparison.costDiff || 0).toFixed(2)}
                 </Text>
               </View>

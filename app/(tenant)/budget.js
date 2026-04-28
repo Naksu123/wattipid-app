@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert,
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../contexts/AuthContext';
-import { setBudget, getBudget, getTotalConsumptionToday, getTotalConsumptionWeek, getTotalConsumptionMonth, getTransactionHistory, getConsumptionComparison, getDatabase } from '../../services/database';
+import { setBudget, getBudget, resetBudget, getTotalConsumptionToday, getTotalConsumptionWeek, getTotalConsumptionMonth, getTransactionHistory, getConsumptionComparison, getDatabase } from '../../services/database';
 import BudgetProgressRing from '../../components/BudgetProgressRing';
 import GlassCard from '../../components/GlassCard';
 import { BaseModal, ModalHeader, ModalBody, ModalFooter } from '../../components/BaseModal';
@@ -92,8 +92,7 @@ export default function BudgetScreen() {
   };
 
   const confirmResetBudget = async () => {
-    const db = await getDatabase();
-    await db.runAsync('DELETE FROM budget_settings WHERE room_id = ?', [roomId]);
+    await resetBudget(roomId);
     setBudgetData(null);
     setMonthlyBudgetInput('');
     setBudgetConfirm(null);
