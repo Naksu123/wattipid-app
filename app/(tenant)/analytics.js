@@ -29,13 +29,15 @@ export default function AnalyticsScreen() {
   const roomId = user?.room_id || 'Room 1';
 
   const loadData = useCallback(async () => {
+    if (!user || !roomId) return;
+    const tenantName = user?.name;
     const [data, comp, today, week, month, txns] = await Promise.all([
-      getConsumptionHistory(roomId, period),
-      getConsumptionComparison(roomId, period),
-      getTotalConsumptionToday(roomId),
-      getTotalConsumptionWeek(roomId),
-      getTotalConsumptionMonth(roomId),
-      getTransactionHistory(roomId, 50, period),
+      getConsumptionHistory(roomId, period, tenantName),
+      getConsumptionComparison(roomId, period, tenantName),
+      getTotalConsumptionToday(roomId, tenantName),
+      getTotalConsumptionWeek(roomId, tenantName),
+      getTotalConsumptionMonth(roomId, tenantName),
+      getTransactionHistory(roomId, 50, period, tenantName),
     ]);
     
     setHistory(data || []);
@@ -46,14 +48,12 @@ export default function AnalyticsScreen() {
     setTransactions(txns || []);
 
     // Load breakdown based on period
-    const now = new Date();
     if (period === 'daily') {
-      const hourly = await getHourlyBreakdown(roomId);
+      const hourly = await getHourlyBreakdown(roomId, tenantName);
       setHourlyBreakdown(hourly || []);
       setBreakdown([]);
     } else {
       // Use the history data (which is already grouped by day for weekly/monthly)
-      // Reverse it so the latest days are at the top of the table
       const dailyBreakdown = [...(data || [])].reverse();
       setBreakdown(dailyBreakdown);
       setHourlyBreakdown([]);
@@ -459,10 +459,10 @@ export default function AnalyticsScreen() {
                 {/* Totals Row */}
                 <View style={s.tableTotalRow}>
                   <Text style={[s.tableTotalCell, { flex: 1.3 }]}>TOTAL</Text>
-                  <Text style={[s.tableTotalCell, { flex: 1 }]}>{breakdown.reduce((a, r) => a + r.totalEnergy, 0).toFixed(4)}</Text>
-                  <Text style={[s.tableTotalCell, { flex: 0.8 }]}>{(breakdown.reduce((a, r) => a + (r.avgPower || 0), 0) / Math.max(breakdown.length, 1)).toFixed(2)}</Text>
-                  <Text style={[s.tableTotalCell, { flex: 1, color: COLORS.primary }]}>₱{breakdown.reduce((a, r) => a + r.totalCost, 0).toFixed(2)}</Text>
-                  <Text style={[s.tableTotalCell, { flex: 0.5, textAlign: 'center' }]}>{breakdown.reduce((a, r) => a + r.entries, 0)}</Text>
+                  <Text style={[s.tableTotalCell, { flex: 1 }]}>{breakdown.reduce((a, r) => a + (Number(r.totalEnergy || r.energy || 0)), 0).toFixed(4)}</Text>
+                  <Text style={[s.tableTotalCell, { flex: 0.8 }]}>{(breakdown.reduce((a, r) => a + (Number(r.avgPower || 0)), 0) / Math.max(breakdown.length, 1)).toFixed(2)}</Text>
+                  <Text style={[s.tableTotalCell, { flex: 1, color: COLORS.primary }]}>₱{breakdown.reduce((a, r) => a + (Number(r.totalCost || r.cost || 0)), 0).toFixed(2)}</Text>
+                  <Text style={[s.tableTotalCell, { flex: 0.5, textAlign: 'center' }]}>{breakdown.reduce((a, r) => a + (Number(r.entries || r.entryCount || 0)), 0)}</Text>
                 </View>
               </GlassCard>
             )}
@@ -491,9 +491,9 @@ export default function AnalyticsScreen() {
                 ))}
                 <View style={s.tableTotalRow}>
                   <Text style={[s.tableTotalCell, { flex: 1 }]}>TOTAL</Text>
-                  <Text style={[s.tableTotalCell, { flex: 1 }]}>{hourlyBreakdown.reduce((a, r) => a + r.totalEnergy, 0).toFixed(4)}</Text>
-                  <Text style={[s.tableTotalCell, { flex: 1 }]}>{(hourlyBreakdown.reduce((a, r) => a + (r.avgPower || 0), 0) / Math.max(hourlyBreakdown.length, 1)).toFixed(2)}</Text>
-                  <Text style={[s.tableTotalCell, { flex: 1, color: COLORS.primary }]}>₱{hourlyBreakdown.reduce((a, r) => a + r.totalCost, 0).toFixed(2)}</Text>
+                  <Text style={[s.tableTotalCell, { flex: 1 }]}>{hourlyBreakdown.reduce((a, r) => a + (Number(r.totalEnergy || r.energy || 0)), 0).toFixed(4)}</Text>
+                  <Text style={[s.tableTotalCell, { flex: 1 }]}>{(hourlyBreakdown.reduce((a, r) => a + (Number(r.avgPower || 0)), 0) / Math.max(hourlyBreakdown.length, 1)).toFixed(2)}</Text>
+                  <Text style={[s.tableTotalCell, { flex: 1, color: COLORS.primary }]}>₱{hourlyBreakdown.reduce((a, r) => a + (Number(r.totalCost || r.cost || 0)), 0).toFixed(2)}</Text>
                 </View>
               </GlassCard>
             )}

@@ -34,9 +34,9 @@ export default function DashboardScreen() {
       const [sensorData, rateVal, today, budgetVal, comp] = await Promise.all([
         fetchRealtimeData(roomId),
         getSetting('rate_per_kwh'),
-        getTotalConsumptionToday(roomId),
+        getTotalConsumptionToday(roomId, user?.name),
         getBudget(roomId),
-        getConsumptionComparison(roomId, 'daily'),
+        getConsumptionComparison(roomId, 'daily', user?.name),
       ]);
       setData(sensorData);
       setRelayOn(sensorData.relayState !== false);

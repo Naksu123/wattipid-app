@@ -86,8 +86,8 @@ export async function logConsumption(roomId, voltage, current, power, energy, co
   await apiCall('logConsumption', { roomId, voltage, current, power, energy, cost });
 }
 
-export async function getConsumptionHistory(roomId, period = 'daily') {
-  const data = await apiCall('getConsumptionHistory', { roomId, period });
+export async function getConsumptionHistory(roomId, period = 'daily', tenantName = null) {
+  const data = await apiCall('getConsumptionHistory', { roomId, period, tenantName });
   return (data || []).map(d => ({
     ...d,
     energy: parseFloat(d.energy || 0),
@@ -97,23 +97,23 @@ export async function getConsumptionHistory(roomId, period = 'daily') {
   }));
 }
 
-export async function getTotalConsumptionToday(roomId) {
-  const data = await apiCall('getTotalConsumptionToday', { roomId });
+export async function getTotalConsumptionToday(roomId, tenantName = null) {
+  const data = await apiCall('getTotalConsumptionToday', { roomId, tenantName });
   return data ? { totalEnergy: parseFloat(data.totalEnergy || 0), totalCost: parseFloat(data.totalCost || 0) } : { totalEnergy: 0, totalCost: 0 };
 }
 
-export async function getTotalConsumptionWeek(roomId) {
-  const data = await apiCall('getTotalConsumptionWeek', { roomId });
+export async function getTotalConsumptionWeek(roomId, tenantName = null) {
+  const data = await apiCall('getTotalConsumptionWeek', { roomId, tenantName });
   return data ? { totalEnergy: parseFloat(data.totalEnergy || 0), totalCost: parseFloat(data.totalCost || 0), entryCount: parseInt(data.entryCount || 0) } : { totalEnergy: 0, totalCost: 0, entryCount: 0 };
 }
 
-export async function getTotalConsumptionMonth(roomId) {
-  const data = await apiCall('getTotalConsumptionMonth', { roomId });
+export async function getTotalConsumptionMonth(roomId, tenantName = null) {
+  const data = await apiCall('getTotalConsumptionMonth', { roomId, tenantName });
   return data ? { totalEnergy: parseFloat(data.totalEnergy || 0), totalCost: parseFloat(data.totalCost || 0) } : { totalEnergy: 0, totalCost: 0 };
 }
 
-export async function getTransactionHistory(roomId, limit = 50, period = 'all', offset = 0) {
-  const data = await apiCall('getTransactionHistory', { roomId, limit, period, offset });
+export async function getTransactionHistory(roomId, limit = 50, period = 'all', tenantName = null, offset = 0) {
+  const data = await apiCall('getTransactionHistory', { roomId, limit, period, tenantName, offset });
   return (data || []).map(tx => ({
     ...tx,
     voltage: parseFloat(tx.voltage || 0),
@@ -124,8 +124,8 @@ export async function getTransactionHistory(roomId, limit = 50, period = 'all', 
   }));
 }
 
-export async function getConsumptionComparison(roomId, period = 'weekly') {
-  const data = await apiCall('getConsumptionComparison', { roomId, period });
+export async function getConsumptionComparison(roomId, period = 'weekly', tenantName = null) {
+  const data = await apiCall('getConsumptionComparison', { roomId, period, tenantName });
   
   const current = {
     totalEnergy: parseFloat(data?.current?.totalEnergy || 0),
@@ -153,8 +153,8 @@ export async function getConsumptionComparison(roomId, period = 'weekly') {
   };
 }
 
-export async function getDailyBreakdown(roomId, year, month) {
-  const data = await apiCall('getDailyBreakdown', { roomId, year, month });
+export async function getDailyBreakdown(roomId, year, month, tenantName = null) {
+  const data = await apiCall('getDailyBreakdown', { roomId, year, month, tenantName });
   return (data || []).map(d => ({
     ...d,
     totalEnergy: parseFloat(d.totalEnergy || 0),
@@ -180,8 +180,8 @@ export async function getDailyBreakdownFiltered(roomId, year, month, tenantStart
   }));
 }
 
-export async function getHourlyBreakdown(roomId, dateStr = null) {
-  const data = await apiCall('getHourlyBreakdown', { roomId, dateStr });
+export async function getHourlyBreakdown(roomId, tenantName = null, dateStr = null) {
+  const data = await apiCall('getHourlyBreakdown', { roomId, tenantName, dateStr });
   return (data || []).map(d => ({
     ...d,
     totalEnergy: parseFloat(d.totalEnergy || 0),

@@ -29,27 +29,24 @@ export default function BudgetScreen() {
   const [budgetConfirm, setBudgetConfirm] = useState(null); // inline confirmation message
 
   const loadData = useCallback(async () => {
-    const [b, t, w, m, txns] = await Promise.all([
+    if (!user || !roomId) return;
+    const [b, t, w, m, txns, comp] = await Promise.all([
       getBudget(roomId),
-      getTotalConsumptionToday(roomId),
-      getTotalConsumptionWeek(roomId),
-      getTotalConsumptionMonth(roomId),
-      getTransactionHistory(roomId, 20),
+      getTotalConsumptionToday(roomId, user?.name),
+      getTotalConsumptionWeek(roomId, user?.name),
+      getTotalConsumptionMonth(roomId, user?.name),
+      getTransactionHistory(roomId, 20, 'all', user?.name),
+      getConsumptionComparison(roomId, compPeriod, user?.name),
     ]);
     if (b) { setBudgetData(b); setMonthlyBudgetInput(b.monthly_budget.toString()); }
     setTodayUsage(t);
     setWeekUsage(w);
     setMonthUsage(m);
     setTransactions(txns || []);
-  }, [roomId]);
-
-  const loadComparison = useCallback(async () => {
-    const comp = await getConsumptionComparison(roomId, compPeriod);
     setComparison(comp);
-  }, [roomId, compPeriod]);
+  }, [roomId, user?.name, compPeriod]);
 
   useEffect(() => { loadData(); }, [loadData]);
-  useEffect(() => { loadComparison(); }, [loadComparison]);
 
   const handleSetBudget = async () => {
     const val = parseFloat(monthlyBudget);
