@@ -103,8 +103,8 @@ export async function fetchRealtimeData(roomId) {
     if (!response.ok) throw new Error('ESP32 not responding');
     return await response.json();
   } catch (error) {
-    console.warn('ESP32 fetch failed, using mock data:', error.message);
-    return generateMockData();
+    console.warn('ESP32 fetch failed:', error.message);
+    return { voltage: 0, current: 0, power: 0, energy: 0, powerFactor: 0, relayState: false };
   }
 }
 

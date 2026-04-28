@@ -625,21 +625,35 @@ if (isset($data['action'])) {
                 $identifier = ($tenantName && $tenantName !== 'No tenant assigned') ? "tenant_name = ?" : "room_id = ?";
                 $val = ($tenantName && $tenantName !== 'No tenant assigned') ? $tenantName : $roomId;
 
-                if ($period === 'weekly') {
-                    $stmt = $conn->prepare("SELECT COALESCE(SUM(energy), 0) as totalEnergy, COALESCE(SUM(cost), 0) as totalCost FROM consumption_logs WHERE $identifier AND timestamp >= DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY) AND DATE_FORMAT(timestamp, '%Y-%m') = DATE_FORMAT(CURDATE(), '%Y-%m')");
+                if ($period === 'daily') {
+                    // Today so far
+                    $stmt = $conn->prepare("SELECT COALESCE(SUM(energy), 0) as totalEnergy, COALESCE(SUM(cost), 0) as totalCost FROM consumption_logs WHERE $identifier AND DATE(timestamp) = CURDATE()");
                     $stmt->execute([$val]);
                     $curr = $stmt->fetch();
-                    $stmt = $conn->prepare("SELECT COALESCE(SUM(energy), 0) as totalEnergy, COALESCE(SUM(cost), 0) as totalCost FROM consumption_logs WHERE $identifier AND timestamp >= DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE())+7 DAY) AND timestamp < DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY)");
+                    // Yesterday same time range
+                    $stmt = $conn->prepare("SELECT COALESCE(SUM(energy), 0) as totalEnergy, COALESCE(SUM(cost), 0) as totalCost FROM consumption_logs WHERE $identifier AND DATE(timestamp) = DATE_SUB(CURDATE(), INTERVAL 1 DAY) AND TIME(timestamp) <= TIME(NOW())");
+                    $stmt->execute([$val]);
+                    $prev = $stmt->fetch();
+                } elseif ($period === 'weekly') {
+                    // Current Week
+                    $stmt = $conn->prepare("SELECT COALESCE(SUM(energy), 0) as totalEnergy, COALESCE(SUM(cost), 0) as totalCost FROM consumption_logs WHERE $identifier AND timestamp >= DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY)");
+                    $stmt->execute([$val]);
+                    $curr = $stmt->fetch();
+                    // Previous Week (Same days)
+                    $stmt = $conn->prepare("SELECT COALESCE(SUM(energy), 0) as totalEnergy, COALESCE(SUM(cost), 0) as totalCost FROM consumption_logs WHERE $identifier AND timestamp >= DATE_SUB(DATE_SUB(CURDATE(), INTERVAL 7 DAY), INTERVAL WEEKDAY(CURDATE()) DAY) AND timestamp < DATE_SUB(CURDATE(), INTERVAL 7 DAY)");
                     $stmt->execute([$val]);
                     $prev = $stmt->fetch();
                 } else {
+                    // Current Month (MTD)
                     $stmt = $conn->prepare("SELECT COALESCE(SUM(energy), 0) as totalEnergy, COALESCE(SUM(cost), 0) as totalCost FROM consumption_logs WHERE $identifier AND DATE_FORMAT(timestamp, '%Y-%m') = DATE_FORMAT(CURDATE(), '%Y-%m')");
                     $stmt->execute([$val]);
                     $curr = $stmt->fetch();
-                    $stmt = $conn->prepare("SELECT COALESCE(SUM(energy), 0) as totalEnergy, COALESCE(SUM(cost), 0) as totalCost FROM consumption_logs WHERE $identifier AND DATE_FORMAT(timestamp, '%Y-%m') = DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL 1 MONTH), '%Y-%m')");
+                    // Previous Month (Same days - MTD)
+                    $stmt = $conn->prepare("SELECT COALESCE(SUM(energy), 0) as totalEnergy, COALESCE(SUM(cost), 0) as totalCost FROM consumption_logs WHERE $identifier AND DATE_FORMAT(timestamp, '%Y-%m') = DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL 1 MONTH), '%Y-%m') AND DAY(timestamp) <= DAY(CURDATE())");
                     $stmt->execute([$val]);
                     $prev = $stmt->fetch();
                 }
+
                 // Check for anomalies (±30% deviation)
                 $isAbnormal = false;
                 if ($prev['totalEnergy'] > 0) {
@@ -666,7 +680,9 @@ if (isset($data['action'])) {
                         "totalCost" => (float)$prev['totalCost']
                     ],
                     "isAbnormal" => $isAbnormal,
-                    "isBudgetExceeded" => $isBudgetExceeded
+                    "isBudgetExceeded" => $isBudgetExceeded,
+                    "energyPctChange" => ($prev['totalEnergy'] > 0) ? (($curr['totalEnergy'] - $prev['totalEnergy']) / $prev['totalEnergy']) * 100 : 0,
+                    "costPctChange" => ($prev['totalCost'] > 0) ? (($curr['totalCost'] - $prev['totalCost']) / $prev['totalCost']) * 100 : 0
                 ];
                 $response['success'] = true;
                 break;

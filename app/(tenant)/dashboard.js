@@ -40,7 +40,16 @@ export default function DashboardScreen() {
         getConsumptionComparison(roomId, 'daily', user?.name),
         getRoomById(roomId),
       ]);
-      setData(sensorData);
+      // Handle offline state for real-time metrics
+      const isNowOffline = (roomInfo && roomInfo.last_seen) ? 
+        (new Date().getTime() - new Date(roomInfo.last_seen).getTime()) > 60000 : true;
+
+      if (isNowOffline) {
+        setData({ voltage: 0, current: 0, power: 0, energy: 0, powerFactor: 0 });
+      } else {
+        setData(sensorData);
+      }
+
       setRelayOn(sensorData.relayState !== false);
       if (rateVal) setRate(parseFloat(rateVal));
       setTodayUsage(today);
@@ -168,12 +177,12 @@ export default function DashboardScreen() {
             <Ionicons 
               name={(comparison.costPctChange || 0) > 0 ? 'trending-up' : 'trending-down'} 
               size={16}
-              color={(comparison.costPctChange || 0) > 0 ? COLORS.success : COLORS.danger} 
+              color={(comparison.costPctChange || 0) >= 0 ? COLORS.success : COLORS.danger} 
             />
-            <Text style={[ms.compText, { color: (comparison.costPctChange || 0) > 0 ? COLORS.success : COLORS.danger }]}>
+            <Text style={[ms.compText, { color: (comparison.costPctChange || 0) >= 0 ? COLORS.success : COLORS.danger }]}>
               {(comparison.costPctChange || 0) > 0 ? '+' : ''}
               {Number(comparison.costPctChange || 0).toFixed(0)}% 
-              {(comparison.costPctChange || 0) > 0 ? ' higher' : ' lower'} than yesterday
+              {(comparison.costPctChange || 0) >= 0 ? ' higher' : ' lower'} than yesterday
             </Text>
           </GlassCard>
         )}
