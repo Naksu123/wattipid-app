@@ -7,6 +7,10 @@ header('Content-Type: application/json');
 // Get POST data
 $json = file_get_contents('php://input');
 $data = json_decode($json, true);
+$action = $data['action'] ?? '';
+
+// Debug log
+file_put_contents('debug_api.log', date('[Y-m-d H:i:s] ') . "Action: $action | Data: " . $json . "\n", FILE_APPEND);
 
 $response = ["success" => false, "message" => "Invalid action"];
 
@@ -252,6 +256,12 @@ if (isset($data['action'])) {
                 ];
                 break;
 
+            case 'resetBudget':
+                $stmt = $conn->prepare("DELETE FROM budget_settings WHERE room_id = ?");
+                $stmt->execute([$data['roomId']]);
+                $response['success'] = true;
+                break;
+
             // ============ CONSUMPTION IOT ============
             case 'logConsumption':
                 $roomId = $data['roomId'];
@@ -324,36 +334,51 @@ if (isset($data['action'])) {
             case 'getConsumptionHistory':
                 $roomId = $data['roomId'];
                 $period = $data['period'] ?? 'daily';
+                $tenantName = $data['tenantName'] ?? null;
+                $identifier = ($tenantName && $tenantName !== 'No tenant assigned') ? "tenant_name = ?" : "room_id = ?";
+                $val = ($tenantName && $tenantName !== 'No tenant assigned') ? $tenantName : $roomId;
+
                 if ($period === 'daily') {
-                    $stmt = $conn->prepare("SELECT DATE_FORMAT(timestamp, '%H:00') as label, AVG(power) as avgPower, MAX(power) as peakPower, SUM(energy) as energy, SUM(cost) as cost FROM consumption_logs WHERE room_id = ? AND timestamp >= DATE_SUB(NOW(), INTERVAL 24 HOUR) GROUP BY DATE_FORMAT(timestamp, '%H') ORDER BY timestamp ASC");
+                    $stmt = $conn->prepare("SELECT DATE_FORMAT(timestamp, '%H:00') as label, AVG(power) as avgPower, MAX(power) as peakPower, SUM(energy) as energy, SUM(cost) as cost FROM consumption_logs WHERE $identifier AND timestamp >= DATE_SUB(NOW(), INTERVAL 24 HOUR) GROUP BY DATE_FORMAT(timestamp, '%H') ORDER BY timestamp ASC");
                 } elseif ($period === 'weekly') {
-                    $stmt = $conn->prepare("SELECT *, DATE_FORMAT(timestamp, '%w') as label, AVG(power) as avgPower, MAX(power) as peakPower, SUM(energy) as energy, SUM(cost) as cost FROM consumption_logs WHERE room_id = ? AND timestamp >= DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY) AND DATE_FORMAT(timestamp, '%Y-%m') = DATE_FORMAT(CURDATE(), '%Y-%m') GROUP BY DATE(timestamp) ORDER BY timestamp ASC");
+                    $stmt = $conn->prepare("SELECT *, DATE_FORMAT(timestamp, '%w') as label, AVG(power) as avgPower, MAX(power) as peakPower, SUM(energy) as energy, SUM(cost) as cost FROM consumption_logs WHERE $identifier AND timestamp >= DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY) AND DATE_FORMAT(timestamp, '%Y-%m') = DATE_FORMAT(CURDATE(), '%Y-%m') GROUP BY DATE(timestamp) ORDER BY timestamp ASC");
                 } else {
-                    $stmt = $conn->prepare("SELECT *, DATE_FORMAT(timestamp, '%d') as label, AVG(power) as avgPower, MAX(power) as peakPower, SUM(energy) as energy, SUM(cost) as cost FROM consumption_logs WHERE room_id = ? AND timestamp >= DATE_SUB(CURDATE(), INTERVAL 29 DAY) GROUP BY DATE(timestamp) ORDER BY timestamp ASC");
+                    $stmt = $conn->prepare("SELECT *, DATE_FORMAT(timestamp, '%d') as label, AVG(power) as avgPower, MAX(power) as peakPower, SUM(energy) as energy, SUM(cost) as cost FROM consumption_logs WHERE $identifier AND timestamp >= DATE_SUB(CURDATE(), INTERVAL 29 DAY) GROUP BY DATE(timestamp) ORDER BY timestamp ASC");
                 }
-                $stmt->execute([$roomId]);
+                $stmt->execute([$val]);
                 $response['data'] = $stmt->fetchAll();
                 $response['success'] = true;
                 break;
 
             case 'getTotalConsumptionToday':
-                $stmt = $conn->prepare("SELECT COALESCE(SUM(energy), 0) as totalEnergy, COALESCE(SUM(cost), 0) as totalCost FROM consumption_logs WHERE room_id = ? AND DATE(timestamp) = CURDATE()");
-                $stmt->execute([$data['roomId']]);
+                $tenantName = $data['tenantName'] ?? null;
+                $identifier = ($tenantName && $tenantName !== 'No tenant assigned') ? "tenant_name = ?" : "room_id = ?";
+                $val = ($tenantName && $tenantName !== 'No tenant assigned') ? $tenantName : $data['roomId'];
+                
+                $stmt = $conn->prepare("SELECT COALESCE(SUM(energy), 0) as totalEnergy, COALESCE(SUM(cost), 0) as totalCost FROM consumption_logs WHERE $identifier AND DATE(timestamp) = CURDATE()");
+                $stmt->execute([$val]);
                 $response['data'] = $stmt->fetch();
                 $response['success'] = true;
                 break;
 
             case 'getTotalConsumptionWeek':
-                // Use calendar week starting Monday
-                $stmt = $conn->prepare("SELECT COALESCE(SUM(energy), 0) as totalEnergy, COALESCE(SUM(cost), 0) as totalCost, COUNT(*) as entryCount FROM consumption_logs WHERE room_id = ? AND timestamp >= DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY) AND DATE_FORMAT(timestamp, '%Y-%m') = DATE_FORMAT(CURDATE(), '%Y-%m')");
-                $stmt->execute([$data['roomId']]);
+                $tenantName = $data['tenantName'] ?? null;
+                $identifier = ($tenantName && $tenantName !== 'No tenant assigned') ? "tenant_name = ?" : "room_id = ?";
+                $val = ($tenantName && $tenantName !== 'No tenant assigned') ? $tenantName : $data['roomId'];
+                
+                $stmt = $conn->prepare("SELECT COALESCE(SUM(energy), 0) as totalEnergy, COALESCE(SUM(cost), 0) as totalCost, COUNT(*) as entryCount FROM consumption_logs WHERE $identifier AND timestamp >= DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY) AND DATE_FORMAT(timestamp, '%Y-%m') = DATE_FORMAT(CURDATE(), '%Y-%m')");
+                $stmt->execute([$val]);
                 $response['data'] = $stmt->fetch();
                 $response['success'] = true;
                 break;
 
             case 'getTotalConsumptionMonth':
-                $stmt = $conn->prepare("SELECT COALESCE(SUM(energy), 0) as totalEnergy, COALESCE(SUM(cost), 0) as totalCost FROM consumption_logs WHERE room_id = ? AND DATE_FORMAT(timestamp, '%Y-%m') = DATE_FORMAT(CURDATE(), '%Y-%m')");
-                $stmt->execute([$data['roomId']]);
+                $tenantName = $data['tenantName'] ?? null;
+                $identifier = ($tenantName && $tenantName !== 'No tenant assigned') ? "tenant_name = ?" : "room_id = ?";
+                $val = ($tenantName && $tenantName !== 'No tenant assigned') ? $tenantName : $data['roomId'];
+
+                $stmt = $conn->prepare("SELECT COALESCE(SUM(energy), 0) as totalEnergy, COALESCE(SUM(cost), 0) as totalCost FROM consumption_logs WHERE $identifier AND DATE_FORMAT(timestamp, '%Y-%m') = DATE_FORMAT(CURDATE(), '%Y-%m')");
+                $stmt->execute([$val]);
                 $response['data'] = $stmt->fetch();
                 $response['success'] = true;
                 break;
@@ -377,15 +402,23 @@ if (isset($data['action'])) {
                 break;
 
             case 'getHourlyBreakdown':
-                $stmt = $conn->prepare("SELECT HOUR(timestamp) as hour, SUM(energy) as totalEnergy, AVG(power) as avgPower, SUM(cost) as totalCost FROM consumption_logs WHERE room_id = ? AND DATE(timestamp) = CURDATE() GROUP BY HOUR(timestamp) ORDER BY hour ASC");
-                $stmt->execute([$data['roomId']]);
+                $tenantName = $data['tenantName'] ?? null;
+                $identifier = ($tenantName && $tenantName !== 'No tenant assigned') ? "tenant_name = ?" : "room_id = ?";
+                $val = ($tenantName && $tenantName !== 'No tenant assigned') ? $tenantName : $data['roomId'];
+
+                $stmt = $conn->prepare("SELECT HOUR(timestamp) as hour, SUM(energy) as totalEnergy, AVG(power) as avgPower, SUM(cost) as totalCost FROM consumption_logs WHERE $identifier AND DATE(timestamp) = CURDATE() GROUP BY HOUR(timestamp) ORDER BY hour ASC");
+                $stmt->execute([$val]);
                 $response['data'] = $stmt->fetchAll();
                 $response['success'] = true;
                 break;
 
             case 'getDailyBreakdown':
-                $stmt = $conn->prepare("SELECT DATE(timestamp) as day, AVG(power) as avgPower, MAX(power) as peakPower, SUM(energy) as totalEnergy, SUM(cost) as totalCost, COUNT(*) as entries FROM consumption_logs WHERE room_id = ? AND YEAR(timestamp) = ? AND MONTH(timestamp) = ? GROUP BY DATE(timestamp) ORDER BY day DESC");
-                $stmt->execute([$data['roomId'], $data['year'], $data['month']]);
+                $tenantName = $data['tenantName'] ?? null;
+                $identifier = ($tenantName && $tenantName !== 'No tenant assigned') ? "tenant_name = ?" : "room_id = ?";
+                $val = ($tenantName && $tenantName !== 'No tenant assigned') ? $tenantName : $data['roomId'];
+
+                $stmt = $conn->prepare("SELECT DATE(timestamp) as day, AVG(power) as avgPower, MAX(power) as peakPower, SUM(energy) as totalEnergy, SUM(cost) as totalCost, COUNT(*) as entries FROM consumption_logs WHERE $identifier AND YEAR(timestamp) = ? AND MONTH(timestamp) = ? GROUP BY DATE(timestamp) ORDER BY day DESC");
+                $stmt->execute([$val, $data['year'], $data['month']]);
                 $response['data'] = $stmt->fetchAll();
                 $response['success'] = true;
                 break;
@@ -411,8 +444,12 @@ if (isset($data['action'])) {
                 $limit = (int)($data['limit'] ?? 50);
                 $roomId = $data['roomId'];
                 $period = $data['period'] ?? 'all';
-                $where = "WHERE room_id = ?";
-                $params = [$roomId];
+                $tenantName = $data['tenantName'] ?? null;
+                $identifier = ($tenantName && $tenantName !== 'No tenant assigned') ? "tenant_name = ?" : "room_id = ?";
+                $val = ($tenantName && $tenantName !== 'No tenant assigned') ? $tenantName : $roomId;
+
+                $where = "WHERE $identifier";
+                $params = [$val];
                 if ($period === 'daily') $where .= " AND timestamp >= DATE_SUB(NOW(), INTERVAL 24 HOUR)";
                 elseif ($period === 'weekly') $where .= " AND timestamp >= DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY) AND DATE_FORMAT(timestamp, '%Y-%m') = DATE_FORMAT(CURDATE(), '%Y-%m')";
                 elseif ($period === 'monthly') $where .= " AND timestamp >= DATE_SUB(CURDATE(), INTERVAL 29 DAY)";
@@ -425,21 +462,41 @@ if (isset($data['action'])) {
             case 'getConsumptionComparison':
                 $roomId = $data['roomId'];
                 $period = $data['period'] ?? 'weekly';
+                $tenantName = $data['tenantName'] ?? null;
+                $identifier = ($tenantName && $tenantName !== 'No tenant assigned') ? "tenant_name = ?" : "room_id = ?";
+                $val = ($tenantName && $tenantName !== 'No tenant assigned') ? $tenantName : $roomId;
+
                 if ($period === 'weekly') {
-                    $stmt = $conn->prepare("SELECT COALESCE(SUM(energy), 0) as totalEnergy, COALESCE(SUM(cost), 0) as totalCost FROM consumption_logs WHERE room_id = ? AND timestamp >= DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY) AND DATE_FORMAT(timestamp, '%Y-%m') = DATE_FORMAT(CURDATE(), '%Y-%m')");
-                    $stmt->execute([$roomId]);
+                    $stmt = $conn->prepare("SELECT COALESCE(SUM(energy), 0) as totalEnergy, COALESCE(SUM(cost), 0) as totalCost FROM consumption_logs WHERE $identifier AND timestamp >= DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY) AND DATE_FORMAT(timestamp, '%Y-%m') = DATE_FORMAT(CURDATE(), '%Y-%m')");
+                    $stmt->execute([$val]);
                     $curr = $stmt->fetch();
-                    $stmt = $conn->prepare("SELECT COALESCE(SUM(energy), 0) as totalEnergy, COALESCE(SUM(cost), 0) as totalCost FROM consumption_logs WHERE room_id = ? AND timestamp >= DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE())+7 DAY) AND timestamp < DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY)");
-                    $stmt->execute([$roomId]);
+                    $stmt = $conn->prepare("SELECT COALESCE(SUM(energy), 0) as totalEnergy, COALESCE(SUM(cost), 0) as totalCost FROM consumption_logs WHERE $identifier AND timestamp >= DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE())+7 DAY) AND timestamp < DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY)");
+                    $stmt->execute([$val]);
                     $prev = $stmt->fetch();
                 } else {
-                    $stmt = $conn->prepare("SELECT COALESCE(SUM(energy), 0) as totalEnergy, COALESCE(SUM(cost), 0) as totalCost FROM consumption_logs WHERE room_id = ? AND DATE_FORMAT(timestamp, '%Y-%m') = DATE_FORMAT(CURDATE(), '%Y-%m')");
-                    $stmt->execute([$roomId]);
+                    $stmt = $conn->prepare("SELECT COALESCE(SUM(energy), 0) as totalEnergy, COALESCE(SUM(cost), 0) as totalCost FROM consumption_logs WHERE $identifier AND DATE_FORMAT(timestamp, '%Y-%m') = DATE_FORMAT(CURDATE(), '%Y-%m')");
+                    $stmt->execute([$val]);
                     $curr = $stmt->fetch();
-                    $stmt = $conn->prepare("SELECT COALESCE(SUM(energy), 0) as totalEnergy, COALESCE(SUM(cost), 0) as totalCost FROM consumption_logs WHERE room_id = ? AND DATE_FORMAT(timestamp, '%Y-%m') = DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL 1 MONTH), '%Y-%m')");
-                    $stmt->execute([$roomId]);
+                    $stmt = $conn->prepare("SELECT COALESCE(SUM(energy), 0) as totalEnergy, COALESCE(SUM(cost), 0) as totalCost FROM consumption_logs WHERE $identifier AND DATE_FORMAT(timestamp, '%Y-%m') = DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL 1 MONTH), '%Y-%m')");
+                    $stmt->execute([$val]);
                     $prev = $stmt->fetch();
                 }
+                // Check for anomalies (±30% deviation)
+                $isAbnormal = false;
+                if ($prev['totalEnergy'] > 0) {
+                    $pctChange = (($curr['totalEnergy'] - $prev['totalEnergy']) / $prev['totalEnergy']) * 100;
+                    if (abs($pctChange) >= 30) $isAbnormal = true;
+                }
+
+                // Check budget (get from budget_settings)
+                $isBudgetExceeded = false;
+                $stmt = $conn->prepare("SELECT monthly_budget FROM budget_settings WHERE room_id = ? AND month = ? AND year = ?");
+                $stmt->execute([$roomId, (int)date('m'), (int)date('Y')]);
+                $budget = $stmt->fetch();
+                if ($budget && $curr['totalCost'] > $budget['monthly_budget']) {
+                    $isBudgetExceeded = true;
+                }
+
                 $response['data'] = [
                     "current" => [
                         "totalEnergy" => (float)$curr['totalEnergy'],
@@ -448,7 +505,9 @@ if (isset($data['action'])) {
                     "previous" => [
                         "totalEnergy" => (float)$prev['totalEnergy'],
                         "totalCost" => (float)$prev['totalCost']
-                    ]
+                    ],
+                    "isAbnormal" => $isAbnormal,
+                    "isBudgetExceeded" => $isBudgetExceeded
                 ];
                 $response['success'] = true;
                 break;
