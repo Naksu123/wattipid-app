@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity } from 'react-native';
+import { useIsFocused } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { fetchRealtimeData } from '../../services/esp32Api';
@@ -12,7 +13,8 @@ import AlertModal from '../../components/AlertModal';
 import { COLORS, FONT_SIZE, FONT_WEIGHT, SPACING } from '../../constants/theme';
 
 export default function DashboardScreen() {
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
+  const isFocused = useIsFocused();
   const [data, setData] = useState({ voltage: 0, current: 0, power: 0, energy: 0, powerFactor: 0 });
   const [relayOn, setRelayOn] = useState(true);
   const [rate, setRate] = useState(12.5);
@@ -86,10 +88,13 @@ export default function DashboardScreen() {
   }, [roomId, lastAlertKey]);
 
   useEffect(() => {
+    // Only run the loop if the screen is focused AND we have an active session
+    if (!isFocused || !isAuthenticated) return;
+
     fetchData();
     const interval = setInterval(fetchData, 5000);
     return () => clearInterval(interval);
-  }, [fetchData]);
+  }, [fetchData, isFocused, isAuthenticated]);
 
   const onRefresh = async () => {
     setRefreshing(true);

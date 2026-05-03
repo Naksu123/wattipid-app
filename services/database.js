@@ -12,6 +12,14 @@ export async function createUser(name, email, password, role, roomId = null, ten
   return null;
 }
 
+export async function saveVerificationCode(email, code) {
+  return await apiCall('saveVerificationCode', { email, code });
+}
+
+export async function validateVerificationCode(email, code) {
+  return await apiCall('validateVerificationCode', { email, code });
+}
+
 export async function verifyUserEmail(email) {
   // Handled on backend
 }

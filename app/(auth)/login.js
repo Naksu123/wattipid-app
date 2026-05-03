@@ -75,7 +75,7 @@ export default function LoginScreen() {
 
           <TouchableOpacity onPress={handleLogin} activeOpacity={0.8} disabled={isLoading} style={s.btnWrap}>
             <LinearGradient colors={GRADIENTS.primary} start={{x:0,y:0}} end={{x:1,y:0}} style={s.btn}>
-              {isLoading ? <ActivityIndicator color="#0000" /> : <Text style={s.btnText}>Sign In</Text>}
+              {isLoading ? <ActivityIndicator color="#fff" /> : <Text style={s.btnText}>Sign In</Text>}
             </LinearGradient>
           </TouchableOpacity>
 

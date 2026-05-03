@@ -38,7 +38,10 @@ export default function BudgetScreen() {
       getTransactionHistory(roomId, 20, 'all', user?.name),
       getConsumptionComparison(roomId, compPeriod, user?.name),
     ]);
-    if (b) { setBudgetData(b); setMonthlyBudgetInput(b.monthly_budget.toString()); }
+    if (b) { 
+      setBudgetData(b); 
+      setMonthlyBudgetInput(String(b.monthly_budget || '')); 
+    }
     setTodayUsage(t);
     setWeekUsage(w);
     setMonthUsage(m);
@@ -112,7 +115,8 @@ export default function BudgetScreen() {
   };
 
   // Group transactions by date
-  const groupedTxns = transactions.reduce((acc, tx) => {
+  const groupedTxns = (transactions || []).reduce((acc, tx) => {
+    if (!tx) return acc;
     const date = tx.date_label || formatDate(tx.timestamp);
     if (!acc[date]) acc[date] = [];
     acc[date].push(tx);

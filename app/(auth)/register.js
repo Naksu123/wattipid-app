@@ -265,7 +265,13 @@ export default function RegisterScreen() {
 
           <InputField icon="lock-closed-outline" label="Confirm Password" value={confirmPassword}
             onChangeText={setConfirmPassword} error={errors.confirmPassword}
-            placeholder="Confirm your password" secure showPassword={showPassword} />
+            placeholder="Confirm your password" secure showPassword={showPassword}
+            extra={
+              <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={20} color={COLORS.textMuted} />
+              </TouchableOpacity>
+            }
+          />
 
           {role === 'tenant' ? (
             <InputField icon="key-outline" label="Access Code" value={tenantCode}
@@ -365,7 +371,7 @@ const InputField = ({ icon, label, value, onChangeText, error, placeholder, secu
         value={value}
         onChangeText={onChangeText}
         secureTextEntry={secure && !showPassword}
-        autoCapitalize={icon === 'mail-outline' || keyboardType === 'email-address' ? 'none' : 'words'}
+        autoCapitalize={secure || icon === 'mail-outline' || keyboardType === 'email-address' ? 'none' : 'words'}
         keyboardType={keyboardType || 'default'}
       />
       {extra}

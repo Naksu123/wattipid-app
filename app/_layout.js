@@ -1,39 +1,39 @@
 import React, { useEffect, useState } from 'react';
-import { Slot } from 'expo-router';
+import { Stack, useRouter, useSegments, Slot } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
-import { AuthProvider, useAuth } from '../contexts/AuthContext';
+import { AuthProvider } from '../contexts/AuthContext';
 import { getDatabase } from '../services/database';
-import { registerForPushNotificationsAsync } from '../services/notificationService';
+import { initNotifications } from '../services/notificationService';
+import { useAuth } from '../contexts/AuthContext';
+import ErrorTracker from '../services/errorTracker';
 
-function NotificationHandler({ children }) {
-  const { isAuthenticated } = useAuth();
-  
-  useEffect(() => {
-    if (isAuthenticated) {
-      registerForPushNotificationsAsync();
-    }
-  }, [isAuthenticated]);
-
-  return children;
-}
-
-export default function RootLayout() {
-  const [dbReady, setDbReady] = useState(false);
+function RootLayoutContent() {
+  const { isAuthenticated, isLoading, user } = useAuth();
+  const segments = useSegments();
+  const router = useRouter();
 
   useEffect(() => {
-    const init = async () => {
-      try {
-        await getDatabase();
-      } catch (e) {
-        console.error('DB init error:', e);
+    if (isLoading) return;
+
+    const inAuthGroup = segments[0] === '(auth)';
+    
+    if (!isAuthenticated) {
+      if (!inAuthGroup) {
+        // Force dismiss all modals and redirect to login
+        router.dismissAll();
+        router.replace('/(auth)/login');
       }
-      setDbReady(true);
-    };
-    init();
-  }, []);
+    } else {
+      // User is authenticated
+      if (inAuthGroup || segments.length === 0) {
+        const target = user?.role === 'landlord' ? '/(landlord)/overview' : '/(tenant)/dashboard';
+        router.replace(target);
+      }
+    }
+  }, [isAuthenticated, isLoading, segments]);
 
-  if (!dbReady) {
+  if (isLoading) {
     return (
       <View style={styles.loading}>
         <ActivityIndicator size="large" color="#22C55E" />
@@ -42,12 +42,33 @@ export default function RootLayout() {
     );
   }
 
+  return <Slot />;
+}
+
+export default function RootLayout() {
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    const init = async () => {
+      try {
+        await getDatabase();
+      } catch (e) {
+        ErrorTracker.log('Init', 'Database initialization failed', e, 'Check if SQLite is properly linked.');
+      }
+      initNotifications().catch((e) => {
+        ErrorTracker.log('Init', 'Notification initialization failed', e);
+      });
+      setReady(true);
+    };
+    init();
+  }, []);
+
+  if (!ready) return null;
+
   return (
     <AuthProvider>
-      <NotificationHandler>
-        <StatusBar style="light" />
-        <Slot />
-      </NotificationHandler>
+      <StatusBar style="light" />
+      <RootLayoutContent />
     </AuthProvider>
   );
 }

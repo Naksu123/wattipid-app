@@ -24,6 +24,8 @@ export default function TenantSettings() {
   const [env, setEnv] = useState('local');
   const [aboutVisible, setAboutVisible] = useState(false);
   const [helpVisible, setHelpVisible] = useState(false);
+  const [envVisible, setEnvVisible] = useState(false);
+  const [tempEnv, setTempEnv] = useState('local');
 
   useEffect(() => { loadSettings(); }, []);
 
@@ -39,6 +41,7 @@ export default function TenantSettings() {
 
     const currentEnv = await getCurrentEnv();
     setEnv(currentEnv);
+    setTempEnv(currentEnv);
   };
 
   const handleSave = async () => {
@@ -83,14 +86,23 @@ export default function TenantSettings() {
   };
 
   const handleSwitchEnv = () => {
+    setTempEnv(env);
+    setEnvVisible(true);
+  };
+
+  const onConfirmSwitch = async () => {
+    await setApiEnvironment(tempEnv);
+    setEnv(tempEnv);
+    setEnvVisible(false);
+    
+    // Clear session and force re-login because tokens are server-specific
+    await AsyncStorage.multiRemove(['@auth_token', '@auth_user']);
+    logout(); // Update context state
+    
     Alert.alert(
-      'Switch Environment',
-      'Choose the API server you want to connect to. The app will reload its configuration.',
-      [
-        { text: `Local (${ENVIRONMENTS.local})`, onPress: async () => { await setApiEnvironment('local'); setEnv('local'); } },
-        { text: `Production (Hostinger)`, onPress: async () => { await setApiEnvironment('production'); setEnv('production'); } },
-        { text: 'Cancel', style: 'cancel' }
-      ]
+      'Environment Switched', 
+      `Connected to ${tempEnv === 'local' ? 'Local Server' : 'Production Server'}. Please log in again to sync with this server.`,
+      [{ text: 'OK', onPress: () => router.replace('/(auth)/login') }]
     );
   };
 
@@ -332,6 +344,65 @@ export default function TenantSettings() {
           onSecondaryPress={() => setClearDataVisible(false)}
         />
       </BaseModal>
+
+      {/* ── Switch Environment Modal ── */}
+      <BaseModal visible={envVisible} onClose={() => setEnvVisible(false)}>
+        <ModalHeader title="Switch Environment" icon="server" onClose={() => setEnvVisible(false)} />
+        <ModalBody scrollable={false}>
+          <Text style={s.envSubtitle}>
+            Select the API server to connect with. The app will reload settings based on the new environment.
+          </Text>
+          
+          <View style={s.envList}>
+            {/* Local Server */}
+            <TouchableOpacity 
+              style={[s.envCard, tempEnv === 'local' && s.envCardActive]} 
+              onPress={() => setTempEnv('local')}
+              activeOpacity={0.8}
+            >
+              <View style={[s.envCardIcon, { backgroundColor: 'rgba(34,197,94,0.1)' }]}>
+                <Ionicons name="laptop-outline" size={24} color={COLORS.primary} />
+              </View>
+              <View style={s.envCardContent}>
+                <Text style={s.envCardTitle}>Local Development</Text>
+                <Text style={s.envCardUrl}>{ENVIRONMENTS.local}</Text>
+              </View>
+              <View style={[s.radio, tempEnv === 'local' && s.radioActive]}>
+                {tempEnv === 'local' && <View style={s.radioInner} />}
+              </View>
+            </TouchableOpacity>
+
+            {/* Production Server */}
+            <TouchableOpacity 
+              style={[s.envCard, tempEnv === 'production' && s.envCardActive]} 
+              onPress={() => setTempEnv('production')}
+              activeOpacity={0.8}
+            >
+              <View style={[s.envCardIcon, { backgroundColor: 'rgba(59,130,246,0.1)' }]}>
+                <Ionicons name="globe-outline" size={24} color={COLORS.info} />
+              </View>
+              <View style={s.envCardContent}>
+                <Text style={s.envCardTitle}>Production (Hostinger)</Text>
+                <Text style={s.envCardUrl}>{ENVIRONMENTS.production}</Text>
+              </View>
+              <View style={[s.radio, tempEnv === 'production' && s.radioActive]}>
+                {tempEnv === 'production' && <View style={s.radioInner} />}
+              </View>
+            </TouchableOpacity>
+          </View>
+
+          <View style={s.envWarning}>
+            <Ionicons name="information-circle" size={16} color={COLORS.warning} />
+            <Text style={s.envWarningText}>Switching may require you to log in again if user data differs between servers.</Text>
+          </View>
+        </ModalBody>
+        <ModalFooter 
+          primaryLabel="Switch Now"
+          onPrimaryPress={onConfirmSwitch}
+          secondaryLabel="Cancel"
+          onSecondaryPress={() => setEnvVisible(false)}
+        />
+      </BaseModal>
     </View>
   );
 }
@@ -422,4 +493,57 @@ const s = StyleSheet.create({
   helpContent: { flex: 1 },
   helpQ: { fontSize: FONT_SIZE.sm, color: COLORS.textPrimary, fontWeight: FONT_WEIGHT.semibold, marginBottom: 2 },
   helpA: { fontSize: FONT_SIZE.xs, color: COLORS.textSecondary, lineHeight: 17 },
+
+  // Environment Switcher
+  envSubtitle: { fontSize: FONT_SIZE.sm, color: COLORS.textSecondary, lineHeight: 20, marginBottom: SPACING.lg },
+  envList: { gap: SPACING.md, marginBottom: SPACING.lg },
+  envCard: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    padding: SPACING.md, 
+    borderRadius: RADIUS.lg, 
+    backgroundColor: COLORS.backgroundLight, 
+    borderWidth: 1, 
+    borderColor: COLORS.border,
+    gap: SPACING.md
+  },
+  envCardActive: { 
+    borderColor: COLORS.primary, 
+    backgroundColor: 'rgba(34,197,94,0.05)' 
+  },
+  envCardIcon: { 
+    width: 48, 
+    height: 48, 
+    borderRadius: 14, 
+    alignItems: 'center', 
+    justifyContent: 'center' 
+  },
+  envCardContent: { flex: 1 },
+  envCardTitle: { fontSize: FONT_SIZE.md, fontWeight: FONT_WEIGHT.bold, color: COLORS.textPrimary },
+  envCardUrl: { fontSize: 10, color: COLORS.textMuted, marginTop: 2 },
+  radio: { 
+    width: 20, 
+    height: 20, 
+    borderRadius: 10, 
+    borderWidth: 2, 
+    borderColor: COLORS.border, 
+    alignItems: 'center', 
+    justifyContent: 'center' 
+  },
+  radioActive: { borderColor: COLORS.primary },
+  radioInner: { 
+    width: 10, 
+    height: 10, 
+    borderRadius: 5, 
+    backgroundColor: COLORS.primary 
+  },
+  envWarning: { 
+    flexDirection: 'row', 
+    gap: SPACING.xs, 
+    padding: SPACING.md, 
+    backgroundColor: 'rgba(245,158,11,0.08)', 
+    borderRadius: RADIUS.md,
+    marginBottom: SPACING.sm
+  },
+  envWarningText: { flex: 1, fontSize: FONT_SIZE.xs, color: COLORS.warning, lineHeight: 18 },
 });

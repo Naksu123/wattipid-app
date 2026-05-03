@@ -11,7 +11,7 @@ import { COLORS, FONT_SIZE, FONT_WEIGHT, RADIUS, SPACING, GRADIENTS } from '../.
 export default function OverviewScreen() {
   const { user } = useAuth();
   const [rooms, setRooms] = useState([]);
-  const [stats, setStats] = useState({ totalRooms: 0, occupiedRooms: 0, offlineMeters: 0 });
+  const [stats, setStats] = useState({ totalRooms: 0, occupiedRooms: 0, onProcessRooms: 0, offlineMeters: 0 });
   const [totals, setTotals] = useState({ totalEnergy: 0, totalCost: 0 });
   const [rate, setRate] = useState(12.5);
   const [refreshing, setRefreshing] = useState(false);
@@ -26,7 +26,7 @@ export default function OverviewScreen() {
     
     if (summary) {
       setRooms(summary.rooms || []);
-      setStats(summary.stats || { totalRooms: 0, occupiedRooms: 0, offlineMeters: 0 });
+      setStats(summary.stats || { totalRooms: 0, occupiedRooms: 0, onProcessRooms: 0, offlineMeters: 0 });
       setTotals(summary.totals || { totalEnergy: 0, totalCost: 0 });
     }
     if (rateVal) setRate(parseFloat(rateVal));
@@ -61,10 +61,10 @@ export default function OverviewScreen() {
 
         {/* Summary Grid */}
         <View style={ss.grid}>
-          <SummaryCard icon="home" label="Total Rooms" value={stats.totalRooms} color={COLORS.primary} />
+          <SummaryCard icon="home" label="Total" value={stats.totalRooms} color={COLORS.primary} />
           <SummaryCard icon="flash" label="Occupied" value={stats.occupiedRooms} color={COLORS.success} />
+          <SummaryCard icon="time" label="Process" value={stats.onProcessRooms || 0} color={COLORS.warning} />
           <SummaryCard icon="cloud-offline-outline" label="Offline" value={stats.offlineMeters} color={COLORS.danger} />
-          <SummaryCard icon="cash-outline" label="Avg Rate" value={`₱${rate.toFixed(1)}`} color={COLORS.warning} />
         </View>
 
         {/* Facility Stats */}
@@ -93,7 +93,7 @@ export default function OverviewScreen() {
                 <View style={[ss.roomDot, { backgroundColor: offline ? COLORS.danger : COLORS.success }]} />
                 <View>
                   <Text style={ss.roomId}>{room.room_id} {offline && <Text style={{ color: COLORS.danger, fontSize: 10 }}>[OFFLINE]</Text>}</Text>
-                  <Text style={ss.roomTenant}>{room.tenant_name || 'Vacant'}</Text>
+                  <Text style={ss.roomTenant}>{room.tenant_name || (room.status === 'on_process' ? 'On Process' : 'Vacant')}</Text>
                 </View>
               </View>
               <View style={{ alignItems: 'flex-end' }}>

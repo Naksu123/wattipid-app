@@ -1,67 +1,103 @@
-import * as Notifications from 'expo-notifications';
-import Constants from 'expo-constants';
 import { Platform } from 'react-native';
-import { apiCall } from './api';
+import Constants from 'expo-constants';
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-  }),
-});
+/**
+ * Notification Service for Wattipid
+ * 
+ * IMPORTANT: We use require() inside a try/catch instead of import.
+ * In Expo Go SDK 53+, even importing expo-notifications triggers
+ * TokenAutoRegistration.fx.js which crashes the entire app.
+ * By using require() inside a try/catch, we prevent the crash.
+ */
 
-export async function registerForPushNotificationsAsync() {
-  if (Constants.appOwnership === 'expo') {
-    console.log('Push notifications are not supported in Expo Go for SDK 53+. Use a Development Build for this feature.');
+let Notifications = null;
+const isExpoGo = Constants.appOwnership === 'expo';
+
+function getNotificationsModule() {
+  if (isExpoGo) {
+    // Expo Go SDK 53+ crashes if we even try to load expo-notifications
     return null;
   }
-
-  let token;
-
-  const { status: existingStatus } = await Notifications.getPermissionsAsync();
-  let finalStatus = existingStatus;
   
-  if (existingStatus !== 'granted') {
-    const { status } = await Notifications.requestPermissionsAsync();
-    finalStatus = status;
+  if (Notifications) return Notifications;
+  try {
+    Notifications = require('expo-notifications');
+    return Notifications;
+  } catch (e) {
+    console.warn('expo-notifications could not be loaded:', e.message);
+    return null;
   }
-  
-  if (finalStatus !== 'granted') {
-    console.log('Failed to get push token for push notification!');
-    return;
+}
+
+/**
+ * Initialize local notification permissions.
+ * Safe to call in Expo Go — will silently skip if module unavailable.
+ */
+export async function initNotifications() {
+  const NotificationsModule = getNotificationsModule();
+  if (!NotificationsModule) {
+    console.log('Notifications not available in this environment.');
+    return false;
   }
 
   try {
-    token = (await Notifications.getExpoPushTokenAsync({
-      projectId: 'your-project-id' // Get this from app.json / Expo dashboard
-    })).data;
-    
-    // Send token to backend
-    await apiCall('updatePushToken', { pushToken: token });
-  } catch (e) {
-    console.error('Error getting push token', e);
-  }
-
-  if (Platform.OS === 'android') {
-    Notifications.setNotificationChannelAsync('default', {
-      name: 'default',
-      importance: Notifications.AndroidImportance.MAX,
-      vibrationPattern: [0, 250, 250, 250],
-      lightColor: '#FF231F7C',
+    NotificationsModule.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowAlert: true,
+        shouldPlaySound: true,
+        shouldSetBadge: true,
+      }),
     });
-  }
 
-  return token;
+    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    let finalStatus = existingStatus;
+
+    if (existingStatus !== 'granted') {
+      const { status } = await Notifications.requestPermissionsAsync();
+      finalStatus = status;
+    }
+
+    if (finalStatus !== 'granted') {
+      console.log('Notification permissions denied.');
+      return false;
+    }
+
+    if (Platform.OS === 'android') {
+      await NotificationsModule.setNotificationChannelAsync('default', {
+        name: 'Wattipid Alerts',
+        importance: NotificationsModule.AndroidImportance.MAX,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#22C55E',
+      });
+    }
+
+    console.log('Local notifications ready!');
+    return true;
+  } catch (e) {
+    console.warn('Notification init skipped:', e.message);
+    return false;
+  }
 }
 
+/**
+ * Send a local notification immediately.
+ * Use for budget alerts, high consumption warnings, etc.
+ */
 export async function sendLocalNotification(title, body) {
-  await Notifications.scheduleNotificationAsync({
-    content: {
-      title,
-      body,
-      data: { data: 'goes here' },
-    },
-    trigger: null, // immediate
-  });
+  const NotificationsModule = getNotificationsModule();
+  if (!NotificationsModule) return;
+
+  try {
+    await NotificationsModule.scheduleNotificationAsync({
+      content: {
+        title,
+        body,
+        sound: true,
+        priority: 'high',
+      },
+      trigger: null,
+    });
+  } catch (error) {
+    console.warn('Failed to send notification:', error.message);
+  }
 }

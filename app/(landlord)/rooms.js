@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   Alert, RefreshControl, Modal, TextInput, ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -45,6 +46,14 @@ export default function RoomsScreen() {
   const [regenSuccessVisible, setRegenSuccessVisible] = useState(false);
   const [regenSuccessMsg, setRegenSuccessMsg] = useState('');
 
+  // Code Success Modal
+  const [codeSuccessVisible, setCodeSuccessVisible] = useState(false);
+  const [successCodeData, setSuccessCodeData] = useState({ code: '', room: '', email: '' });
+
+  // General Success (for reset, etc.)
+  const [generalSuccessVisible, setGeneralSuccessVisible] = useState(false);
+  const [generalSuccessData, setGeneralSuccessData] = useState({ title: '', message: '', icon: 'checkmark-circle' });
+
   // Consumption cache
   const [consumptionData, setConsumptionData] = useState({});
   const [rate, setRate] = useState(12.5);
@@ -52,52 +61,85 @@ export default function RoomsScreen() {
   useEffect(() => { loadRooms(); }, []);
 
   const loadRooms = async () => {
-    const r = await getAllRooms();
-    setRooms(r || []);
+    const summary = await getBuildingSummary();
+    if (summary) {
+      const { rooms: roomData, totals } = summary;
+      
+      // Map rooms with their specific consumption data
+      const mappedRooms = (roomData || []).map(r => ({
+        ...r,
+        consumption: {
+          energy: r.currEnergy || 0,
+          cost: (r.currEnergy || 0) * rate
+        },
+        prevConsumption: {
+          energy: r.prevEnergy || 0,
+          cost: (r.prevEnergy || 0) * rate
+        }
+      }));
+      
+      setRooms(mappedRooms);
+      
+      // Update consumption cache for reports/details
+      const cData = {};
+      mappedRooms.forEach(r => {
+        if (r.status === 'occupied') {
+          cData[r.room_id] = { 
+            current: { totalEnergy: r.consumption.energy, totalCost: r.consumption.cost },
+            previous: { totalEnergy: r.prevConsumption.energy, totalCost: r.prevConsumption.cost },
+            diff: r.consumption.energy - r.prevConsumption.energy
+          };
+        }
+      });
+      setConsumptionData(cData);
+    }
+    
     const rateVal = await getSetting('rate_per_kwh');
     if (rateVal) setRate(parseFloat(rateVal));
-
-    // Load consumption for occupied rooms
-    const cData = {};
-    for (const room of (r || [])) {
-      if (room.status === 'occupied') {
-        const now = new Date();
-        const current = await getMonthlyConsumptionFiltered(room.room_id, now.getFullYear(), now.getMonth() + 1, room.tenant_start_date, room.move_out_date, room.tenant_name);
-        const prevMonth = now.getMonth() === 0 ? 12 : now.getMonth();
-        const prevYear = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
-        const previous = await getMonthlyConsumptionFiltered(room.room_id, prevYear, prevMonth, room.tenant_start_date, room.move_out_date, room.tenant_name);
-        cData[room.room_id] = { current, previous, diff: current.totalEnergy - previous.totalEnergy };
-      }
-    }
-    setConsumptionData(cData);
   };
 
   const onRefresh = async () => { setRefreshing(true); await loadRooms(); setRefreshing(false); };
 
 
 
-  const handleTransfer = async (toRoomId) => {
-    if (!transferFromRoom) return;
+    setSending(true);
     const result = await transferTenant(transferFromRoom.room_id, toRoomId);
+    setSending(false);
     setTransferModalVisible(false);
     if (result.success) {
-      Alert.alert('Transfer Complete', `${result.tenantName} has been transferred from ${result.fromRoomId} to ${result.toRoomId}.\n\nNew start date: ${result.newStartDate}\n\nAll previous room data has been preserved.`);
+      setGeneralSuccessData({
+        title: 'Transfer Complete',
+        message: `${result.tenantName} has been transferred to ${result.toRoomId}.`,
+        icon: 'swap-horizontal'
+      });
+      setGeneralSuccessVisible(true);
       loadRooms();
     } else {
-      Alert.alert('Error', result.message);
+      setGeneralSuccessData({
+        title: 'Transfer Failed',
+        message: result.message,
+        icon: 'alert-circle'
+      });
+      setGeneralSuccessVisible(true);
     }
   };
 
-  const handleConfirmRevoke = async () => {
     if (!revokeRoom) return;
-    setRevokeModalVisible(false);
+    setSending(true);
     const result = await revokeTenant(revokeRoom.room_id);
+    setSending(false);
+    setRevokeModalVisible(false);
     if (result.success) {
       setRevokeSuccessMsg(`Removed "${result.tenantName}"\nfrom ${revokeRoom.room_id}`);
       setRevokeSuccessVisible(true);
       loadRooms();
     } else {
-      Alert.alert('Error', result.message);
+      setGeneralSuccessData({
+        title: 'Revoke Failed',
+        message: result.message,
+        icon: 'alert-circle'
+      });
+      setGeneralSuccessVisible(true);
     }
   };
 
@@ -122,10 +164,12 @@ export default function RoomsScreen() {
       setTenantEmail('');
 
       if (result.success) {
-        const msg = result.mockCode
-          ? `Access code sent!\n\n[Demo] Code: ${result.mockCode}\n\n⏱ Code expires in 5 minutes.\nThe tenant can now use this code to sign up.`
-          : `Access code successfully sent to ${tenantEmail.trim()}.\n⏱ Code expires in 5 minutes.`;
-        Alert.alert('Code Sent ✓', msg);
+        setSuccessCodeData({
+          code: result.mockCode || selectedRoom.tenant_code,
+          room: selectedRoom.room_id,
+          email: tenantEmail.trim()
+        });
+        setCodeSuccessVisible(true);
       } else {
         Alert.alert('Failed', result.message || 'Could not send the access code.');
       }
@@ -217,6 +261,18 @@ export default function RoomsScreen() {
 
               {room.status === 'occupied' && room.tenant_start_date && (
                 <View style={s.moveInRow}>
+                  {isActive && room.consumption && (
+                    <View style={styles.stats}>
+                      <View style={styles.stat}>
+                        <Ionicons name="flash-outline" size={14} color={COLORS.accent} />
+                        <Text style={styles.statValue}>{Number(room.consumption.energy || 0).toFixed(2)} kWh</Text>
+                      </View>
+                      <View style={styles.stat}>
+                        <Text style={styles.statLabel}>₱</Text>
+                        <Text style={styles.statValue}>{Number(room.consumption.cost || 0).toFixed(2)}</Text>
+                      </View>
+                    </View>
+                  )}
                   <Ionicons name="calendar-outline" size={14} color={COLORS.textMuted} />
                   <Text style={s.moveInText}>Move-in: {room.tenant_start_date}{room.move_out_date ? `  •  Move-out: ${room.move_out_date}` : ''}</Text>
                 </View>
@@ -315,7 +371,12 @@ export default function RoomsScreen() {
                         activeOpacity={0.7}
                         onPress={async () => {
                           await updateRoomStatus(room.room_id, 'vacant', null, null);
-                          Alert.alert('Reset', `${room.room_id} is now vacant.`);
+                          setGeneralSuccessData({
+                            title: 'Room Reset',
+                            message: `${room.room_id} is now officially vacant.`,
+                            icon: 'home-outline'
+                          });
+                          setGeneralSuccessVisible(true);
                           loadRooms();
                         }}
                       >
@@ -345,47 +406,48 @@ export default function RoomsScreen() {
       {/* Send Code Modal */}
       <Modal visible={sendModalVisible} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setSendModalVisible(false)}>
         <View style={s.overlay}>
-          <View style={s.modal}>
-            <View style={s.modalIcon}>
-              <Ionicons name="mail" size={32} color={COLORS.primary} />
-            </View>
-            <Text style={s.modalTitle}>Send Access Code</Text>
-            <Text style={s.modalDesc}>
-              Enter the tenant's email. They will receive the access code for{' '}
-              <Text style={s.modalRoom}>{selectedRoom?.room_id}</Text>. Code expires in 5 minutes.
-            </Text>
-            <View style={s.codePreview}>
-              <Ionicons name="key-outline" size={16} color={COLORS.warning} />
-              <Text style={s.codePreviewText}>Code: </Text>
-              <Text style={s.codePreviewValue}>{selectedRoom?.tenant_code}</Text>
-            </View>
+            <ScrollView style={{ width: '100%' }} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 10 }}>
+              <View style={s.modalIcon}>
+                <Ionicons name="mail" size={32} color={COLORS.primary} />
+              </View>
+              <Text style={s.modalTitle}>Send Access Code</Text>
+              <Text style={s.modalDesc}>
+                Enter the tenant's email. They will receive the access code for{' '}
+                <Text style={s.modalRoom}>{selectedRoom?.room_id}</Text>. Code expires in 5 minutes.
+              </Text>
+              <View style={s.codePreview}>
+                <Ionicons name="key-outline" size={16} color={COLORS.warning} />
+                <Text style={s.codePreviewText}>Code: </Text>
+                <Text style={s.codePreviewValue}>{selectedRoom?.tenant_code}</Text>
+              </View>
 
-            <View style={[s.emailWrap, emailError && s.emailWrapErr]}>
-              <Ionicons name="mail-outline" size={18} color={COLORS.textMuted} />
-              <TextInput style={s.emailInput} placeholder="tenant@email.com" placeholderTextColor={COLORS.textMuted}
-                value={tenantEmail} onChangeText={t => { setTenantEmail(t); setEmailError(''); }}
-                keyboardType="email-address" autoCapitalize="none" autoFocus />
-            </View>
-            {emailError ? <Text style={s.emailError}>{emailError}</Text> : null}
+              <View style={[s.emailWrap, emailError && s.emailWrapErr]}>
+                <Ionicons name="mail-outline" size={18} color={COLORS.textMuted} />
+                <TextInput style={s.emailInput} placeholder="tenant@email.com" placeholderTextColor={COLORS.textMuted}
+                  value={tenantEmail} onChangeText={t => { setTenantEmail(t); setEmailError(''); }}
+                  keyboardType="email-address" autoCapitalize="none" autoFocus />
+              </View>
+              {emailError ? <Text style={s.emailError}>{emailError}</Text> : null}
 
-            <View style={s.timerNote}>
-              <Ionicons name="time-outline" size={14} color={COLORS.warning} />
-              <Text style={s.timerNoteText}>Access code will expire 5 minutes after sending</Text>
-            </View>
+              <View style={s.timerNote}>
+                <Ionicons name="time-outline" size={14} color={COLORS.warning} />
+                <Text style={s.timerNoteText}>Access code will expire 5 minutes after sending</Text>
+              </View>
 
-            <View style={s.modalActions}>
-              <TouchableOpacity style={s.cancelBtn} onPress={() => { setSendModalVisible(false); setTenantEmail(''); }} activeOpacity={0.7}>
-                <Text style={s.cancelText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={s.sendBtnWrap} onPress={handleSendCode} disabled={sending} activeOpacity={0.8}>
-                <LinearGradient colors={GRADIENTS.primary} style={s.sendBtn}>
-                  {sending
-                    ? <ActivityIndicator color="#fff" size="small" />
-                    : <><Ionicons name="send" size={16} color="#fff" /><Text style={s.sendText}>Send Code</Text></>
-                  }
-                </LinearGradient>
-              </TouchableOpacity>
-            </View>
+              <View style={s.modalActions}>
+                <TouchableOpacity style={s.cancelBtn} onPress={() => { setSendModalVisible(false); setTenantEmail(''); }} activeOpacity={0.7}>
+                  <Text style={s.cancelText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={s.sendBtnWrap} onPress={handleSendCode} disabled={sending} activeOpacity={0.8}>
+                  <LinearGradient colors={GRADIENTS.primary} style={s.sendBtn}>
+                    {sending
+                      ? <ActivityIndicator color="#fff" size="small" />
+                      : <><Ionicons name="send" size={16} color="#fff" /><Text style={s.sendText}>Send Code</Text></>
+                    }
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -513,31 +575,38 @@ export default function RoomsScreen() {
       {/* Revoke Success Modal */}
       <Modal visible={revokeSuccessVisible} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setRevokeSuccessVisible(false)}>
         <View style={s.overlay}>
-          <View style={s.modal}>
-            <TouchableOpacity style={s.closeModalBtn} onPress={() => setRevokeSuccessVisible(false)}>
-              <Ionicons name="close" size={24} color={COLORS.textSecondary} />
-            </TouchableOpacity>
-
-            <View style={s.successIconWrap}>
-              <View style={s.successIconInner}>
-                <Ionicons name="checkmark" size={32} color="#fff" />
+          <View style={s.successModal}>
+            <ScrollView style={s.successScroll} contentContainerStyle={s.successScrollContent} showsVerticalScrollIndicator={false}>
+              <View style={s.successHeader}>
+                <View style={s.successIconPill}>
+                  <View style={[s.successIconBg, { backgroundColor: 'rgba(239,68,68,0.1)', borderColor: 'rgba(239,68,68,0.2)' }]}>
+                    <Ionicons name="checkmark-circle" size={40} color={COLORS.danger} />
+                  </View>
+                </View>
+                <Text style={s.successTitle}>Revoked</Text>
+                <Text style={s.successSubtitle}>Tenant access has been removed.</Text>
               </View>
-              {/* Decorative particles */}
-              <View style={[s.particle, { top: 10, left: -20 }]} />
-              <View style={[s.particle, { top: -10, left: 20 }]} />
-              <View style={[s.particle, { top: 20, right: -25 }]} />
-              <View style={[s.particle, { bottom: -5, left: -10, transform: [{ rotate: '45deg' }] }]} />
-              <View style={[s.particle, { bottom: 5, right: -15, transform: [{ rotate: '-45deg' }] }]} />
-            </View>
-            
-            <Text style={s.modalTitle}>Success</Text>
-            <Text style={[s.modalDesc, { fontWeight: '600' }]}>
-              {revokeSuccessMsg}
-            </Text>
 
-            <TouchableOpacity style={s.successBtnSolid} onPress={() => setRevokeSuccessVisible(false)} activeOpacity={0.8}>
-              <Text style={s.removeTextWhite}>OK</Text>
-            </TouchableOpacity>
+              <View style={[s.codeContainer, { backgroundColor: 'rgba(239,68,68,0.05)' }]}>
+                <Text style={s.codeContainerLabel}>STATUS UPDATED</Text>
+                <Text style={[s.modalDesc, { color: COLORS.textPrimary, fontWeight: '700', marginBottom: 0 }]}>
+                  {revokeSuccessMsg}
+                </Text>
+              </View>
+
+              <View style={s.successDetails}>
+                <View style={s.detailRow}>
+                  <Ionicons name="shield-checkmark-outline" size={18} color={COLORS.primary} />
+                  <Text style={s.detailText}>All historical data remains safe.</Text>
+                </View>
+              </View>
+            </ScrollView>
+
+            <View style={s.successFooter}>
+              <TouchableOpacity style={[s.successOkBtn, { backgroundColor: COLORS.danger }]} onPress={() => setRevokeSuccessVisible(false)} activeOpacity={0.8}>
+                <Text style={s.successOkBtnText}>Close</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
@@ -545,33 +614,47 @@ export default function RoomsScreen() {
       {/* ── Regenerate Confirmation Modal ── */}
       <Modal visible={regenConfirmVisible} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setRegenConfirmVisible(false)}>
         <View style={s.overlay}>
-          <View style={s.modal}>
-            <TouchableOpacity style={s.closeModalBtn} onPress={() => setRegenConfirmVisible(false)}>
-              <Ionicons name="close" size={24} color={COLORS.textSecondary} />
-            </TouchableOpacity>
-            
-            <View style={[s.modalIcon, { backgroundColor: 'rgba(34,197,94,0.12)' }]}>
-              <Ionicons name="refresh-outline" size={28} color={COLORS.primary} />
-            </View>
-            <Text style={s.modalTitle}>Confirm Regenerate</Text>
-            <Text style={s.modalDesc}>
-              Are you sure you want to regenerate the access code for {regenRoom?.room_id}?
-            </Text>
+          <View style={s.successModal}>
+            <ScrollView 
+              style={s.successScroll} 
+              contentContainerStyle={s.successScrollContent}
+              showsVerticalScrollIndicator={false}
+            >
+              <View style={s.successHeader}>
+                <View style={s.successIconPill}>
+                  <View style={[s.successIconBg, { backgroundColor: 'rgba(245,158,11,0.1)', borderColor: 'rgba(245,158,11,0.2)' }]}>
+                    <Ionicons name="refresh-circle" size={40} color={COLORS.warning} />
+                  </View>
+                </View>
+                <Text style={s.successTitle}>Reset Code?</Text>
+                <Text style={s.successSubtitle}>This will invalidate the current code for {regenRoom?.room_id}.</Text>
+              </View>
 
-            <View style={[s.revokeInfoBox, { backgroundColor: 'rgba(34,197,94,0.08)' }]}>
-              <Ionicons name="information-circle-outline" size={24} color={COLORS.primary} />
-              <Text style={s.revokeInfoText}>
-                This will replace the current content and the old code will no longer work.
-              </Text>
-            </View>
+              <View style={s.resetWarningBox}>
+                <View style={s.resetWarningHeader}>
+                  <Ionicons name="shield-half-outline" size={18} color={COLORS.warning} />
+                  <Text style={s.resetWarningTitle}>SECURITY NOTICE</Text>
+                </View>
+                <View style={s.resetWarningItem}>
+                  <View style={s.bullet} />
+                  <Text style={s.resetWarningText}>The current code will stop working immediately.</Text>
+                </View>
+                <View style={s.resetWarningItem}>
+                  <View style={s.bullet} />
+                  <Text style={s.resetWarningText}>You must share the new code with your tenant.</Text>
+                </View>
+              </View>
+            </ScrollView>
 
-            <View style={s.modalActions}>
-              <TouchableOpacity style={s.cancelBtnOutline} onPress={() => setRegenConfirmVisible(false)} activeOpacity={0.7}>
-                <Text style={s.cancelTextGreen}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={s.primaryBtnSolid} onPress={handleConfirmRegenerate} activeOpacity={0.8}>
-                <Text style={s.removeTextWhite}>Regenerate</Text>
-              </TouchableOpacity>
+            <View style={s.successFooter}>
+              <View style={{ flexDirection: 'row', gap: 12 }}>
+                <TouchableOpacity style={[s.cancelBtn, { flex: 1, marginTop: 0 }]} onPress={() => setRegenConfirmVisible(false)} activeOpacity={0.7}>
+                  <Text style={s.cancelText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[s.successOkBtn, { flex: 1, backgroundColor: COLORS.warning }]} onPress={handleConfirmRegenerate} activeOpacity={0.8}>
+                  <Text style={s.successOkBtnText}>Reset Now</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
         </View>
@@ -580,31 +663,131 @@ export default function RoomsScreen() {
       {/* ── Regenerate Success Modal ── */}
       <Modal visible={regenSuccessVisible} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setRegenSuccessVisible(false)}>
         <View style={s.overlay}>
-          <View style={s.modal}>
-            <TouchableOpacity style={s.closeModalBtn} onPress={() => setRegenSuccessVisible(false)}>
-              <Ionicons name="close" size={24} color={COLORS.textSecondary} />
-            </TouchableOpacity>
-
-            <View style={s.successIconWrap}>
-              <View style={s.successIconInner}>
-                <Ionicons name="checkmark" size={32} color="#fff" />
+          <View style={s.successModal}>
+            <ScrollView 
+              style={s.successScroll} 
+              contentContainerStyle={s.successScrollContent}
+              showsVerticalScrollIndicator={false}
+            >
+              <View style={s.successHeader}>
+                <View style={s.successIconPill}>
+                  <View style={s.successIconBg}>
+                    <Ionicons name="shield-checkmark" size={40} color={COLORS.primary} />
+                  </View>
+                </View>
+                <Text style={s.successTitle}>Code Reset</Text>
+                <Text style={s.successSubtitle}>New secure access code generated.</Text>
               </View>
-              {/* Decorative particles */}
-              <View style={[s.particle, { top: 10, left: -20 }]} />
-              <View style={[s.particle, { top: -10, left: 20 }]} />
-              <View style={[s.particle, { top: 20, right: -25 }]} />
-              <View style={[s.particle, { bottom: -5, left: -10, transform: [{ rotate: '45deg' }] }]} />
-              <View style={[s.particle, { bottom: 5, right: -15, transform: [{ rotate: '-45deg' }] }]} />
-            </View>
-            
-            <Text style={s.modalTitle}>Success</Text>
-            <Text style={[s.modalDesc, { fontWeight: '600', color: COLORS.primary }]}>
-              {regenSuccessMsg}
-            </Text>
 
-            <TouchableOpacity style={s.successBtnSolid} onPress={() => setRegenSuccessVisible(false)} activeOpacity={0.8}>
-              <Text style={s.removeTextWhite}>OK</Text>
-            </TouchableOpacity>
+              <View style={s.codeContainer}>
+                <Text style={s.codeContainerLabel}>NEW ACCESS CODE</Text>
+                <View style={s.codeBox}>
+                  <Text style={s.codeText}>{regenSuccessMsg.split('New Code: ')[1] || '—'}</Text>
+                </View>
+                <View style={s.roomBadge}>
+                  <Ionicons name="business" size={14} color={COLORS.primary} />
+                  <Text style={s.roomBadgeText}>{regenRoom?.room_id}</Text>
+                </View>
+              </View>
+
+              <View style={s.successDetails}>
+                <View style={s.detailRow}>
+                  <Ionicons name="share-social-outline" size={18} color={COLORS.primary} />
+                  <Text style={s.detailText}>You must share this new code with the tenant.</Text>
+                </View>
+                <View style={s.detailRow}>
+                  <Ionicons name="lock-closed-outline" size={18} color={COLORS.info} />
+                  <Text style={s.detailText}>The old code has been permanently deactivated.</Text>
+                </View>
+              </View>
+            </ScrollView>
+
+            <View style={s.successFooter}>
+              <TouchableOpacity style={s.successOkBtn} onPress={() => setRegenSuccessVisible(false)} activeOpacity={0.8}>
+                <Text style={s.successOkBtnText}>Done</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── Code Sent Success Modal ── */}
+      <Modal visible={codeSuccessVisible} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setCodeSuccessVisible(false)}>
+        <View style={s.overlay}>
+          <View style={s.successModal}>
+            <ScrollView 
+              style={s.successScroll} 
+              contentContainerStyle={s.successScrollContent}
+              showsVerticalScrollIndicator={false}
+            >
+              <View style={s.successHeader}>
+                <View style={s.successIconPill}>
+                  <View style={s.successIconBg}>
+                    <Ionicons name="checkmark-circle" size={40} color={COLORS.primary} />
+                  </View>
+                </View>
+                <Text style={s.successTitle}>Code Sent</Text>
+                <Text style={s.successSubtitle}>Access code successfully delivered.</Text>
+              </View>
+
+              <View style={s.codeContainer}>
+                <Text style={s.codeContainerLabel}>TENANT ACCESS CODE</Text>
+                <View style={s.codeBox}>
+                  <Text style={s.codeText}>{successCodeData.code}</Text>
+                </View>
+                <View style={s.roomBadge}>
+                  <Ionicons name="business" size={14} color={COLORS.primary} />
+                  <Text style={s.roomBadgeText}>{successCodeData.room}</Text>
+                </View>
+              </View>
+
+              <View style={s.successDetails}>
+                <View style={s.detailRow}>
+                  <Ionicons name="time-outline" size={18} color={COLORS.warning} />
+                  <Text style={s.detailText}>Code expires in <Text style={{fontWeight:'700', color: COLORS.textPrimary}}>5 minutes</Text>.</Text>
+                </View>
+                <View style={s.detailRow}>
+                  <Ionicons name="people-outline" size={18} color={COLORS.primary} />
+                  <Text style={s.detailText}>The tenant can now use this code to sign up.</Text>
+                </View>
+              </View>
+            </ScrollView>
+
+            <View style={s.successFooter}>
+              <TouchableOpacity style={s.successOkBtn} onPress={() => setCodeSuccessVisible(false)} activeOpacity={0.8}>
+                <Text style={s.successOkBtnText}>OK</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── General Success Modal (Reset, etc.) ── */}
+      <Modal visible={generalSuccessVisible} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setGeneralSuccessVisible(false)}>
+        <View style={s.overlay}>
+          <View style={s.successModal}>
+            <View style={s.successScrollContent}>
+              <View style={s.successHeader}>
+                <View style={s.successIconPill}>
+                  <View style={[s.successIconBg, { backgroundColor: 'rgba(34,197,94,0.1)', borderColor: 'rgba(34,197,94,0.2)' }]}>
+                    <Ionicons name={generalSuccessData.icon} size={40} color={COLORS.primary} />
+                  </View>
+                </View>
+                <Text style={s.successTitle}>{generalSuccessData.title}</Text>
+                <Text style={s.successSubtitle}>{generalSuccessData.message}</Text>
+              </View>
+
+              <View style={[s.codeContainer, { paddingVertical: 30 }]}>
+                <Ionicons name="business" size={48} color={COLORS.primary} style={{ marginBottom: 12, opacity: 0.8 }} />
+                <Text style={[s.modalTitle, { fontSize: 18, marginBottom: 0 }]}>Status Updated</Text>
+              </View>
+            </View>
+
+            <View style={s.successFooter}>
+              <TouchableOpacity style={s.successOkBtn} onPress={() => setGeneralSuccessVisible(false)} activeOpacity={0.8}>
+                <Text style={s.successOkBtnText}>Done</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
@@ -645,8 +828,26 @@ const s = StyleSheet.create({
   actionBtnText: { fontSize: 12, fontWeight: FONT_WEIGHT.semibold },
 
   // Modal shared
-  overlay: { flex: 1, backgroundColor: COLORS.overlay, justifyContent: 'center', alignItems: 'center', padding: SPACING.lg },
-  modal: { backgroundColor: COLORS.surface, borderRadius: RADIUS.xl, padding: SPACING.xl, width: '100%', maxWidth: 360, borderWidth: 1, borderColor: COLORS.border },
+  overlay: { 
+    flex: 1, 
+    backgroundColor: 'rgba(0,0,0,0.75)', 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    padding: 20,
+    zIndex: 999 
+  },
+  modal: { 
+    backgroundColor: COLORS.surface, 
+    borderRadius: RADIUS.xl, 
+    padding: SPACING.xl, 
+    width: '100%', 
+    maxWidth: 360, 
+    maxHeight: '85%', // Prevent overflow
+    borderWidth: 1, 
+    borderColor: COLORS.border,
+    elevation: 10,
+    zIndex: 1000
+  },
   modalIcon: { width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(34,197,94,0.12)', alignItems: 'center', justifyContent: 'center', alignSelf: 'center', marginBottom: SPACING.md },
   modalTitle: { fontSize: FONT_SIZE.xl, fontWeight: FONT_WEIGHT.bold, color: COLORS.textPrimary, textAlign: 'center', marginBottom: SPACING.sm },
   modalDesc: { fontSize: FONT_SIZE.sm, color: COLORS.textSecondary, textAlign: 'center', lineHeight: 20, marginBottom: SPACING.md },
@@ -658,9 +859,9 @@ const s = StyleSheet.create({
   emailWrapErr: { borderColor: COLORS.danger },
   emailInput: { flex: 1, fontSize: FONT_SIZE.md, color: COLORS.textPrimary },
   emailError: { fontSize: FONT_SIZE.xs, color: COLORS.danger, marginBottom: SPACING.sm },
-  timerNote: { flexDirection: 'row', alignItems: 'center', gap: SPACING.xs, backgroundColor: 'rgba(245,158,11,0.08)', borderRadius: RADIUS.md, padding: SPACING.sm, marginBottom: SPACING.sm },
-  timerNoteText: { fontSize: FONT_SIZE.xs, color: COLORS.warning, flex: 1 },
-  modalActions: { flexDirection: 'row', gap: SPACING.sm, marginTop: SPACING.md },
+  timerNote: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(245,158,11,0.08)', borderRadius: RADIUS.md, padding: SPACING.sm, marginBottom: SPACING.sm },
+  timerNoteText: { fontSize: FONT_SIZE.xs, color: COLORS.warning, flex: 1, marginLeft: SPACING.xs },
+  modalActions: { flexDirection: 'row', marginTop: SPACING.md },
   cancelBtn: { flex: 1, paddingVertical: SPACING.md, borderRadius: RADIUS.md, borderWidth: 1, borderColor: COLORS.border, alignItems: 'center' },
   cancelText: { fontSize: FONT_SIZE.md, color: COLORS.textSecondary, fontWeight: FONT_WEIGHT.medium },
   cancelBtnOutline: { flex: 1, paddingVertical: SPACING.md, borderRadius: RADIUS.md, borderWidth: 1, borderColor: COLORS.primary, alignItems: 'center' },
@@ -688,4 +889,54 @@ const s = StyleSheet.create({
   // Transfer
   transferItem: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md, padding: SPACING.md, backgroundColor: COLORS.backgroundLight, borderRadius: RADIUS.md, borderWidth: 1, borderColor: COLORS.border, marginBottom: SPACING.sm },
   transferItemText: { flex: 1, fontSize: FONT_SIZE.md, fontWeight: FONT_WEIGHT.semibold, color: COLORS.textPrimary },
+
+  // Code Sent Success Modal (Premium Dark Theme)
+  successModal: { 
+    backgroundColor: COLORS.surface, 
+    borderRadius: RADIUS.xl, 
+    width: '100%', 
+    maxWidth: 320, 
+    maxHeight: '85%', // Safer height constraint
+    ...SHADOWS.lg,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    elevation: 12, // Even higher elevation
+    zIndex: 1100
+  },
+  successScroll: { flexGrow: 0 },
+  successScrollContent: { padding: 24, alignItems: 'center' },
+  successHeader: { alignItems: 'center', marginBottom: 20 },
+  successIconPill: { marginBottom: 16 },
+  successIconBg: { width: 80, height: 80, borderRadius: 40, backgroundColor: 'rgba(34,197,94,0.1)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(34,197,94,0.2)' },
+  successTitle: { fontSize: 24, fontWeight: '800', color: COLORS.textPrimary, marginBottom: 8 },
+  successSubtitle: { fontSize: 14, color: COLORS.textSecondary, textAlign: 'center', lineHeight: 20 },
+  codeContainer: { width: '100%', backgroundColor: COLORS.backgroundLight, borderRadius: RADIUS.lg, padding: 20, alignItems: 'center', marginBottom: 20, borderWidth: 1, borderColor: COLORS.border },
+  codeContainerLabel: { fontSize: 10, fontWeight: '700', color: COLORS.textMuted, letterSpacing: 1, marginBottom: 12 },
+  codeBox: { backgroundColor: COLORS.surface, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12, borderWidth: 1, borderColor: COLORS.primary, marginBottom: 12 },
+  codeText: { fontSize: 28, fontWeight: '800', color: COLORS.primary, fontFamily: Platform.OS === 'ios' ? 'Courier New' : 'monospace', letterSpacing: 2 },
+  roomBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(34,197,94,0.1)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
+  roomBadgeText: { fontSize: 12, fontWeight: '700', color: COLORS.primary, marginLeft: 6 },
+  successDetails: { width: '100%', paddingHorizontal: 4 },
+  detailRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 14 },
+  detailText: { fontSize: 13, color: COLORS.textSecondary, flex: 1, marginLeft: 12 },
+  successFooter: { padding: 20, paddingTop: 0 },
+  successOkBtn: { backgroundColor: COLORS.primary, width: '100%', height: 54, borderRadius: RADIUS.md, alignItems: 'center', justifyContent: 'center', ...SHADOWS.md },
+  successOkBtnText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
+
+  // Reset Specific
+  resetWarningBox: { 
+    backgroundColor: 'rgba(245,158,11,0.08)', 
+    borderRadius: RADIUS.lg, 
+    padding: SPACING.md, 
+    marginBottom: SPACING.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(245,158,11,0.15)'
+  },
+  resetWarningHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 },
+  resetWarningTitle: { fontSize: 11, fontWeight: '800', color: COLORS.warning, letterSpacing: 1 },
+  resetWarningItem: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
+  bullet: { width: 4, height: 4, borderRadius: 2, backgroundColor: COLORS.warning },
+  resetWarningText: { fontSize: 12, color: COLORS.textSecondary, flex: 1 },
+  resetBtnSolid: { flex: 1, paddingVertical: SPACING.md, borderRadius: RADIUS.md, backgroundColor: COLORS.warning, alignItems: 'center' },
 });

@@ -33,15 +33,15 @@ export default function RoomCard({ room, onPress }) {
         <StatusBadge status={room.status} size="sm" />
       </View>
 
-      {isActive && (
+      {isActive && room.consumption && (
         <View style={styles.stats}>
           <View style={styles.stat}>
             <Ionicons name="flash-outline" size={14} color={COLORS.accent} />
-            <Text style={styles.statValue}>{(Math.random() * 5 + 1).toFixed(2)} kWh</Text>
+            <Text style={styles.statValue}>{Number(room.consumption.energy || 0).toFixed(2)} kWh</Text>
           </View>
           <View style={styles.stat}>
             <Text style={styles.statLabel}>₱</Text>
-            <Text style={styles.statValue}>{(Math.random() * 60 + 10).toFixed(2)}</Text>
+            <Text style={styles.statValue}>{Number(room.consumption.cost || 0).toFixed(2)}</Text>
           </View>
         </View>
       )}

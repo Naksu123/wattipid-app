@@ -4,6 +4,25 @@ require 'db.php';
 // Set response header to JSON
 header('Content-Type: application/json');
 
+// Global error handler to ensure JSON response on PHP errors
+set_error_handler(function($errno, $errstr, $errfile, $errline) {
+    echo json_encode([
+        "success" => false,
+        "message" => "PHP Error: $errstr in $errfile on line $errline",
+        "error_type" => "php_error"
+    ]);
+    exit;
+});
+
+set_exception_handler(function($exception) {
+    echo json_encode([
+        "success" => false,
+        "message" => "PHP Exception: " . $exception->getMessage(),
+        "error_type" => "php_exception"
+    ]);
+    exit;
+});
+
 // --- PRODUCTION CONFIG ---
 define('DEBUG_MODE', false);
 define('SECRET_KEY', 'wattipid_secure_key_2026'); // CHANGE THIS IN PRODUCTION!
@@ -16,6 +35,16 @@ $action = $data['action'] ?? '';
 // Debug log (Only in debug mode)
 if (DEBUG_MODE) {
     file_put_contents('debug_api.log', date('[Y-m-d H:i:s] ') . "Action: $action | Data: " . $json . "\n", FILE_APPEND);
+}
+
+function sendResponse($success, $message, $data = null, $httpCode = 200) {
+    http_response_code($httpCode);
+    echo json_encode([
+        "success" => $success,
+        "message" => $message,
+        "data" => $data
+    ]);
+    exit;
 }
 
 $response = ["success" => false, "message" => "Invalid action"];
@@ -49,18 +78,30 @@ if (isset($data['action'])) {
     $action = $data['action'];
 
     // --- TOKEN SECURITY CHECK ---
-    $publicActions = ['login', 'register', 'logConsumption', 'getSetting'];
+    $publicActions = ['login', 'register', 'logConsumption', 'getSetting', 'getTenantInvitationByEmail', 'getRoomByTenantCode'];
     $authenticatedUser = null;
 
     if (!in_array($action, $publicActions)) {
+        // Fallback for getallheaders() which might be missing in some environments
+        if (!function_exists('getallheaders')) {
+            function getallheaders() {
+                $headers = [];
+                foreach ($_SERVER as $name => $value) {
+                    if (substr($name, 0, 5) == 'HTTP_') {
+                        $headers[str_replace(' ', '-', ucwords(strtolower(str_replace('_', ' ', substr($name, 5)))))] = $value;
+                    }
+                }
+                return $headers;
+            }
+        }
+
         $headers = getallheaders();
-        $authHeader = $headers['Authorization'] ?? $headers['authorization'] ?? '';
+        $authHeader = $headers['Authorization'] ?? $headers['authorization'] ?? $_SERVER['HTTP_AUTHORIZATION'] ?? '';
         $token = str_replace('Bearer ', '', $authHeader);
         
         $authenticatedUser = verifyToken($token);
         if (!$authenticatedUser) {
-            echo json_encode(["success" => false, "message" => "Unauthorized access. Please log in again."]);
-            exit;
+            sendResponse(false, "Unauthorized access. Please log in again.", null, 401);
         }
     }
 
@@ -117,7 +158,7 @@ if (isset($data['action'])) {
             // A new month has started! Archive previous month totals
             $prevMonth = date('Y-m', strtotime('first day of last month'));
             
-            $stmt = $conn->query("SELECT room_id, tenant_name FROM rooms WHERE status = 'Occupied'");
+            $stmt = $conn->query("SELECT room_id, tenant_name FROM rooms WHERE status = 'occupied'");
             $rooms = $stmt->fetchAll();
 
             foreach ($rooms as $room) {
@@ -170,11 +211,61 @@ if (isset($data['action'])) {
                 break;
 
             case 'register':
-                $passwordHash = password_hash($data['password'], PASSWORD_DEFAULT);
-                $stmt = $conn->prepare("INSERT INTO users (name, email, password_hash, role) VALUES (?, ?, ?, 'tenant')");
-                if ($stmt->execute([$data['name'], $data['email'], $passwordHash])) {
+                $name = $data['name'];
+                $email = $data['email'];
+                $password = $data['password'];
+                $role = $data['role'] ?? 'tenant';
+                $code = $data['code'] ?? null;
+                $passwordHash = password_hash($password, PASSWORD_DEFAULT);
+
+                $roomId = null;
+
+                // If tenant, verify the access code and get the room_id
+                if ($role === 'tenant') {
+                    if (!$code) {
+                        $response['message'] = "Access code is required for tenants";
+                        break;
+                    }
+                    
+                    $stmt = $conn->prepare("SELECT room_id FROM tenant_invitations WHERE email = ? AND tenant_code = ? AND status = 'active'");
+                    $stmt->execute([$email, $code]);
+                    $invitation = $stmt->fetch();
+
+                    if (!$invitation) {
+                        $response['message'] = "Invalid or expired access code for this email";
+                        break;
+                    }
+                    $roomId = $invitation['room_id'];
+                }
+
+                // Create the user
+                $stmt = $conn->prepare("INSERT INTO users (name, email, password_hash, role, room_id) VALUES (?, ?, ?, ?, ?)");
+                if ($stmt->execute([$name, $email, $passwordHash, $role, $roomId])) {
+                    $userId = $conn->lastInsertId();
+
+                    if ($role === 'tenant' && $roomId) {
+                        // 1. Update invitation status
+                        $stmt = $conn->prepare("UPDATE tenant_invitations SET status = 'used' WHERE email = ? AND tenant_code = ?");
+                        $stmt->execute([$email, $code]);
+
+                        // 2. Update room status to occupied
+                        $stmt = $conn->prepare("UPDATE rooms SET status = 'occupied', tenant_name = ?, tenant_start_date = CURDATE() WHERE room_id = ?");
+                        $stmt->execute([$name, $roomId]);
+                    }
+
                     $response['success'] = true;
                     $response['message'] = "Registered successfully";
+                    
+                    // Automatically log in after registration
+                    $stmt = $conn->prepare("SELECT * FROM users WHERE id = ?");
+                    $stmt->execute([$userId]);
+                    $user = $stmt->fetch();
+                    unset($user['password_hash']);
+                    
+                    $response['authToken'] = generateToken($user);
+                    $response['data'] = $user;
+                } else {
+                    $response['message'] = "Registration failed. Email might already exist.";
                 }
                 break;
 
@@ -207,34 +298,35 @@ if (isset($data['action'])) {
                 break;
 
             case 'getBuildingSummary':
-                $month = (int)date('m');
-                $year = (int)date('Y');
+                $currMonth = date('Y-m');
+                $prevMonth = date('Y-m', strtotime('first day of last month'));
                 
                 // 1. Overall stats
                 $stmt = $conn->query("SELECT 
                     COUNT(*) as totalRooms,
-                    SUM(CASE WHEN status = 'Occupied' THEN 1 ELSE 0 END) as occupiedRooms,
-                    SUM(CASE WHEN last_seen < DATE_SUB(NOW(), INTERVAL 5 MINUTE) OR last_seen IS NULL THEN 1 ELSE 0 END) as offlineMeters
+                    COALESCE(SUM(CASE WHEN status = 'occupied' THEN 1 ELSE 0 END), 0) as occupiedRooms,
+                    COALESCE(SUM(CASE WHEN status = 'on_process' THEN 1 ELSE 0 END), 0) as onProcessRooms,
+                    COALESCE(SUM(CASE WHEN last_seen < DATE_SUB(NOW(), INTERVAL 5 MINUTE) OR last_seen IS NULL THEN 1 ELSE 0 END), 0) as offlineMeters
                     FROM rooms");
                 $stats = $stmt->fetch();
 
-                // 2. Total consumption for the month (All rooms)
+                // 2. Total consumption for the building (All rooms combined)
                 $stmt = $conn->prepare("SELECT COALESCE(SUM(energy), 0) as totalEnergy, COALESCE(SUM(cost), 0) as totalCost FROM consumption_logs WHERE DATE_FORMAT(timestamp, '%Y-%m') = ?");
-                $stmt->execute([date('Y-m')]);
+                $stmt->execute([$currMonth]);
                 $totals = $stmt->fetch();
 
-                // 3. Room details with their monthly totals
+                // 3. Room details with their current and previous month totals
                 $stmt = $conn->query("SELECT r.*, 
-                    (SELECT COALESCE(SUM(energy), 0) FROM consumption_logs WHERE room_id = r.room_id AND DATE_FORMAT(timestamp, '%Y-%m') = '" . date('Y-m') . "') as monthlyEnergy
+                    (SELECT COALESCE(SUM(energy), 0) FROM consumption_logs WHERE room_id = r.room_id AND DATE_FORMAT(timestamp, '%Y-%m') = '$currMonth') as currEnergy,
+                    (SELECT COALESCE(SUM(energy), 0) FROM consumption_logs WHERE room_id = r.room_id AND DATE_FORMAT(timestamp, '%Y-%m') = '$prevMonth') as prevEnergy
                     FROM rooms r");
                 $rooms = $stmt->fetchAll();
 
-                $response['success'] = true;
-                $response['data'] = [
+                sendResponse(true, "Summary retrieved", [
                     'stats' => $stats,
                     'totals' => $totals,
                     'rooms' => $rooms
-                ];
+                ]);
                 break;
 
             case 'getRoomById':
@@ -259,7 +351,7 @@ if (isset($data['action'])) {
                 break;
 
             case 'getVacantRooms':
-                $stmt = $conn->prepare("SELECT * FROM rooms WHERE status = 'Vacant'");
+                $stmt = $conn->prepare("SELECT * FROM rooms WHERE status = 'vacant'");
                 $stmt->execute();
                 $response['data'] = $fetchAll = $stmt->fetchAll();
                 $response['success'] = true;
@@ -276,11 +368,11 @@ if (isset($data['action'])) {
                 
                 if ($tenant) {
                     // 2. Update new room
-                    $stmt = $conn->prepare("UPDATE rooms SET tenant_name = ?, tenant_start_date = ?, status = 'Occupied' WHERE room_id = ?");
+                    $stmt = $conn->prepare("UPDATE rooms SET tenant_name = ?, tenant_start_date = ?, status = 'occupied' WHERE room_id = ?");
                     $stmt->execute([$tenant['tenant_name'], $tenant['tenant_start_date'], $toRoom]);
                     
                     // 3. Clear old room
-                    $stmt = $conn->prepare("UPDATE rooms SET tenant_name = NULL, tenant_start_date = NULL, status = 'Vacant' WHERE room_id = ?");
+                    $stmt = $conn->prepare("UPDATE rooms SET tenant_name = NULL, tenant_start_date = NULL, status = 'vacant' WHERE room_id = ?");
                     $stmt->execute([$fromRoom]);
                     
                     $response['success'] = true;
@@ -312,7 +404,7 @@ if (isset($data['action'])) {
 
                     // 3. Archive for safety (Soft-Archive)
                     $stmt = $conn->prepare("INSERT INTO tenant_history (room_id, tenant_name, tenant_email, tenant_start_date, move_out_date, status) VALUES (?, ?, ?, ?, CURDATE(), 'moved_out')");
-                    $stmt->execute([$roomId, $tenantName, $user['email'] ?? 'unknown', $room['tenant_start_date'], 'moved_out']);
+                    $stmt->execute([$roomId, $tenantName, $user['email'] ?? 'unknown', $room['tenant_start_date']]);
 
                     // 4. DELETE ALL DATA (Privacy Requirement)
                     // Delete User Account
@@ -331,7 +423,7 @@ if (isset($data['action'])) {
                 }
                 
                 // 5. Reset room status
-                $stmt = $conn->prepare("UPDATE rooms SET tenant_name = NULL, tenant_start_date = NULL, status = 'Vacant' WHERE room_id = ?");
+                $stmt = $conn->prepare("UPDATE rooms SET tenant_name = NULL, tenant_start_date = NULL, status = 'vacant' WHERE room_id = ?");
                 $stmt->execute([$roomId]);
                 
                 $response['success'] = true;

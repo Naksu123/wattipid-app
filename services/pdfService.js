@@ -21,8 +21,13 @@ export async function generateMonthlyReport({ roomId, tenantName, tenantStartDat
   // Daily breakdown
   const dailyData = await getDailyBreakdownFiltered(roomId, year, month, tenantStartDate, moveOutDate);
 
-  const difference = current.totalEnergy - previous.totalEnergy;
-  const totalBill = current.totalEnergy * rate;
+  // Safety check to prevent crash if API fails
+  if (!current || !previous) {
+    throw new Error('Failed to fetch consumption data for the report. Please check your connection.');
+  }
+
+  const difference = (current.totalEnergy || 0) - (previous.totalEnergy || 0);
+  const totalBill = (current.totalEnergy || 0) * rate;
   const monthName = MONTH_NAMES[month - 1];
   const generated = new Date().toLocaleString();
 

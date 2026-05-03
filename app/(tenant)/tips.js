@@ -195,8 +195,19 @@ export default function TipsScreen() {
                   <Ionicons name={item.icon} size={22} color={COLORS.primary} />
                 </View>
                 <View style={s.tipContent}>
-                  <Text style={s.tipCategory}>{item.category}</Text>
+                  <View style={s.tipHeaderRow}>
+                    <Text style={s.tipTitle}>{item.title}</Text>
+                    <View style={[s.impactBadge, { backgroundColor: item.impact === 'High' ? 'rgba(239,68,68,0.1)' : 'rgba(59,130,246,0.1)' }]}>
+                      <Text numberOfLines={1} style={[s.impactText, { color: item.impact === 'High' ? COLORS.danger : COLORS.info }]}>{item.impact} Impact</Text>
+                    </View>
+                  </View>
                   <Text style={s.tipText}>{item.tip}</Text>
+                  {item.reason && (
+                    <View style={s.reasonBox}>
+                      <Ionicons name="bulb" size={12} color={COLORS.warning} />
+                      <Text style={s.reasonText}>{item.reason}</Text>
+                    </View>
+                  )}
                 </View>
               </GlassCard>
             ))}
@@ -216,7 +227,7 @@ export default function TipsScreen() {
 
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
-  scroll: { padding: SPACING.lg, paddingTop: SPACING.xxl + 10, paddingBottom: SPACING.xxl },
+  scroll: { padding: SPACING.lg, paddingTop: SPACING.xxl + 10, paddingBottom: SPACING.xxl + 60 },
   title: { fontSize: FONT_SIZE.xxl, fontWeight: FONT_WEIGHT.bold, color: COLORS.textPrimary },
   subtitle: { fontSize: FONT_SIZE.md, color: COLORS.textSecondary, marginBottom: SPACING.lg },
   // Daily Tip
@@ -272,9 +283,27 @@ const s = StyleSheet.create({
   summaryBar: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, padding: SPACING.md, marginBottom: SPACING.md },
   summaryBarText: { fontSize: FONT_SIZE.xs, color: COLORS.textMuted },
   // Static Tip Cards
-  tipCard: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md, marginBottom: SPACING.sm, padding: SPACING.md },
-  tipIcon: { width: 44, height: 44, borderRadius: 12, backgroundColor: 'rgba(34,197,94,0.1)', alignItems: 'center', justifyContent: 'center' },
+  tipCard: { flexDirection: 'row', alignItems: 'flex-start', gap: SPACING.md, marginBottom: SPACING.sm, padding: SPACING.md },
+  tipIcon: { width: 44, height: 44, borderRadius: 12, backgroundColor: 'rgba(34,197,94,0.1)', alignItems: 'center', justifyContent: 'center', marginTop: 2 },
   tipContent: { flex: 1 },
+  tipHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4, gap: SPACING.sm },
+  tipTitle: { flex: 1, fontSize: FONT_SIZE.md, color: COLORS.textPrimary, fontWeight: FONT_WEIGHT.bold },
+  impactBadge: { 
+    paddingHorizontal: 8, 
+    paddingVertical: 3, 
+    borderRadius: RADIUS.sm, 
+    flexShrink: 0, 
+    alignSelf: 'flex-start',
+    marginTop: 2
+  },
+  impactText: { 
+    fontSize: 8, 
+    fontWeight: '800', 
+    textTransform: 'uppercase',
+    letterSpacing: 0.5
+  },
   tipCategory: { fontSize: FONT_SIZE.xs, color: COLORS.primary, fontWeight: FONT_WEIGHT.semibold, textTransform: 'uppercase', letterSpacing: 1 },
-  tipText: { fontSize: FONT_SIZE.sm, color: COLORS.textSecondary, lineHeight: 20, marginTop: 2 },
+  tipText: { fontSize: FONT_SIZE.sm, color: COLORS.textSecondary, lineHeight: 20 },
+  reasonBox: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, marginTop: 10, padding: 8, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: RADIUS.sm, borderLeftWidth: 2, borderLeftColor: COLORS.warning },
+  reasonText: { flex: 1, fontSize: 11, color: COLORS.textMuted, fontStyle: 'italic', lineHeight: 16, flexWrap: 'wrap' },
 });

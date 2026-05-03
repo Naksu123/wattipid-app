@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const ENVIRONMENTS = {
-  local: 'http://192.168.254.105/wattipid_backend',
+  local: 'http://192.168.254.109/wattipid_backend',
   production: 'https://wattipid-backend.infinityfreeapp.com', // Placeholder - update with your actual Hostinger URL
 };
 
