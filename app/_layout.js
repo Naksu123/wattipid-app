@@ -17,16 +17,16 @@ function RootLayoutContent() {
     if (isLoading) return;
 
     const inAuthGroup = segments[0] === '(auth)';
+    const isVerifyScreen = segments.length > 1 && segments[1] === 'verify';
     
     if (!isAuthenticated) {
       if (!inAuthGroup) {
-        // Force dismiss all modals and redirect to login
-        router.dismissAll();
+        // Force redirect to login
         router.replace('/(auth)/login');
       }
     } else {
       // User is authenticated
-      if (inAuthGroup || segments.length === 0) {
+      if ((inAuthGroup && !isVerifyScreen) || segments.length === 0) {
         const target = user?.role === 'landlord' ? '/(landlord)/overview' : '/(tenant)/dashboard';
         router.replace(target);
       }

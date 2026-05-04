@@ -13,13 +13,15 @@ export function cancelAllRequests() {
   abortController = new AbortController(); // Re-initialize for next session
 }
 
+let isSessionExpiring = false;
+
 export async function apiCall(action, data = {}) {
   try {
     const baseUrl = await getBaseUrl();
     const token = await AsyncStorage.getItem('@auth_token');
     
     // 1. Protection: If no token and not a public action, don't even try
-    const publicActions = ['login', 'register', 'check_email'];
+    const publicActions = ['login', 'register', 'check_email', 'sendVerificationCode', 'verifyOTP', 'resendVerificationCode', 'getTenantInvitationByEmail', 'getRoomByTenantCode'];
     if (!token && !publicActions.includes(action)) {
       return null;
     }
@@ -44,24 +46,25 @@ export async function apiCall(action, data = {}) {
     if (contentType && contentType.indexOf("application/json") !== -1) {
       const result = await response.json();
       
-      if (!result.success) {
-        if (result.message && result.message.includes('Unauthorized')) {
-          // 2. Silent handling of Unauthorized
-          // If we are already logging out, don't show the error
-          const currentToken = await AsyncStorage.getItem('@auth_token');
-          if (currentToken) {
-            await AsyncStorage.multiRemove(['@auth_token', '@auth_user']);
-            // We only log if there was a token (meaning the session expired naturally)
-            ErrorTracker.log('API', 'Session Expired', null, 'Your session has expired. Please log in again.');
-          }
-          return null; 
-        } else {
-          ErrorTracker.log('API', `Action [${action}] failed: ${result.message}`);
-        }
-        throw new Error(result.message);
+      if (result.success) {
+        // Reset the flag if a request succeeds
+        isSessionExpiring = false;
+        return result.data;
       }
       
-      return result.data;
+      // Handle Failure
+      if (result.message && result.message.includes('Unauthorized')) {
+        // Prevent redundant logging and handling
+        if (!isSessionExpiring) {
+          isSessionExpiring = true;
+          await AsyncStorage.multiRemove(['@auth_token', '@auth_user']);
+          ErrorTracker.log('API', 'Session Expired', null, 'Your session has expired. Please log in again.');
+        }
+        return null; 
+      } else {
+        ErrorTracker.log('API', `Action [${action}] failed: ${result.message}`);
+        throw new Error(result.message);
+      }
     } else {
       const text = await response.text();
       // Only log if it's not an abort (aborting doesn't produce JSON)

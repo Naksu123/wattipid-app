@@ -6,7 +6,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { getAllRooms, generateNewTenantCode, updateRoomStatus, saveTenantInvitation, getMonthlyConsumptionFiltered, getSetting, revokeTenant, transferTenant, getVacantRooms } from '../../services/database';
+import { getAllRooms, generateNewTenantCode, updateRoomStatus, saveTenantInvitation, getMonthlyConsumptionFiltered, getSetting, revokeTenant, transferTenant, getVacantRooms, getBuildingSummary } from '../../services/database';
 import { sendTenantAccessCode } from '../../services/emailService';
 import { generateMonthlyReport, shareReport } from '../../services/pdfService';
 import RoomCard from '../../components/RoomCard';
@@ -102,6 +102,8 @@ export default function RoomsScreen() {
 
 
 
+  const handleTransfer = async (toRoomId) => {
+    if (!transferFromRoom) return;
     setSending(true);
     const result = await transferTenant(transferFromRoom.room_id, toRoomId);
     setSending(false);
@@ -124,6 +126,7 @@ export default function RoomsScreen() {
     }
   };
 
+  const handleConfirmRevoke = async () => {
     if (!revokeRoom) return;
     setSending(true);
     const result = await revokeTenant(revokeRoom.room_id);
@@ -174,8 +177,8 @@ export default function RoomsScreen() {
         Alert.alert('Failed', result.message || 'Could not send the access code.');
       }
       loadRooms();
-    } catch (_err) {
-      Alert.alert('Error', 'Something went wrong. Please try again.');
+    } catch (err) {
+      Alert.alert('Email Failed', err.message || 'Something went wrong. Please try again.');
     } finally {
       setSending(false);
     }
@@ -261,18 +264,6 @@ export default function RoomsScreen() {
 
               {room.status === 'occupied' && room.tenant_start_date && (
                 <View style={s.moveInRow}>
-                  {isActive && room.consumption && (
-                    <View style={styles.stats}>
-                      <View style={styles.stat}>
-                        <Ionicons name="flash-outline" size={14} color={COLORS.accent} />
-                        <Text style={styles.statValue}>{Number(room.consumption.energy || 0).toFixed(2)} kWh</Text>
-                      </View>
-                      <View style={styles.stat}>
-                        <Text style={styles.statLabel}>₱</Text>
-                        <Text style={styles.statValue}>{Number(room.consumption.cost || 0).toFixed(2)}</Text>
-                      </View>
-                    </View>
-                  )}
                   <Ionicons name="calendar-outline" size={14} color={COLORS.textMuted} />
                   <Text style={s.moveInText}>Move-in: {room.tenant_start_date}{room.move_out_date ? `  •  Move-out: ${room.move_out_date}` : ''}</Text>
                 </View>
@@ -406,6 +397,7 @@ export default function RoomsScreen() {
       {/* Send Code Modal */}
       <Modal visible={sendModalVisible} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setSendModalVisible(false)}>
         <View style={s.overlay}>
+          <View style={s.modal}>
             <ScrollView style={{ width: '100%' }} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 10 }}>
               <View style={s.modalIcon}>
                 <Ionicons name="mail" size={32} color={COLORS.primary} />

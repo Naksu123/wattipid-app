@@ -13,11 +13,45 @@ export async function createUser(name, email, password, role, roomId = null, ten
 }
 
 export async function saveVerificationCode(email, code) {
+  // Legacy — now handled by sendVerificationCode in backend
   return await apiCall('saveVerificationCode', { email, code });
 }
 
 export async function validateVerificationCode(email, code) {
+  // Legacy — now handled by verifyOTP in backend
   return await apiCall('validateVerificationCode', { email, code });
+}
+
+// ============ NEW EMAIL VERIFICATION API ============
+export async function sendVerificationCodeAPI(email, name = '') {
+  try {
+    const data = await apiCall('sendVerificationCode', { email, name });
+    return { success: true, ...(data || {}), message: 'Verification code sent' };
+  } catch (error) {
+    return { success: false, message: error.message };
+  }
+}
+
+export async function verifyOTPAPI(email, code, type = 'verification') {
+  try {
+    const data = await apiCall('verifyOTP', { email, code, type });
+    return { success: true, ...(data || {}), message: 'Verified' };
+  } catch (error) {
+    return { 
+      success: false, 
+      message: error.message,
+      status: error.message.toLowerCase().includes('expired') ? 'expired' : 'invalid'
+    };
+  }
+}
+
+export async function resendVerificationCodeAPI(email, name = '') {
+  try {
+    const data = await apiCall('resendVerificationCode', { email, name });
+    return { success: true, ...(data || {}), message: 'New code sent' };
+  } catch (error) {
+    return { success: false, message: error.message };
+  }
 }
 
 export async function verifyUserEmail(email) {
@@ -86,7 +120,17 @@ export async function saveTenantInvitation(email, roomId, tenantCode) {
 }
 
 export async function getTenantInvitationByEmail(email) {
-  return await apiCall('getTenantInvitationByEmail', { email });
+  try {
+    const data = await apiCall('getTenantInvitationByEmail', { email });
+    return data ? { success: true, ...data } : null;
+  } catch (error) {
+    // Return the failure so emailService can handle specific cases like 'expired'
+    return { 
+      success: false, 
+      message: error.message, 
+      expired: error.message.toLowerCase().includes('expired') 
+    };
+  }
 }
 
 export async function markInvitationUsed(email) {

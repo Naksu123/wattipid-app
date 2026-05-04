@@ -1,27 +1,30 @@
-import { saveVerificationCode, validateVerificationCode, getTenantInvitationByEmail } from './database';
+import { 
+  sendVerificationCodeAPI, 
+  verifyOTPAPI, 
+  resendVerificationCodeAPI, 
+  getTenantInvitationByEmail 
+} from './database';
 
-const MOCK_MODE = true;
-let lastGeneratedCode = null;
+// ============ EMAIL VERIFICATION ============
 
-function generateCode() {
-  return Math.floor(100000 + Math.random() * 900000).toString();
+/**
+ * Send a verification code to the user's email.
+ * This now calls the real backend API which dispatches via SendGrid/Brevo.
+ */
+export async function sendVerificationCode(email, name = '') {
+  const result = await sendVerificationCodeAPI(email, name);
+  return {
+    success: result.success,
+    message: result.message,
+    mockCode: result.mockCode || null,  // Only present in mock/dev mode
+  };
 }
 
-export async function sendVerificationCode(email) {
-  const code = generateCode();
-  lastGeneratedCode = code;
-  await saveVerificationCode(email, code);
-
-  if (MOCK_MODE) {
-    console.log(`[MOCK EMAIL] Verification code for ${email}: ${code}`);
-    return { success: true, message: 'Verification code sent (mock mode)', mockCode: code };
-  }
-
-  return { success: true, message: 'Verification code sent to your email' };
-}
-
+/**
+ * Verify a code entered by the user against the backend.
+ */
 export async function verifyCode(email, code) {
-  const result = await validateVerificationCode(email, code);
+  const result = await verifyOTPAPI(email, code, 'verification');
   return {
     success: result.success,
     message: result.message,
@@ -29,48 +32,62 @@ export async function verifyCode(email, code) {
   };
 }
 
-export function getLastMockCode() {
-  return lastGeneratedCode;
+/**
+ * Resend a verification code.
+ * The backend handles rate limiting and invalidating old codes.
+ */
+export async function resendCode(email, name = '') {
+  const result = await resendVerificationCodeAPI(email, name);
+  return {
+    success: result.success,
+    message: result.message,
+    mockCode: result.mockCode || null,
+  };
 }
+
+export function getLastMockCode() {
+  return null; // No longer applicable with real emails
+}
+
 
 // ============ TENANT ACCESS CODE EMAIL ============
 
-// Called by landlord (rooms.js) when assigning a room to a tenant email
+/**
+ * Called by landlord (rooms.js) when assigning a room to a tenant email.
+ * The actual email is now sent by the backend when saveTenantInvitation is called.
+ * This function is kept for backward compatibility but the email sending
+ * is now handled server-side in api.php -> sendAccessCodeEmail().
+ */
 export async function sendTenantAccessCode(tenantEmail, roomId, accessCode) {
-  if (MOCK_MODE) {
-    console.log(`[MOCK EMAIL] Tenant access code for ${tenantEmail} | Room: ${roomId} | Code: ${accessCode}`);
-    return {
-      success: true,
-      message: `Access code sent to ${tenantEmail} (mock mode)`,
-      mockCode: accessCode,
-    };
-  }
-
-  // Real email API call goes here
-  return { success: true, message: `Access code sent to ${tenantEmail}` };
+  // The backend now handles email sending when saveTenantInvitation is called.
+  // This function just returns success since the invitation was already saved.
+  return {
+    success: true,
+    message: `Access code sent to ${tenantEmail}`,
+    mockCode: accessCode,  // Keep for UI display in landlord success modal
+  };
 }
 
-// Called by tenant (register.js) — looks up their invitation and re-sends the code
+/**
+ * Called by tenant (register.js) — looks up their invitation.
+ * The actual verification email was already sent by the landlord's action.
+ */
 export async function requestTenantAccessCode(email) {
-  const invitation = await getTenantInvitationByEmail(email);
+  const result = await getTenantInvitationByEmail(email);
+  const invitation = (result && result.success) ? result : null;
 
   if (!invitation) {
     return {
       success: false,
-      message: 'No access code found for this email. Please ask your landlord to send you one first.',
+      expired: result?.expired || false,
+      message: result?.message || 'No access code found for this email. Please ask your landlord to send you one first.',
     };
   }
 
-  if (MOCK_MODE) {
-    console.log(`[MOCK EMAIL] Re-sent tenant code to ${email}: ${invitation.tenant_code} (Room: ${invitation.room_id})`);
-    return {
-      success: true,
-      message: `Access code sent to ${email}`,
-      mockCode: invitation.tenant_code,
-      roomId: invitation.room_id,
-    };
-  }
-
-  // Real email API call goes here
-  return { success: true, message: `Access code sent to ${email}` };
+  return {
+    success: true,
+    message: `Access code found for ${email}`,
+    mockCode: invitation.tenant_code,
+    roomId: invitation.room_id,
+  };
 }

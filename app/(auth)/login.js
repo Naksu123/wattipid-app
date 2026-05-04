@@ -79,11 +79,6 @@ export default function LoginScreen() {
             </LinearGradient>
           </TouchableOpacity>
 
-          <View style={s.demoBox}>
-            <Ionicons name="information-circle-outline" size={16} color={COLORS.info} />
-            <Text style={s.demoText}>Demo: admin@wattipid.com / admin123</Text>
-          </View>
-
           <View style={s.divider}>
             <View style={s.divLine} /><Text style={s.divText}>or</Text><View style={s.divLine} />
           </View>

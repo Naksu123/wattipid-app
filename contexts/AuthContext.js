@@ -28,7 +28,20 @@ export function AuthProvider({ children }) {
       }
     };
     loadSession();
-  }, []);
+
+    // Session monitor: Periodically check if token still exists (handles background 401s)
+    const interval = setInterval(async () => {
+      if (isAuthenticated) {
+        const token = await AsyncStorage.getItem('@auth_token');
+        if (!token) {
+          setIsAuthenticated(false);
+          setUser(null);
+        }
+      }
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [isAuthenticated]);
 
   const login = async (email, password) => {
     setIsLoading(true);
@@ -138,9 +151,49 @@ export function AuthProvider({ children }) {
       setIsAuthenticated(false);
     }
   };
+  const verifyEmail = async (email, code) => {
+    setIsLoading(true);
+    try {
+      const baseUrl = await getBaseUrl();
+      const response = await fetch(`${baseUrl}/api.php`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'verifyOTP', email, code, type: 'verification' }),
+      });
+      const result = await response.json();
+      return {
+        success: result.success,
+        message: result.message,
+        status: result.data?.status || (result.success ? 'valid' : 'invalid'),
+      };
+    } catch (error) {
+      return { success: false, message: 'Cannot reach server. Check your connection.', status: 'error' };
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const resendVerificationCode = async (email) => {
+    try {
+      const baseUrl = await getBaseUrl();
+      const response = await fetch(`${baseUrl}/api.php`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'resendVerificationCode', email }),
+      });
+      const result = await response.json();
+      return {
+        success: result.success,
+        message: result.message,
+        mockCode: result.data?.mockCode || null,
+      };
+    } catch (error) {
+      return { success: false, message: 'Cannot reach server.' };
+    }
+  };
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated, isLoading, login, logout, register }}>
+    <AuthContext.Provider value={{ user, isAuthenticated, isLoading, login, logout, register, verifyEmail, resendVerificationCode }}>
       {children}
     </AuthContext.Provider>
   );

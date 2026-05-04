@@ -1,5 +1,6 @@
 <?php
 require 'db.php';
+require_once 'email_service.php';
 
 // Set response header to JSON
 header('Content-Type: application/json');
@@ -78,7 +79,7 @@ if (isset($data['action'])) {
     $action = $data['action'];
 
     // --- TOKEN SECURITY CHECK ---
-    $publicActions = ['login', 'register', 'logConsumption', 'getSetting', 'getTenantInvitationByEmail', 'getRoomByTenantCode'];
+    $publicActions = ['login', 'register', 'logConsumption', 'getSetting', 'getTenantInvitationByEmail', 'getRoomByTenantCode', 'sendVerificationCode', 'verifyOTP', 'resendVerificationCode'];
     $authenticatedUser = null;
 
     if (!in_array($action, $publicActions)) {
@@ -140,6 +141,50 @@ if (isset($data['action'])) {
         )");
     } catch (Exception $e) {}
 
+    try {
+        $conn->exec("CREATE TABLE IF NOT EXISTS invitations (
+            email VARCHAR(255) PRIMARY KEY,
+            room_id VARCHAR(50),
+            tenant_code VARCHAR(10),
+            status ENUM('pending', 'used') DEFAULT 'pending',
+            expires_at TIMESTAMP NULL DEFAULT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )");
+        // Add column if it doesn't exist for existing tables
+        $conn->exec("ALTER TABLE invitations ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP NULL DEFAULT NULL AFTER status");
+    } catch (Exception $e) {}
+
+    // Email OTPs table for verification codes
+    try {
+        $conn->exec("CREATE TABLE IF NOT EXISTS email_otps (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            email VARCHAR(255) NOT NULL,
+            otp_hash VARCHAR(64) NOT NULL,
+            type ENUM('verification', 'access_code') DEFAULT 'verification',
+            status ENUM('pending', 'used', 'expired', 'invalidated', 'locked') DEFAULT 'pending',
+            attempts INT DEFAULT 0,
+            expires_at TIMESTAMP NOT NULL,
+            verified_at TIMESTAMP NULL DEFAULT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_email_type (email, type),
+            INDEX idx_status (status)
+        )");
+    } catch (Exception $e) {}
+
+    // Email delivery logs
+    try {
+        $conn->exec("CREATE TABLE IF NOT EXISTS email_logs (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            email VARCHAR(255) NOT NULL,
+            type VARCHAR(50) NOT NULL,
+            status VARCHAR(20) NOT NULL,
+            provider VARCHAR(50),
+            error_message TEXT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_email (email)
+        )");
+    } catch (Exception $e) {}
+
     function checkMonthlyReset($conn) {
         $currentMonth = date('Y-m');
         
@@ -186,6 +231,14 @@ if (isset($data['action'])) {
         $conn->exec("ALTER TABLE users ADD COLUMN push_token VARCHAR(255) DEFAULT NULL");
     } catch (Exception $e) {}
 
+    // --- AUTO-REVERT EXPIRED ON_PROCESS ROOMS ---
+    try {
+        $conn->exec("UPDATE rooms r 
+                     LEFT JOIN invitations i ON r.room_id = i.room_id AND i.status = 'pending' AND i.expires_at > NOW()
+                     SET r.status = 'vacant' 
+                     WHERE r.status = 'on_process' AND i.email IS NULL");
+    } catch (Exception $e) {}
+
     try {
         switch ($action) {
             // ============ AUTHENTICATION ============
@@ -227,7 +280,7 @@ if (isset($data['action'])) {
                         break;
                     }
                     
-                    $stmt = $conn->prepare("SELECT room_id FROM tenant_invitations WHERE email = ? AND tenant_code = ? AND status = 'active'");
+                    $stmt = $conn->prepare("SELECT room_id FROM invitations WHERE email = ? AND tenant_code = ? AND status = 'pending' AND (expires_at > NOW() OR expires_at IS NULL)");
                     $stmt->execute([$email, $code]);
                     $invitation = $stmt->fetch();
 
@@ -245,7 +298,7 @@ if (isset($data['action'])) {
 
                     if ($role === 'tenant' && $roomId) {
                         // 1. Update invitation status
-                        $stmt = $conn->prepare("UPDATE tenant_invitations SET status = 'used' WHERE email = ? AND tenant_code = ?");
+                        $stmt = $conn->prepare("UPDATE invitations SET status = 'used' WHERE email = ? AND tenant_code = ?");
                         $stmt->execute([$email, $code]);
 
                         // 2. Update room status to occupied
@@ -256,14 +309,25 @@ if (isset($data['action'])) {
                     $response['success'] = true;
                     $response['message'] = "Registered successfully";
                     
-                    // Automatically log in after registration
-                    $stmt = $conn->prepare("SELECT * FROM users WHERE id = ?");
-                    $stmt->execute([$userId]);
-                    $user = $stmt->fetch();
-                    unset($user['password_hash']);
-                    
-                    $response['authToken'] = generateToken($user);
-                    $response['data'] = $user;
+                    // If tenant, send verification email
+                    if ($role === 'tenant') {
+                        $emailResult = sendVerificationOTP($conn, $email, $name);
+                        $response['needsVerification'] = true;
+                        if (isset($emailResult['mockCode'])) {
+                            $response['mockCode'] = $emailResult['mockCode'];
+                        }
+                        // Do not return authToken yet so they are forced to verify
+                    } else {
+                        // Automatically log in after registration
+                        $stmt = $conn->prepare("SELECT * FROM users WHERE id = ?");
+                        $stmt->execute([$userId]);
+                        $user = $stmt->fetch();
+                        unset($user['password_hash']);
+
+                        $response['needsVerification'] = false;
+                        $response['authToken'] = generateToken($user);
+                        $response['data'] = $user;
+                    }
                 } else {
                     $response['message'] = "Registration failed. Email might already exist.";
                 }
@@ -414,7 +478,7 @@ if (isset($data['action'])) {
                     }
                     
                     // Delete active/pending invitations
-                    $stmt = $conn->prepare("DELETE FROM tenant_invitations WHERE room_id = ?");
+                    $stmt = $conn->prepare("DELETE FROM invitations WHERE room_id = ?");
                     $stmt->execute([$roomId]);
 
                     // Delete consumption logs for this specific tenant in this room
@@ -441,25 +505,59 @@ if (isset($data['action'])) {
             case 'saveTenantInvitation':
                 $email = $data['email'];
                 $roomId = $data['roomId'];
-                $code = $data['tenantCode'];
-                
-                $stmt = $conn->prepare("INSERT INTO tenant_invitations (email, room_id, tenant_code, expires_at) VALUES (?, ?, ?, DATE_ADD(NOW(), INTERVAL 5 MINUTE)) ON DUPLICATE KEY UPDATE tenant_code = VALUES(tenant_code), expires_at = DATE_ADD(NOW(), INTERVAL 5 MINUTE), status = 'active'");
-                $stmt->execute([$email, $roomId, $code]);
-                
-                // Update room status to 'on_process'
-                $stmt = $conn->prepare("UPDATE rooms SET status = 'on_process' WHERE room_id = ?");
-                $stmt->execute([$roomId]);
-                
-                $response['success'] = true;
-                $response['data'] = ['status' => 'active'];
+                $tenantCode = $data['tenantCode'];
+                $stmt = $conn->prepare("INSERT INTO invitations (email, room_id, tenant_code, status, expires_at) VALUES (?, ?, ?, 'pending', DATE_ADD(NOW(), INTERVAL 5 MINUTE)) 
+                                        ON DUPLICATE KEY UPDATE room_id = ?, tenant_code = ?, status = 'pending', expires_at = DATE_ADD(NOW(), INTERVAL 5 MINUTE)");
+                $stmt->execute([$email, $roomId, $tenantCode, $roomId, $tenantCode]);
+
+                // Send real email with the access code
+                $emailResult = sendAccessCodeEmail($conn, $email, $tenantCode, $roomId);
+
+                if ($emailResult['success']) {
+                    // Automatically mark room as 'on_process' to prevent duplicate invites
+                    $stmt = $conn->prepare("UPDATE rooms SET status = 'on_process' WHERE room_id = ? AND status = 'vacant'");
+                    $stmt->execute([$roomId]);
+
+                    sendResponse(true, "Invitation saved. Email sent successfully.", [
+                        'emailSent' => true,
+                        'emailProvider' => $emailResult['provider'] ?? 'unknown'
+                    ]);
+                } else {
+                    // Even if DB saved, if email fails we should let the frontend know
+                    sendResponse(false, "Failed to send email: " . $emailResult['message']);
+                }
                 break;
 
             case 'getTenantInvitationByEmail':
-                $stmt = $conn->prepare("SELECT * FROM tenant_invitations WHERE email = ? AND status = 'active' AND expires_at > NOW() ORDER BY created_at DESC LIMIT 1");
-                $stmt->execute([$data['email']]);
-                $response['data'] = $stmt->fetch();
-                $response['success'] = true;
+                $email = $data['email'];
+                $stmt = $conn->prepare("SELECT * FROM invitations WHERE email = ? AND status = 'pending'");
+                $stmt->execute([$email]);
+                $invitation = $stmt->fetch(PDO::FETCH_ASSOC);
+                
+                if ($invitation) {
+                    // Check expiry
+                    if ($invitation['expires_at'] && strtotime($invitation['expires_at']) < time()) {
+                        sendResponse(false, "Your access code has expired. Please ask your landlord to send you a new one.", ["expired" => true]);
+                    }
+
+                    // Resend the email so the tenant actually receives it right now
+                    $emailResult = sendAccessCodeEmail($conn, $email, $invitation['tenant_code'], $invitation['room_id']);
+
+                    if ($emailResult['success']) {
+                        // Reset the expiration timer since we just sent a fresh email
+                        $stmt = $conn->prepare("UPDATE invitations SET expires_at = DATE_ADD(NOW(), INTERVAL 5 MINUTE) WHERE email = ?");
+                        $stmt->execute([$email]);
+                        $invitation['expires_at'] = date('Y-m-d H:i:s', time() + 300);
+                        
+                        sendResponse(true, "Access code sent to your email", $invitation);
+                    } else {
+                        sendResponse(false, "Failed to send email: " . $emailResult['message']);
+                    }
+                } else {
+                    sendResponse(false, "No access code found for this email. Please ask your landlord to send you one first.");
+                }
                 break;
+
             case 'getBudget':
                 $month = $data['month'] ?? (int)date('m');
                 $year = $data['year'] ?? (int)date('Y');
@@ -792,6 +890,81 @@ if (isset($data['action'])) {
                 $stmt = $conn->prepare("INSERT INTO settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)");
                 $stmt->execute([$data['key'], $data['value']]);
                 $response['success'] = true;
+                break;
+
+            // ============ EMAIL VERIFICATION ============
+            case 'sendVerificationCode':
+                $email = $data['email'];
+                $tenantName = $data['name'] ?? '';
+
+                // Rate limit check
+                $rateCheck = checkOTPRateLimit($conn, $email);
+                if (!$rateCheck['allowed']) {
+                    sendResponse(false, $rateCheck['message'], ['wait_seconds' => $rateCheck['wait_seconds']]);
+                }
+
+                // Generate, store, and send OTP
+                $otp = generateOTP();
+                storeOTP($conn, $email, $otp, 'verification');
+
+                $subject = 'Your Wattipid Verification Code: ' . $otp;
+                $htmlBody = getOTPEmailTemplate($tenantName ?: $email, $otp, 'verification');
+                $textBody = getOTPEmailPlainText($tenantName ?: $email, $otp, 'verification');
+                $emailResult = sendEmail($email, $tenantName, $subject, $htmlBody, $textBody);
+                logEmailDelivery($conn, $email, 'verification', $emailResult['success'] ? 'sent' : 'failed', $emailResult['provider'] ?? 'unknown', $emailResult['success'] ? null : $emailResult['message']);
+
+                if ($emailResult['success']) {
+                    // In mock mode, include the code for development testing
+                    $responseData = ['emailSent' => true];
+                    if (EMAIL_PROVIDER === 'mock') {
+                        $responseData['mockCode'] = $otp;
+                    }
+                    sendResponse(true, 'Verification code sent to your email.', $responseData);
+                } else {
+                    sendResponse(false, 'Failed to send verification email. Please try again.', [
+                        'error' => $emailResult['message']
+                    ]);
+                }
+                break;
+
+            case 'verifyOTP':
+                $email = $data['email'];
+                $code = $data['code'];
+                $type = $data['type'] ?? 'verification';
+
+                $result = validateOTP($conn, $email, $code, $type);
+                sendResponse($result['success'], $result['message'], ['status' => $result['status']]);
+                break;
+
+            case 'resendVerificationCode':
+                $email = $data['email'];
+                $tenantName = $data['name'] ?? '';
+
+                // Rate limit check
+                $rateCheck = checkOTPRateLimit($conn, $email);
+                if (!$rateCheck['allowed']) {
+                    sendResponse(false, $rateCheck['message'], ['wait_seconds' => $rateCheck['wait_seconds']]);
+                }
+
+                // Generate new OTP (invalidates old ones)
+                $otp = generateOTP();
+                storeOTP($conn, $email, $otp, 'verification');
+
+                $subject = 'Your New Wattipid Verification Code: ' . $otp;
+                $htmlBody = getOTPEmailTemplate($tenantName ?: $email, $otp, 'verification');
+                $textBody = getOTPEmailPlainText($tenantName ?: $email, $otp, 'verification');
+                $emailResult = sendEmail($email, $tenantName, $subject, $htmlBody, $textBody);
+                logEmailDelivery($conn, $email, 'verification', $emailResult['success'] ? 'sent' : 'failed', $emailResult['provider'] ?? 'unknown', $emailResult['success'] ? null : $emailResult['message']);
+
+                if ($emailResult['success']) {
+                    $responseData = ['emailSent' => true];
+                    if (EMAIL_PROVIDER === 'mock') {
+                        $responseData['mockCode'] = $otp;
+                    }
+                    sendResponse(true, 'New verification code sent.', $responseData);
+                } else {
+                    sendResponse(false, 'Failed to resend verification email.', ['error' => $emailResult['message']]);
+                }
                 break;
         }
     } catch (Exception $e) {
