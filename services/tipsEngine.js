@@ -280,53 +280,76 @@ export async function detectHighConsumption(roomId, currentPower = 0) {
   const thresholds = await getThresholds();
   const alerts = [];
 
-  const [today, budget, dailyComp] = await Promise.all([
+  const [today, month, budget, dailyComp] = await Promise.all([
     getTotalConsumptionToday(roomId),
+    getTotalConsumptionMonth(roomId),
     getBudget(roomId),
     getConsumptionComparison(roomId, 'daily'),
   ]);
 
-  // Check 1: Budget exceeded
+  // Check 1: Budget exceeded (Daily and Monthly)
   if (budget) {
     const dailyPct = budget.daily_allowance > 0 ? (today.totalCost / budget.daily_allowance) * 100 : 0;
-    if (dailyPct >= thresholds.budgetCriticalPct) {
+    const monthlyPct = budget.monthly_budget > 0 ? (month.totalCost / budget.monthly_budget) * 100 : 0;
+
+    // Monthly Checks (Higher Priority)
+    if (monthlyPct >= thresholds.budgetCriticalPct) {
       alerts.push({
         type: 'danger',
-        title: 'Budget Exceeded!',
-        message: `You've exceeded your daily budget of ₱${Number(budget.daily_allowance || 0).toFixed(2)}. Current spending: ₱${Number(today.totalCost || 0).toFixed(2)}.`,
-        tip: 'Turn off all non-essential appliances immediately. Unplug idle chargers and switch off extra lights to prevent further overspending.',
-        severity: 3,
+        title: 'Monthly Budget Exceeded!',
+        message: `You've exceeded your monthly budget of ₱${Number(budget.monthly_budget || 0).toFixed(2)}. Current total: ₱${Number(month.totalCost || 0).toFixed(2)}.`,
+        tip: 'Your monthly spending limit has been reached. Please minimize all electrical usage to avoid additional costs.',
+        severity: 4,
       });
-    } else if (dailyPct >= thresholds.budgetWarningPct) {
+    } else if (monthlyPct >= thresholds.budgetWarningPct) {
       alerts.push({
         type: 'warning',
-        title: 'Budget Warning',
-        message: `You're at ${Number(dailyPct || 0).toFixed(0)}% of your daily budget (₱${Number(today.totalCost || 0).toFixed(2)} / ₱${Number(budget.daily_allowance || 0).toFixed(2)}).`,
-        tip: 'Consider reducing your power usage. Turn off lights you don\'t need, and avoid running high-wattage appliances until tomorrow.',
+        title: 'Monthly Budget Warning',
+        message: `You're at ${Number(monthlyPct || 0).toFixed(0)}% of your monthly budget (₱${Number(month.totalCost || 0).toFixed(2)} / ₱${Number(budget.monthly_budget || 0).toFixed(2)}).`,
+        tip: 'You are nearing your monthly limit. Monitor your usage closely for the remainder of the month.',
         severity: 2,
+      });
+    }
+
+    // Daily Checks
+    if (dailyPct >= thresholds.budgetCriticalPct && monthlyPct < thresholds.budgetCriticalPct) {
+      alerts.push({
+        type: 'danger',
+        title: 'Daily Budget Exceeded!',
+        message: `You've exceeded your daily allowance of ₱${Number(budget.daily_allowance || 0).toFixed(2)}. Today's spending: ₱${Number(today.totalCost || 0).toFixed(2)}.`,
+        tip: 'Try to keep usage at a minimum for the rest of the day.',
+        severity: 3,
+      });
+    } else if (dailyPct >= thresholds.budgetWarningPct && monthlyPct < thresholds.budgetWarningPct) {
+      alerts.push({
+        type: 'warning',
+        title: 'Daily Budget Warning',
+        message: `You've used ${Number(dailyPct || 0).toFixed(0)}% of your daily allowance.`,
+        tip: 'Consider switching off non-essential appliances.',
+        severity: 1,
       });
     }
   }
 
-  // Check 2: Significantly higher than previous period
+  // Check 2: significantly higher than previous period
   if (dailyComp && dailyComp.previous.totalCost > 0 && dailyComp.costPctChange >= thresholds.comparisonIncreasePct) {
     alerts.push({
       type: 'warning',
-      title: 'High Consumption Detected',
-      message: `Today's consumption is ${Number(dailyComp.costPctChange || 0).toFixed(0)}% higher than yesterday.`,
-      tip: 'Your usage is unusually high today. Check if any appliances were left running and try to minimize power consumption for the rest of the day.',
+      title: 'High Consumption Trend',
+      message: `Today's usage is ${Number(dailyComp.costPctChange || 0).toFixed(0)}% higher than yesterday.`,
+      tip: 'Check if you left any appliances on by mistake.',
       severity: 2,
     });
   }
 
-  // Check 3: High instantaneous power
+  // Check 3: High instantaneous power (Peak)
   if (currentPower > thresholds.highPowerWatts) {
     alerts.push({
       type: 'warning',
-      title: 'High Power Draw',
-      message: `Your current power draw is ${Number(currentPower || 0).toFixed(0)}W, which is above the ${thresholds.highPowerWatts}W threshold.`,
-      tip: 'Multiple high-wattage appliances may be running. Turn off appliances you\'re not actively using to reduce your power draw.',
-      severity: 1,
+      title: 'Peak Power Usage!',
+      message: `Your current draw is ${Number(currentPower || 0).toFixed(0)}W, which is high for your room.`,
+      tip: 'Try to limit running multiple heavy appliances (like AC and kettle) at the same time.',
+      severity: 2,
     });
   }
 
@@ -334,9 +357,9 @@ export async function detectHighConsumption(roomId, currentPower = 0) {
   if (today.totalEnergy > thresholds.highDailyKwh) {
     alerts.push({
       type: 'danger',
-      title: 'Excessive Daily Usage',
-      message: `Today's total energy usage (${Number(today.totalEnergy || 0).toFixed(2)} kWh) exceeds the ${thresholds.highDailyKwh} kWh threshold.`,
-      tip: 'Your energy consumption today is very high. Audit your running devices — AC units, heaters, and old refrigerators are common culprits.',
+      title: 'Excessive Energy Use',
+      message: `Today's usage (${Number(today.totalEnergy || 0).toFixed(2)} kWh) is above your normal threshold.`,
+      tip: 'Audit your appliances to see what is consuming the most power.',
       severity: 3,
     });
   }

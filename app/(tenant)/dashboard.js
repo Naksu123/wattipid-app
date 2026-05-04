@@ -2,10 +2,12 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRef } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { fetchRealtimeData } from '../../services/esp32Api';
-import { getSetting, getTotalConsumptionToday, getBudget, getConsumptionComparison, getRoomById } from '../../services/database';
+import { getSetting, getTotalConsumptionToday, getBudget, getConsumptionComparison, getRoomById, getNotifications } from '../../services/database';
 import { detectHighConsumption, getSmartPopupTip } from '../../services/tipsEngine';
+import { sendLocalNotification } from '../../services/notificationService';
 import PowerGauge from '../../components/PowerGauge';
 import GlassCard from '../../components/GlassCard';
 import StatusBadge from '../../components/StatusBadge';
@@ -29,6 +31,7 @@ export default function DashboardScreen() {
   const [smartTip, setSmartTip] = useState(null);
   const [tipDismissed, setTipDismissed] = useState(false);
   const [lastAlertKey, setLastAlertKey] = useState('');
+  const lastNotifyTime = useRef(0);
 
   const roomId = user?.room_id || 'Room 1';
 
@@ -41,6 +44,7 @@ export default function DashboardScreen() {
         getBudget(roomId),
         getConsumptionComparison(roomId, 'daily', user?.name),
         getRoomById(roomId),
+        getNotifications(roomId),
       ]);
       // Handle offline state for real-time metrics
       const isNowOffline = (roomInfo && roomInfo.last_seen) ? 
@@ -68,9 +72,26 @@ export default function DashboardScreen() {
       
       // Also check API flags for budget and anomalies
       let finalAlert = alert;
-      if (comp?.isBudgetExceeded) {
+      
+      // PRIORITY: Check for recent TipsEngine notifications from the server
+      const latestNotification = notifications && notifications.length > 0 ? notifications[0] : null;
+      if (latestNotification) {
+        // If the server notification is recent (within last minute), use it
+        const notifTime = new Date(latestNotification.timestamp).getTime();
+        const nowTime = new Date().getTime();
+        if (nowTime - notifTime < 60000) {
+           finalAlert = {
+             type: latestNotification.type === 'alert' ? 'warning' : latestNotification.type,
+             title: latestNotification.title,
+             message: latestNotification.message,
+             tip: "TipsEngine has confirmed this event based on your recent trends."
+           };
+        }
+      }
+
+      if (!finalAlert && comp?.isBudgetExceeded) {
         finalAlert = { type: 'danger', title: 'Monthly Budget Exceeded', message: "You have exceeded your monthly budget. Power usage may be limited or extra charges may apply.", tip: "Reduce your consumption immediately to stay within bounds." };
-      } else if (comp?.isAbnormal) {
+      } else if (!finalAlert && comp?.isAbnormal) {
         finalAlert = { type: 'warning', title: 'Abnormal Usage Detected', message: "Your current consumption is significantly different (±30%) from your usual patterns.", tip: "Check if any heavy appliances were left on by mistake." };
       }
 
@@ -80,6 +101,16 @@ export default function DashboardScreen() {
           setAlertData(finalAlert);
           setAlertVisible(true);
           setLastAlertKey(alertKey);
+
+          // Trigger native notification with cooldown (5 mins)
+          const now = Date.now();
+          if (now - lastNotifyTime.current > 300000) {
+            sendLocalNotification(
+              finalAlert.title,
+              finalAlert.message
+            );
+            lastNotifyTime.current = now;
+          }
         }
       }
     } catch (err) {

@@ -644,21 +644,101 @@ if (isset($data['action'])) {
                 $stmt = $conn->prepare("INSERT INTO consumption_logs (room_id, tenant_name, voltage, current_val, power, energy, energy_cumulative, cost) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
                 $stmt->execute([$roomId, $tenantName, $voltage, $current, $power, $energyDelta, $cumulativeEnergy, $cost]);
 
-                // --- PEAK POWER CHECK ---
-                $threshold = 1000; // 1kW default
-                $stmt = $conn->prepare("SELECT setting_value FROM settings WHERE setting_key = 'peak_power_threshold' LIMIT 1");
-                $stmt->execute();
-                $row = $stmt->fetch();
-                if ($row) $threshold = (float)$row['setting_value'];
+                // ==========================================
+                // --- TIPSENGINE INTELLIGENCE PIPELINE ---
+                // ==========================================
 
-                if ($power > $threshold) {
-                    $stmt = $conn->prepare("INSERT INTO notifications (room_id, type, title, message) VALUES (?, 'alert', 'High Power Usage Detected', ?)");
-                    $msg = "Your room is currently consuming " . number_format($power, 0) . "W, which exceeds your threshold of " . number_format($threshold, 0) . "W.";
-                    $stmt->execute([$roomId, $msg]);
+                // 1. Get Rolling Average (last 10 readings)
+                $stmt = $conn->prepare("SELECT AVG(power) as avg_p FROM (SELECT power FROM consumption_logs WHERE room_id = ? ORDER BY timestamp DESC LIMIT 10) as last_readings");
+                $stmt->execute([$roomId]);
+                $avgRow = $stmt->fetch();
+                $avgPower = $avgRow ? (float)$avgRow['avg_p'] : $power;
+
+                // 2. Get Trend (last 3 readings)
+                $stmt = $conn->prepare("SELECT power FROM consumption_logs WHERE room_id = ? ORDER BY timestamp DESC LIMIT 3");
+                $stmt->execute([$roomId]);
+                $trendReadings = $stmt->fetchAll(PDO::FETCH_COLUMN);
+                $isIncreasing = count($trendReadings) >= 3 && ($trendReadings[0] > $trendReadings[1]) && ($trendReadings[1] > $trendReadings[2]);
+
+                // 3. Get Consumption Totals (Daily, Weekly, Monthly)
+                $stmt = $conn->prepare("SELECT 
+                    SUM(CASE WHEN DATE(timestamp) = CURDATE() THEN cost ELSE 0 END) as total_daily,
+                    SUM(CASE WHEN timestamp >= DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY) THEN cost ELSE 0 END) as total_weekly,
+                    SUM(CASE WHEN DATE_FORMAT(timestamp, '%Y-%m') = DATE_FORMAT(NOW(), '%Y-%m') THEN cost ELSE 0 END) as total_monthly
+                    FROM consumption_logs WHERE room_id = ?");
+                $stmt->execute([$roomId]);
+                $totals = $stmt->fetch();
+                $totalDaily = (float)$totals['total_daily'];
+                $totalWeekly = (float)$totals['total_weekly'];
+                $totalMonthly = (float)$totals['total_monthly'];
+
+                // 4. Get Budget Settings
+                $stmt = $conn->prepare("SELECT daily_allowance, weekly_allowance, monthly_budget FROM budget_settings WHERE room_id = ? LIMIT 1");
+                $stmt->execute([$roomId]);
+                $budget = $stmt->fetch();
+                $dailyLimit = $budget ? (float)$budget['daily_allowance'] : 0;
+                $weeklyLimit = $budget ? (float)$budget['weekly_allowance'] : 0;
+                $monthlyLimit = $budget ? (float)$budget['monthly_budget'] : 0;
+
+                // --- DECISION LAYER: TRIGGER RULES ---
+
+                $alerts = [];
+
+                // RULE: Confirmed Spike Alert
+                if ($power > 100 && $power >= ($avgPower * 1.8) && $isIncreasing) {
+                    $alerts[] = [
+                        'type' => 'alert',
+                        'title' => '⚡ TipsEngine: Electricity Spike',
+                        'message' => "Confirmed power spike detected: " . number_format($power, 0) . "W usage."
+                    ];
                 }
-                
+
+                // RULE: Daily Budget
+                if ($dailyLimit > 0) {
+                    $pct = ($totalDaily / $dailyLimit) * 100;
+                    if ($pct >= 100) {
+                        $alerts[] = ['type' => 'danger', 'title' => '🚨 TipsEngine: Daily Limit Exceeded', 'message' => "Daily allowance of ₱" . number_format($dailyLimit, 2) . " consumed."];
+                    } else if ($pct >= 85) {
+                        $alerts[] = ['type' => 'warning', 'title' => '⚠️ TipsEngine: Daily Limit Warning', 'message' => "You've used " . number_format($pct, 0) . "% of your daily allowance."];
+                    }
+                }
+
+                // RULE: Weekly Budget
+                if ($weeklyLimit > 0) {
+                    $pct = ($totalWeekly / $weeklyLimit) * 100;
+                    if ($pct >= 100) {
+                        $alerts[] = ['type' => 'danger', 'title' => '🚨 TipsEngine: Weekly Limit Exceeded', 'message' => "Weekly budget of ₱" . number_format($weeklyLimit, 2) . " consumed."];
+                    } else if ($pct >= 85) {
+                        $alerts[] = ['type' => 'warning', 'title' => '⚠️ TipsEngine: Weekly Limit Warning', 'message' => "You've used " . number_format($pct, 0) . "% of your weekly budget."];
+                    }
+                }
+
+                // RULE: Monthly Budget
+                if ($monthlyLimit > 0) {
+                    $pct = ($totalMonthly / $monthlyLimit) * 100;
+                    if ($pct >= 100) {
+                        $alerts[] = ['type' => 'danger', 'title' => '🚨 TipsEngine: Monthly Budget Exceeded', 'message' => "Monthly budget of ₱" . number_format($monthlyLimit, 2) . " consumed."];
+                    } else if ($pct >= 85) {
+                        $alerts[] = ['type' => 'warning', 'title' => '⚠️ TipsEngine: Monthly Budget Warning', 'message' => "You've used " . number_format($pct, 0) . "% of your monthly budget."];
+                    }
+                }
+
+                // --- ANTI-DUPLICATION & NOTIFICATION DELIVERY ---
+                foreach ($alerts as $alert) {
+                    // Check if same alert title was sent within last 30 minutes
+                    $stmt = $conn->prepare("SELECT COUNT(*) FROM notifications WHERE room_id = ? AND title = ? AND timestamp >= DATE_SUB(NOW(), INTERVAL 30 MINUTE)");
+                    $stmt->execute([$roomId, $alert['title']]);
+                    if ($stmt->fetchColumn() == 0) {
+                        $stmt = $conn->prepare("INSERT INTO notifications (room_id, type, title, message) VALUES (?, ?, ?, ?)");
+                        $stmt->execute([$roomId, $alert['type'], $alert['title'], $alert['message']]);
+                    }
+                }
+
                 $response['success'] = true;
                 $response['delta'] = $energyDelta;
+                $response['monthly_cost'] = $totalMonthly;
+                $response['daily_cost'] = $totalDaily;
+                $response['weekly_cost'] = $totalWeekly;
                 break;
 
             case 'getNotifications':
