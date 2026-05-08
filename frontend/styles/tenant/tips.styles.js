@@ -83,8 +83,9 @@ export default StyleSheet.create({
     flexDirection: 'row', 
     alignItems: 'center', 
     justifyContent: 'center', 
-    gap: SPACING.xs, 
-    paddingVertical: SPACING.sm + 2, 
+    gap: 4, 
+    paddingVertical: 12, 
+    paddingHorizontal: 4,
     borderRadius: RADIUS.md, 
     backgroundColor: COLORS.surfaceGlass, 
     borderWidth: 1, 
@@ -95,7 +96,7 @@ export default StyleSheet.create({
     borderColor: COLORS.primary 
   },
   tabText: { 
-    fontSize: FONT_SIZE.sm, 
+    fontSize: 11, 
     color: COLORS.textMuted, 
     fontWeight: FONT_WEIGHT.medium 
   },
@@ -342,4 +343,99 @@ export default StyleSheet.create({
     lineHeight: 16, 
     flexWrap: 'wrap' 
   },
+  // --- INTERACTIVE TIPS SYSTEM ---
+  interactiveCard: {
+    padding: SPACING.xl,
+    borderRadius: RADIUS.xxl,
+    marginBottom: SPACING.lg,
+    justifyContent: 'center',
+    position: 'relative',
+    overflow: 'hidden'
+  },
+  tipCatRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: SPACING.sm
+  },
+  tipCatLabel: {
+    fontSize: 12,
+    fontWeight: FONT_WEIGHT.heavy,
+    color: COLORS.primary,
+    textTransform: 'uppercase',
+    letterSpacing: 1.5
+  },
+  tipMainTitle: {
+    fontSize: 22,
+    fontWeight: FONT_WEIGHT.heavy,
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.md,
+    lineHeight: 28
+  },
+  tipMainMessage: {
+    fontSize: 15,
+    color: COLORS.textSecondary,
+    lineHeight: 22,
+    marginBottom: SPACING.xl
+  },
+  interactiveFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center'
+  },
+  likeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: RADIUS.full,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)'
+  },
+  likeBtnActive: {
+    backgroundColor: 'rgba(239,68,68,0.1)',
+    borderColor: 'rgba(239,68,68,0.2)'
+  },
+  likeCount: {
+    fontSize: 14,
+    fontWeight: FONT_WEIGHT.bold,
+    color: COLORS.textSecondary
+  },
+  refreshBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: COLORS.primary,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  errorBox: {
+    padding: SPACING.lg,
+    backgroundColor: 'rgba(239,68,68,0.1)',
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    borderColor: 'rgba(239,68,68,0.2)',
+    alignItems: 'center',
+    marginBottom: SPACING.lg
+  },
+  errorText: {
+    color: COLORS.danger,
+    fontSize: 13,
+    textAlign: 'center',
+    marginTop: 8
+  },
+  retryBtn: {
+    marginTop: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    backgroundColor: COLORS.danger,
+    borderRadius: RADIUS.full
+  },
+  retryText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: FONT_WEIGHT.bold
+  }
 });

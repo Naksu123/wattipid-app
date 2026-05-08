@@ -6,7 +6,7 @@ import {
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { requestTenantAccessCode } from '../../services/emailService';
 import { COLORS, GRADIENTS, FONT_WEIGHT } from '@/styles/theme';
 import s from '@/styles/auth/register.styles';
@@ -236,18 +236,7 @@ export default function RegisterScreen() {
             </>
           )}
 
-          {/* Mock code hint for demo */}
-          {role === 'tenant' && mockCodeHint ? (
-            <View style={s.mockBox}>
-              <Ionicons name="mail-open" size={16} color={COLORS.primary} />
-              <Text style={s.mockText}>
-                Code sent to <Text style={{ fontWeight: FONT_WEIGHT.semibold }}>{emailForCode}</Text>
-                {'\n'}
-                <Text style={s.mockHint}>[Demo] Your access code: </Text>
-                <Text style={s.mockCode}>{mockCodeHint}</Text>
-              </Text>
-            </View>
-          ) : null}
+
 
           <InputField icon="person-outline" label="Full Name" value={name} onChangeText={setName}
             error={errors.name} placeholder="Enter your full name" />

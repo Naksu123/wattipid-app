@@ -7,12 +7,11 @@ const ENVIRONMENTS = {
 
 const STORAGE_KEY = '@wattipid_api_env';
 
+export const API_URL = ENVIRONMENTS.local;
+
 export async function getBaseUrl() {
   // Hardcode for troubleshooting to ensure phone uses the correct PC IP
-  return ENVIRONMENTS.local;
-  
-  // const saved = await AsyncStorage.getItem(STORAGE_KEY);
-  // return ENVIRONMENTS[saved] || ENVIRONMENTS.local;
+  return API_URL;
 }
 
 export async function setApiEnvironment(env) {

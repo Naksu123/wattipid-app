@@ -9,13 +9,11 @@ import GlassCard from '../../components/ui/GlassCard';
 import { BaseModal, ModalHeader, ModalBody, ModalFooter } from '../../components/modals/BaseModal';
 import { COLORS } from '@/styles/theme';
 import s from '@/styles/tenant/settings.styles';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function TenantSettings() {
   const router = useRouter();
-  const { user, logout, updateProfile } = useAuth();
-  const [editing, setEditing] = useState(false);
-  const [name, setName] = useState(user?.name || '');
-  const [email, setEmail] = useState(user?.email || '');
+  const { user, logout } = useAuth();
   const [logoutVisible, setLogoutVisible] = useState(false);
   const [clearDataVisible, setClearDataVisible] = useState(false);
 
@@ -43,13 +41,6 @@ export default function TenantSettings() {
     const currentEnv = await getCurrentEnv();
     setEnv(currentEnv);
     setTempEnv(currentEnv);
-  };
-
-  const handleSave = async () => {
-    if (!name.trim()) { Alert.alert('Error', 'Name cannot be empty'); return; }
-    const r = await updateProfile(name, email);
-    if (r.success) { Alert.alert('Success', 'Profile updated'); setEditing(false); }
-    else Alert.alert('Error', r.message || 'Failed to update');
   };
 
   const confirmLogout = () => {
@@ -96,18 +87,15 @@ export default function TenantSettings() {
     setEnv(tempEnv);
     setEnvVisible(false);
     
-    // Clear session and force re-login because tokens are server-specific
     await AsyncStorage.multiRemove(['@auth_token', '@auth_user']);
-    logout(); // Update context state
+    logout(); 
     
     Alert.alert(
       'Environment Switched', 
-      `Connected to ${tempEnv === 'local' ? 'Local Server' : 'Production Server'}. Please log in again to sync with this server.`,
+      `Connected to ${tempEnv === 'local' ? 'Local Server' : 'Production Server'}. Please log in again.`,
       [{ text: 'OK', onPress: () => router.replace('/(auth)/login') }]
     );
   };
-
-  // ─── Sub-components ──────────────────────────────────────────────────────────
 
   const ToggleItem = ({ icon, label, desc, value, onToggle, disabled }) => (
     <View style={[s.toggleItem, disabled && { opacity: 0.4 }]}>
@@ -141,13 +129,11 @@ export default function TenantSettings() {
     </TouchableOpacity>
   );
 
-  // ─── Render ──────────────────────────────────────────────────────────────────
   return (
     <View style={s.container}>
       <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
         <Text style={s.title}>Settings</Text>
 
-        {/* ── Profile ── */}
         <GlassCard gradient style={s.profileCard}>
           <View style={s.avatar}>
             <Ionicons name="person" size={32} color={COLORS.primary} />
@@ -156,275 +142,94 @@ export default function TenantSettings() {
             <Text style={s.profileName}>{user?.name || 'Tenant'}</Text>
             <Text style={s.profileEmail}>{user?.email || ''}</Text>
             <Text style={s.profileRole}>Tenant • Room {user?.room_id || 'N/A'}</Text>
-            <TouchableOpacity onPress={() => setEditing(true)} style={s.editBtn}>
+            <TouchableOpacity onPress={() => router.push('/(tenant)/edit-profile')} style={s.editBtn}>
               <Ionicons name="create-outline" size={16} color={COLORS.primary} />
               <Text style={s.editBtnText}>Edit Profile</Text>
             </TouchableOpacity>
           </View>
         </GlassCard>
 
-        {/* ── Notifications ── */}
         <Text style={s.sectionLabel}>Notifications</Text>
         <GlassCard style={s.sectionCard}>
-          <ToggleItem
-            icon="notifications-outline" label="Push Notifications"
-            desc="Enable or disable all alerts"
-            value={notifEnabled} onToggle={toggleNotif}
-          />
+          <ToggleItem icon="notifications-outline" label="Push Notifications" desc="Enable or disable all alerts" value={notifEnabled} onToggle={toggleNotif} />
           <View style={s.divider} />
-          <ToggleItem
-            icon="wallet-outline" label="Budget Alerts"
-            desc="Warn when approaching budget limit"
-            value={budgetAlerts} onToggle={toggleBudgetAlerts}
-            disabled={!notifEnabled}
-          />
+          <ToggleItem icon="wallet-outline" label="Budget Alerts" desc="Warn when approaching budget limit" value={budgetAlerts} onToggle={toggleBudgetAlerts} disabled={!notifEnabled} />
           <View style={s.divider} />
-          <ToggleItem
-            icon="flash-outline" label="High Consumption Alerts"
-            desc="Alert when power usage spikes"
-            value={highConsAlerts} onToggle={toggleHighConsAlerts}
-            disabled={!notifEnabled}
-          />
+          <ToggleItem icon="flash-outline" label="High Consumption Alerts" desc="Alert when power usage spikes" value={highConsAlerts} onToggle={toggleHighConsAlerts} disabled={!notifEnabled} />
         </GlassCard>
 
-        {/* ── Connectivity ── */}
         <Text style={s.sectionLabel}>Connectivity</Text>
         <GlassCard style={s.menuCard}>
-          <MenuItem 
-            icon="server-outline" 
-            label="API Environment" 
-            value={env === 'local' ? 'Local' : 'Production'} 
-            onPress={handleSwitchEnv} 
-          />
+          <MenuItem icon="server-outline" label="API Environment" value={env === 'local' ? 'Local' : 'Production'} onPress={handleSwitchEnv} />
         </GlassCard>
 
-        {/* ── Data Management ── */}
         <Text style={s.sectionLabel}>Data Management</Text>
         <GlassCard style={s.menuCard}>
           <MenuItem icon="trash-outline" label="Clear Consumption History" onPress={() => setClearDataVisible(true)} danger />
         </GlassCard>
 
-        {/* ── Support ── */}
         <Text style={s.sectionLabel}>Support</Text>
         <GlassCard style={s.menuCard}>
           <MenuItem icon="help-circle-outline" label="Help & Support" onPress={() => setHelpVisible(true)} />
           <MenuItem icon="information-circle-outline" label="About Wattipid" value="v1.0.0" onPress={() => setAboutVisible(true)} />
         </GlassCard>
 
-        {/* ── Logout ── */}
         <GlassCard style={s.menuCard}>
-          <MenuItem icon="log-out-outline" label="Logout" onPress={() => setLogoutVisible(true)} danger />
+          <MenuItem icon="log-out-outline" label="Sign out" onPress={() => setLogoutVisible(true)} danger />
         </GlassCard>
 
         <Text style={s.version}>Wattipid v1.0.0 • IoT Energy Monitor</Text>
       </ScrollView>
 
-      {/* ── About Modal ── */}
+      {/* MODALS */}
       <Modal visible={aboutVisible} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setAboutVisible(false)}>
         <View style={s.modalOverlay}>
           <View style={s.modalBox}>
-            <View style={s.aboutIcon}>
-              <Ionicons name="flash" size={36} color={COLORS.primary} />
-            </View>
+            <View style={s.aboutIcon}><Ionicons name="flash" size={36} color={COLORS.primary} /></View>
             <Text style={s.modalTitle}>Wattipid</Text>
             <Text style={s.modalVer}>Version 1.0.0</Text>
-            <Text style={s.modalDesc}>
-              An IoT-based electricity monitoring system designed for student rental dormitories.
-              Track consumption, manage budgets, and save energy with smart tips.
-            </Text>
-            <View style={s.aboutDetails}>
-              <AboutRow label="Platform" value="React Native / Expo" />
-              <AboutRow label="Database" value="SQLite" />
-              <AboutRow label="Sensor" value="ESP32 + PZEM-004T" />
-              <AboutRow label="Developer" value="Wattipid Team" />
-            </View>
-            <TouchableOpacity style={s.modalCloseBtn} onPress={() => setAboutVisible(false)}>
-              <Text style={s.modalCloseBtnText}>Close</Text>
-            </TouchableOpacity>
+            <Text style={s.modalDesc}>An IoT-based electricity monitoring system designed for student rental dormitories.</Text>
+            <TouchableOpacity style={s.modalCloseBtn} onPress={() => setAboutVisible(false)}><Text style={s.modalCloseBtnText}>Close</Text></TouchableOpacity>
           </View>
         </View>
       </Modal>
 
-      {/* ── Help Modal ── */}
       <Modal visible={helpVisible} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setHelpVisible(false)}>
         <View style={s.modalOverlay}>
           <View style={s.modalBox}>
-            <View style={[s.aboutIcon, { backgroundColor: 'rgba(59,130,246,0.12)' }]}>
-              <Ionicons name="help-circle" size={36} color={COLORS.info} />
-            </View>
+            <View style={[s.aboutIcon, { backgroundColor: 'rgba(59,130,246,0.12)' }]}><Ionicons name="help-circle" size={36} color={COLORS.info} /></View>
             <Text style={s.modalTitle}>Help & Support</Text>
-            <View style={s.helpList}>
-              <HelpItem
-                icon="speedometer" q="How does monitoring work?"
-                a="Your ESP32 sensor reads voltage, current, and power in real-time and sends data to the app every 5 seconds."
-              />
-              <HelpItem
-                icon="wallet" q="How do budgets work?"
-                a="Set a monthly budget and we auto-calculate daily/weekly allowances. You'll get alerts when approaching or exceeding limits."
-              />
-              <HelpItem
-                icon="leaf" q="What are Dynamic Tips?"
-                a="Tips generated from your actual consumption patterns — they update automatically based on your usage, budget status, and comparisons."
-              />
-              <HelpItem
-                icon="notifications" q="Why am I getting alerts?"
-                a="Alerts trigger when your usage exceeds budget thresholds or is significantly higher than previous periods. Contact your landlord if alerts seem incorrect."
-              />
-              <HelpItem
-                icon="mail" q="Need more help?"
-                a="Contact your landlord or email support@wattipid.com for assistance."
-              />
-            </View>
-            <TouchableOpacity style={s.modalCloseBtn} onPress={() => setHelpVisible(false)}>
-              <Text style={s.modalCloseBtnText}>Close</Text>
-            </TouchableOpacity>
+            <Text style={s.modalDesc}>If you need assistance, please contact your landlord or email support@wattipid.com</Text>
+            <TouchableOpacity style={s.modalCloseBtn} onPress={() => setHelpVisible(false)}><Text style={s.modalCloseBtnText}>Close</Text></TouchableOpacity>
           </View>
         </View>
       </Modal>
 
-      {/* ── Edit Profile Modal ── */}
-      <BaseModal visible={editing} onClose={() => setEditing(false)}>
-        <ModalHeader title="Edit Profile" icon="person" onClose={() => setEditing(false)} />
-        <ModalBody scrollable={false}>
-          <View style={s.editFields}>
-            <Text style={s.inputLabel}>Full Name</Text>
-            <TextInput
-              style={s.editInputModal} value={name} onChangeText={setName}
-              placeholder="Name" placeholderTextColor={COLORS.textMuted}
-            />
-            <Text style={s.inputLabel}>Email Address</Text>
-            <TextInput
-              style={s.editInputModal} value={email} onChangeText={setEmail}
-              placeholder="Email" placeholderTextColor={COLORS.textMuted}
-              keyboardType="email-address" autoCapitalize="none"
-            />
-          </View>
-        </ModalBody>
-        <ModalFooter 
-          primaryLabel="Save Changes"
-          onPrimaryPress={handleSave}
-          secondaryLabel="Cancel"
-          onSecondaryPress={() => {
-            setEditing(false);
-            setName(user?.name || '');
-            setEmail(user?.email || '');
-          }}
-        />
-      </BaseModal>
-
-      {/* ── Logout Modal ── */}
       <BaseModal visible={logoutVisible} onClose={() => setLogoutVisible(false)}>
-        <ModalHeader title="Confirm Logout" icon="log-out" iconColor={COLORS.danger} onClose={() => setLogoutVisible(false)} />
-        <ModalBody scrollable={false}>
-          <Text style={s.modalMessage}>Are you sure you want to log out of your account?</Text>
-        </ModalBody>
-        <ModalFooter 
-          primaryLabel="Log Out"
-          onPrimaryPress={confirmLogout}
-          primaryDanger={true}
-          secondaryLabel="Cancel"
-          onSecondaryPress={() => setLogoutVisible(false)}
-        />
+        <ModalHeader title="Confirm Sign Out" icon="log-out" iconColor={COLORS.danger} onClose={() => setLogoutVisible(false)} />
+        <ModalBody scrollable={false}><Text style={s.modalMessage}>Are you sure you want to sign out of your account?</Text></ModalBody>
+        <ModalFooter primaryLabel="Sign Out" onPrimaryPress={confirmLogout} primaryDanger={true} secondaryLabel="Cancel" onSecondaryPress={() => setLogoutVisible(false)} />
       </BaseModal>
 
-      {/* ── Clear History Modal ── */}
       <BaseModal visible={clearDataVisible} onClose={() => setClearDataVisible(false)}>
         <ModalHeader title="Clear History" icon="warning" iconColor={COLORS.danger} onClose={() => setClearDataVisible(false)} />
-        <ModalBody scrollable={false}>
-          <Text style={s.modalMessage}>
-            This will delete all your consumption history. This action cannot be undone. Are you sure you want to proceed?
-          </Text>
-        </ModalBody>
-        <ModalFooter 
-          primaryLabel="Clear History"
-          onPrimaryPress={confirmClearData}
-          primaryDanger={true}
-          secondaryLabel="Cancel"
-          onSecondaryPress={() => setClearDataVisible(false)}
-        />
+        <ModalBody scrollable={false}><Text style={s.modalMessage}>This will delete all your consumption history. This action cannot be undone.</Text></ModalBody>
+        <ModalFooter primaryLabel="Clear History" onPrimaryPress={confirmClearData} primaryDanger={true} secondaryLabel="Cancel" onSecondaryPress={() => setClearDataVisible(false)} />
       </BaseModal>
 
-      {/* ── Switch Environment Modal ── */}
       <BaseModal visible={envVisible} onClose={() => setEnvVisible(false)}>
         <ModalHeader title="Switch Environment" icon="server" onClose={() => setEnvVisible(false)} />
         <ModalBody scrollable={false}>
-          <Text style={s.envSubtitle}>
-            Select the API server to connect with. The app will reload settings based on the new environment.
-          </Text>
-          
-          <View style={s.envList}>
-            {/* Local Server */}
-            <TouchableOpacity 
-              style={[s.envCard, tempEnv === 'local' && s.envCardActive]} 
-              onPress={() => setTempEnv('local')}
-              activeOpacity={0.8}
-            >
-              <View style={[s.envCardIcon, { backgroundColor: 'rgba(34,197,94,0.1)' }]}>
-                <Ionicons name="laptop-outline" size={24} color={COLORS.primary} />
-              </View>
-              <View style={s.envCardContent}>
-                <Text style={s.envCardTitle}>Local Development</Text>
-                <Text style={s.envCardUrl}>{ENVIRONMENTS.local}</Text>
-              </View>
-              <View style={[s.radio, tempEnv === 'local' && s.radioActive]}>
-                {tempEnv === 'local' && <View style={s.radioInner} />}
-              </View>
-            </TouchableOpacity>
-
-            {/* Production Server */}
-            <TouchableOpacity 
-              style={[s.envCard, tempEnv === 'production' && s.envCardActive]} 
-              onPress={() => setTempEnv('production')}
-              activeOpacity={0.8}
-            >
-              <View style={[s.envCardIcon, { backgroundColor: 'rgba(59,130,246,0.1)' }]}>
-                <Ionicons name="globe-outline" size={24} color={COLORS.info} />
-              </View>
-              <View style={s.envCardContent}>
-                <Text style={s.envCardTitle}>Production (Hostinger)</Text>
-                <Text style={s.envCardUrl}>{ENVIRONMENTS.production}</Text>
-              </View>
-              <View style={[s.radio, tempEnv === 'production' && s.radioActive]}>
-                {tempEnv === 'production' && <View style={s.radioInner} />}
-              </View>
-            </TouchableOpacity>
-          </View>
-
-          <View style={s.envWarning}>
-            <Ionicons name="information-circle" size={16} color={COLORS.warning} />
-            <Text style={s.envWarningText}>Switching may require you to log in again if user data differs between servers.</Text>
-          </View>
+          <Text style={s.envSubtitle}>Select the API server to connect with.</Text>
+          <TouchableOpacity style={[s.envCard, tempEnv === 'local' && s.envCardActive]} onPress={() => setTempEnv('local')}>
+            <Text style={s.envCardTitle}>Local Development</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[s.envCard, tempEnv === 'production' && s.envCardActive]} onPress={() => setTempEnv('production')}>
+            <Text style={s.envCardTitle}>Production (Hostinger)</Text>
+          </TouchableOpacity>
         </ModalBody>
-        <ModalFooter 
-          primaryLabel="Switch Now"
-          onPrimaryPress={onConfirmSwitch}
-          secondaryLabel="Cancel"
-          onSecondaryPress={() => setEnvVisible(false)}
-        />
+        <ModalFooter primaryLabel="Switch Now" onPrimaryPress={onConfirmSwitch} secondaryLabel="Cancel" onSecondaryPress={() => setEnvVisible(false)} />
       </BaseModal>
-    </View>
-  );
-}
-
-// ─── Helper Components ────────────────────────────────────────────────────────
-
-function AboutRow({ label, value }) {
-  return (
-    <View style={s.aboutRow}>
-      <Text style={s.aboutRowLabel}>{label}</Text>
-      <Text style={s.aboutRowValue}>{value}</Text>
-    </View>
-  );
-}
-
-function HelpItem({ icon, q, a }) {
-  return (
-    <View style={s.helpItem}>
-      <Ionicons name={icon} size={18} color={COLORS.primary} style={{ marginTop: 2 }} />
-      <View style={s.helpContent}>
-        <Text style={s.helpQ}>{q}</Text>
-        <Text style={s.helpA}>{a}</Text>
-      </View>
     </View>
   );
 }

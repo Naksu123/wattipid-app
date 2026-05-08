@@ -1,10 +1,5 @@
-// ESP32 API Service — Mock Mode + Real Mode
-// When connected to a real ESP32 on the LAN, set USE_MOCK = false and update BASE_URL
-
 const USE_MOCK = true;
 let BASE_URL = 'http://192.168.1.100'; // Update with real ESP32 IP
-
-// ============ MOCK DATA GENERATOR ============
 
 function generateMockData() {
   const baseVoltage = 220;

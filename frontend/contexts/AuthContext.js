@@ -1,10 +1,10 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getBaseUrl } from '../services/config';
-
-const AuthContext = createContext(null);
+import WattipidAuthContext from './AuthContextInstance';
 
 export function AuthProvider({ children }) {
+
   const [user, setUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -192,16 +192,62 @@ export function AuthProvider({ children }) {
     }
   };
 
+  const performProfileUpdate = async (name, email) => {
+    setIsLoading(true);
+    try {
+      const baseUrl = await getBaseUrl();
+      const response = await fetch(`${baseUrl}/api.php`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'updateUserProfile', id: user.id, name, email }),
+      });
+      const result = await response.json();
+      if (result.success) {
+        const newUser = { ...user, name, email };
+        await AsyncStorage.setItem('@auth_user', JSON.stringify(newUser));
+        setUser(newUser);
+      }
+      return result;
+    } catch (error) {
+      return { success: false, message: 'Cannot reach server.' };
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const changePassword = async (currentPassword, newPassword) => {
+    setIsLoading(true);
+    try {
+      const baseUrl = await getBaseUrl();
+      const token = await AsyncStorage.getItem('@auth_token');
+      const response = await fetch(`${baseUrl}/api.php`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ action: 'changePassword', currentPassword, newPassword }),
+      });
+      const result = await response.json();
+      return result;
+    } catch (error) {
+      return { success: false, message: 'Cannot reach server.' };
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated, isLoading, login, logout, register, verifyEmail, resendVerificationCode }}>
+    <WattipidAuthContext.Provider value={{ user, isAuthenticated, isLoading, login, logout, register, verifyEmail, resendVerificationCode, updateProfile: performProfileUpdate, changePassword }}>
       {children}
-    </AuthContext.Provider>
+    </WattipidAuthContext.Provider>
   );
 }
 
 export function useAuth() {
-  const context = useContext(AuthContext);
+  const context = useContext(WattipidAuthContext);
   if (!context) {
+
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;

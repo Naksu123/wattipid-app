@@ -2,10 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { Stack, useRouter, useSegments, Slot } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
-import { AuthProvider } from '../contexts/AuthContext';
+import { AuthProvider } from '@/contexts/AuthContext';
 import { getDatabase } from '../services/database';
 import { initNotifications } from '../services/notificationService';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import ErrorTracker from '../services/errorTracker';
 
 function RootLayoutContent() {

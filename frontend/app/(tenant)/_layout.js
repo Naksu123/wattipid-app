@@ -24,6 +24,7 @@ export default function TenantLayout() {
         tabBarIcon: ({ color, size }) => <Ionicons name="wallet-outline" size={size} color={color} /> }} />
       <Tabs.Screen name="settings" options={{ title: 'Settings',
         tabBarIcon: ({ color, size }) => <Ionicons name="settings-outline" size={size} color={color} /> }} />
+      <Tabs.Screen name="edit-profile" options={{ href: null, tabBarStyle: { display: 'none' } }} />
     </Tabs>
   );
 }

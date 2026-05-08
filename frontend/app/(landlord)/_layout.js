@@ -20,6 +20,7 @@ export default function LandlordLayout() {
         tabBarIcon: ({ color, size }) => <Ionicons name="home" size={size} color={color} /> }} />
       <Tabs.Screen name="settings" options={{ title: 'Settings',
         tabBarIcon: ({ color, size }) => <Ionicons name="settings-outline" size={size} color={color} /> }} />
+      <Tabs.Screen name="manage-tips" options={{ href: null }} />
     </Tabs>
   );
 }

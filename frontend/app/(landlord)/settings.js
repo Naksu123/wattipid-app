@@ -1,8 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Alert, TextInput, Modal, Switch,
-} from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, TextInput, Modal, Switch, SafeAreaView, StatusBar, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -11,8 +8,7 @@ import { getSetting, setSetting } from '../../services/database';
 import { setESP32BaseUrl, getConnectionStatus } from '../../services/esp32Api';
 import GlassCard from '../../components/ui/GlassCard';
 import { BaseModal, ModalHeader, ModalBody, ModalFooter } from '../../components/modals/BaseModal';
-import { COLORS, GRADIENTS } from '@/styles/theme';
-import s from '@/styles/landlord/settings.styles';
+import { COLORS, GRADIENTS, SPACING, RADIUS, FONT_SIZE, FONT_WEIGHT, SHADOWS } from '@/styles/theme';
 
 export default function LandlordSettings() {
   const router = useRouter();
@@ -92,9 +88,7 @@ export default function LandlordSettings() {
     else Alert.alert('Error', r.message || 'Failed to update');
   };
 
-  const handleLogout = () => {
-    setLogoutConfirmVisible(true);
-  };
+  const handleLogout = () => setLogoutConfirmVisible(true);
 
   const handleConfirmLogout = () => {
     setLogoutConfirmVisible(false);
@@ -111,7 +105,7 @@ export default function LandlordSettings() {
     await setSetting('esp32_ip', esp32Ip.trim());
     setESP32BaseUrl(`http://${esp32Ip.trim()}`);
     setEsp32Visible(false);
-    Alert.alert('Saved', `ESP32 IP set to ${esp32Ip.trim()}\nMake sure the device is on the same Wi-Fi network.`);
+    Alert.alert('Saved', `ESP32 IP set to ${esp32Ip.trim()}`);
   };
 
   const handleSaveNotifications = async () => {
@@ -125,26 +119,28 @@ export default function LandlordSettings() {
     Alert.alert('Saved', 'Notification preferences updated.');
   };
 
-  // ─── Sub-components ──────────────────────────────────────────────────────────
-
-  const MenuItem = ({ icon, label, value, onPress, danger }) => (
-    <TouchableOpacity style={s.menuItem} onPress={onPress} activeOpacity={0.7}>
-      <View style={[s.menuIcon, danger && { backgroundColor: 'rgba(239,68,68,0.1)' }]}>
-        <Ionicons name={icon} size={20} color={danger ? COLORS.danger : COLORS.primary} />
+  const MenuItem = ({ icon, label, value, onPress, danger, highlighted }) => (
+    <TouchableOpacity 
+      style={[styles.menuItem, highlighted && styles.highlightedItem]} 
+      onPress={onPress} 
+      activeOpacity={0.7}
+    >
+      <View style={[styles.menuIcon, danger && { backgroundColor: 'rgba(239,68,68,0.1)' }, highlighted && { backgroundColor: 'rgba(34,197,94,0.15)' }]}>
+        <Ionicons name={icon} size={20} color={danger ? COLORS.danger : (highlighted ? COLORS.primary : COLORS.primary)} />
       </View>
-      <View style={s.menuContent}>
-        <Text style={[s.menuLabel, danger && { color: COLORS.danger }]}>{label}</Text>
-        {value ? <Text style={s.menuValue}>{value}</Text> : null}
+      <View style={styles.menuContent}>
+        <Text style={[styles.menuLabel, danger && { color: COLORS.danger }, highlighted && { fontWeight: 'bold' }]}>{label}</Text>
+        {value ? <Text style={styles.menuValue}>{value}</Text> : null}
       </View>
       <Ionicons name="chevron-forward" size={18} color={COLORS.textMuted} />
     </TouchableOpacity>
   );
 
   const ToggleRow = ({ label, desc, value, onToggle }) => (
-    <View style={s.toggleRow}>
-      <View style={s.toggleContent}>
-        <Text style={s.toggleLabel}>{label}</Text>
-        {desc ? <Text style={s.toggleDesc}>{desc}</Text> : null}
+    <View style={styles.toggleRow}>
+      <View style={styles.toggleContent}>
+        <Text style={styles.toggleLabel}>{label}</Text>
+        {desc ? <Text style={styles.toggleDesc}>{desc}</Text> : null}
       </View>
       <Switch
         value={value}
@@ -155,433 +151,222 @@ export default function LandlordSettings() {
     </View>
   );
 
-  // ─── Render ──────────────────────────────────────────────────────────────────
   return (
-    <View style={s.container}>
-      <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
-        <Text style={s.title}>Admin Settings</Text>
-        <Text style={s.subtitle}>Manage facility configuration</Text>
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="light-content" />
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <Text style={styles.title}>Admin Settings</Text>
+        <Text style={styles.subtitle}>Facility & system configuration</Text>
 
-        {/* ── Profile ── */}
-        <GlassCard gradient style={s.profileCard}>
-          <View style={s.avatar}>
-            <Ionicons name="shield-checkmark" size={32} color={COLORS.primary} />
+        <GlassCard gradient style={styles.profileCard}>
+          <View style={styles.profileTop}>
+            <View style={styles.avatar}>
+              <Ionicons name="shield-checkmark" size={32} color={COLORS.primary} />
+            </View>
+            <View style={styles.profileInfo}>
+              <Text style={styles.profileName}>{user?.name || 'Administrator'}</Text>
+              <Text style={styles.profileEmail}>{user?.email || ''}</Text>
+              <View style={styles.roleBadge}>
+                <Text style={styles.roleText}>LANDLORD ADMIN</Text>
+              </View>
+            </View>
           </View>
-          <View style={s.profileInfo}>
-            <Text style={s.profileName}>{user?.name || 'Admin'}</Text>
-            <Text style={s.profileEmail}>{user?.email || ''}</Text>
-            <Text style={s.profileRole}>Landlord Administrator</Text>
-            <TouchableOpacity onPress={() => setEditing(true)} style={s.editBtn}>
-              <Ionicons name="create-outline" size={16} color={COLORS.primary} />
-              <Text style={s.editBtnText}>Edit Profile</Text>
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity onPress={() => setEditing(true)} style={styles.editProfileBtn}>
+            <Ionicons name="create-outline" size={16} color={COLORS.primary} />
+            <Text style={styles.editProfileText}>Edit Account Details</Text>
+          </TouchableOpacity>
         </GlassCard>
 
-        {/* ── Electricity Rate ── */}
-        <GlassCard style={s.rateCard}>
-          <View style={s.rateHeader}>
-            <Ionicons name="cash-outline" size={22} color={COLORS.warning} />
-            <Text style={s.rateTitle}>Electricity Rate</Text>
+        <GlassCard style={styles.rateCard}>
+          <View style={styles.rateHeader}>
+            <View style={styles.rateIcon}>
+              <Ionicons name="cash" size={20} color={COLORS.warning} />
+            </View>
+            <Text style={styles.rateTitle}>Electricity Billing Rate</Text>
           </View>
-          <Text style={s.rateDesc}>
-            Set the price per kilowatt-hour (kWh) in Philippine Peso.
-            This rate will be used to calculate tenant billing.
-          </Text>
-          <View style={s.rateRow}>
-            <Text style={s.currencyLabel}>₱</Text>
-            <TextInput
-              style={s.input} value={rate} onChangeText={setRate}
-              keyboardType="numeric" placeholder="12.50"
-              placeholderTextColor={COLORS.textMuted}
-            />
-            <TouchableOpacity onPress={handleSaveRate} activeOpacity={0.8}>
-              <LinearGradient colors={GRADIENTS.primary} style={s.rateBtn}>
-                <Text style={s.rateBtnText}>Update</Text>
+          <Text style={styles.rateDesc}>Set the price per kWh for tenant billing calculations.</Text>
+          <View style={styles.rateInputRow}>
+            <View style={styles.currencyInput}>
+              <Text style={styles.currency}>₱</Text>
+              <TextInput
+                style={styles.rateInput} value={rate} onChangeText={setRate}
+                keyboardType="numeric" placeholder="12.50"
+                placeholderTextColor={COLORS.textMuted}
+              />
+            </View>
+            <TouchableOpacity onPress={handleSaveRate} activeOpacity={0.8} style={styles.updateBtn}>
+              <LinearGradient colors={GRADIENTS.primary} style={styles.updateBtnGradient}>
+                <Text style={styles.updateBtnText}>Update</Text>
               </LinearGradient>
             </TouchableOpacity>
           </View>
         </GlassCard>
 
-        {/* ── Menu Items ── */}
-        <GlassCard style={s.menuCard}>
-          <MenuItem
-            icon="people-outline" label="Tenant Management"
-            value="Manage access & reset codes"
-            onPress={() => setTenantMgmtVisible(true)}
-          />
-          <MenuItem
-            icon="notifications-outline" label="Notifications"
-            value="Alert preferences"
-            onPress={() => setNotifVisible(true)}
-          />
-          <MenuItem
-            icon="wifi-outline" label="ESP32 Connection"
-            value={isMockMode ? 'Mock Mode (tap to configure)' : `IP: ${esp32Ip}`}
-            onPress={() => { setEsp32IpError(''); setEsp32Visible(true); }}
-          />
-          <MenuItem
-            icon="information-circle-outline" label="About Wattipid"
-            value="v1.0.0"
-            onPress={() => setAboutVisible(true)}
-          />
+        <Text style={styles.groupTitle}>FACILITY TOOLS</Text>
+        <GlassCard style={styles.menuCard}>
+          <MenuItem icon="bulb" label="Manage Electricity Tips" value="Curate tips for student saving habits" highlighted={true} onPress={() => router.push('/(landlord)/manage-tips')} />
+          <MenuItem icon="notifications-outline" label="Notification Alerts" value="Configure system triggers" onPress={() => setNotifVisible(true)} />
         </GlassCard>
 
-        {/* ── Logout ── */}
-        <GlassCard style={s.menuCard}>
-          <MenuItem icon="log-out-outline" label="Logout" onPress={handleLogout} danger />
+        <Text style={styles.groupTitle}>SYSTEM CONFIG</Text>
+        <GlassCard style={styles.menuCard}>
+          <MenuItem icon="wifi-outline" label="Hardware Connection" value={isMockMode ? 'Mocking active' : `Gateway: ${esp32Ip}`} onPress={() => { setEsp32IpError(''); setEsp32Visible(true); }} />
+          <MenuItem icon="information-circle-outline" label="About System" value="Wattipid v1.1.0" onPress={() => setAboutVisible(true)} />
         </GlassCard>
 
-        <Text style={s.version}>Wattipid v1.0.0 • Admin Dashboard</Text>
+        <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.7}>
+          <Ionicons name="log-out-outline" size={20} color={COLORS.danger} />
+          <Text style={styles.logoutText}>Sign Out Account</Text>
+        </TouchableOpacity>
+
+        <Text style={styles.footerVersion}>Wattipid Energy Management • Build 2026.05</Text>
+        <View style={{ height: 40 }} />
       </ScrollView>
 
-      {/* ── ESP32 Connection Modal ── */}
-      <Modal visible={esp32Visible} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setEsp32Visible(false)}>
-        <View style={s.overlay}>
-          <View style={s.modal}>
-            <View style={[s.modalIconWrap, { backgroundColor: 'rgba(59,130,246,0.12)' }]}>
-              <Ionicons name="wifi" size={32} color={COLORS.info} />
-            </View>
-            <Text style={s.modalTitle}>ESP32 Connection</Text>
-            <Text style={s.modalDesc}>
-              Enter the local IP address of your ESP32 device. Both this phone and the ESP32 must be on the same Wi-Fi network.
-            </Text>
-
-            {isMockMode && (
-              <View style={s.mockBanner}>
-                <Ionicons name="information-circle" size={16} color={COLORS.warning} />
-                <Text style={s.mockBannerText}>
-                  Currently in Mock Mode — sensor data is simulated. Save a real IP to connect to your hardware.
-                </Text>
-              </View>
-            )}
-
-            <Text style={s.inputLabel}>ESP32 IP Address</Text>
-            <View style={[s.ipWrap, esp32IpError && s.ipWrapErr]}>
-              <Ionicons name="hardware-chip-outline" size={18} color={COLORS.textMuted} />
-              <TextInput
-                style={s.ipInput}
-                value={esp32Ip}
-                onChangeText={t => { setEsp32Ip(t); setEsp32IpError(''); }}
-                placeholder="192.168.1.100"
-                placeholderTextColor={COLORS.textMuted}
-                keyboardType="numbers-and-punctuation"
-                autoCapitalize="none"
-              />
-            </View>
-            {esp32IpError ? <Text style={s.inputError}>{esp32IpError}</Text> : null}
-
-            <View style={s.modalActions}>
-              <TouchableOpacity style={s.modalCancelBtn} onPress={() => setEsp32Visible(false)} activeOpacity={0.7}>
-                <Text style={s.modalCancelText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={s.modalSaveBtnWrap} onPress={handleSaveEsp32} activeOpacity={0.8}>
-                <LinearGradient colors={GRADIENTS.primary} style={s.modalSaveBtn}>
-                  <Text style={s.modalSaveText}>Save & Connect</Text>
-                </LinearGradient>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* ── Notifications Modal ── */}
-      <Modal visible={notifVisible} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setNotifVisible(false)}>
-        <View style={s.overlay}>
-          <View style={s.modal}>
-            <View style={[s.modalIconWrap, { backgroundColor: 'rgba(34,197,94,0.12)' }]}>
-              <Ionicons name="notifications" size={32} color={COLORS.primary} />
-            </View>
-            <Text style={s.modalTitle}>Notification Preferences</Text>
-            <Text style={s.modalDesc}>Choose which events trigger alerts for you as the landlord.</Text>
-
-            <View style={s.toggleList}>
-              <ToggleRow
-                label="Budget Exceeded"
-                desc="When a tenant exceeds their daily budget"
-                value={notifBudget}
-                onToggle={setNotifBudget}
-              />
-              <View style={s.divider} />
-              <ToggleRow
-                label="High Consumption"
-                desc="When a room's power usage spikes"
-                value={notifHighCons}
-                onToggle={setNotifHighCons}
-              />
-              <View style={s.divider} />
-              <ToggleRow
-                label="New Tenant Sign-up"
-                desc="When a tenant registers using an access code"
-                value={notifNewTenant}
-                onToggle={setNotifNewTenant}
-              />
-              <View style={s.divider} />
-              <ToggleRow
-                label="Tenant Revoked"
-                desc="When a tenant is removed or transferred"
-                value={notifRevoke}
-                onToggle={setNotifRevoke}
-              />
-            </View>
-
-            <View style={s.modalActions}>
-              <TouchableOpacity style={s.modalCancelBtn} onPress={() => setNotifVisible(false)} activeOpacity={0.7}>
-                <Text style={s.modalCancelText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={s.modalSaveBtnWrap} onPress={handleSaveNotifications} activeOpacity={0.8}>
-                <LinearGradient colors={GRADIENTS.primary} style={s.modalSaveBtn}>
-                  <Text style={s.modalSaveText}>Save</Text>
-                </LinearGradient>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* ── Tenant Management Modal ── */}
-      <Modal visible={tenantMgmtVisible} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setTenantMgmtVisible(false)}>
-        <View style={s.overlay}>
-          <View style={s.modal}>
-            <View style={[s.modalIconWrap, { backgroundColor: 'rgba(249,115,22,0.12)' }]}>
-              <Ionicons name="people" size={32} color={COLORS.accent} />
-            </View>
-            <Text style={s.modalTitle}>Tenant Management</Text>
-            <Text style={s.modalDesc}>Quick actions for managing tenant access across all rooms.</Text>
-
-            <View style={s.mgmtList}>
-              <TouchableOpacity
-                style={s.mgmtItem}
-                activeOpacity={0.7}
-                onPress={() => {
-                  setTenantMgmtVisible(false);
-                  router.push('/(landlord)/rooms');
-                }}
-              >
-                <View style={[s.mgmtIcon, { backgroundColor: 'rgba(34,197,94,0.1)' }]}>
-                  <Ionicons name="home-outline" size={22} color={COLORS.primary} />
-                </View>
-                <View style={s.mgmtContent}>
-                  <Text style={s.mgmtLabel}>View All Rooms</Text>
-                  <Text style={s.mgmtDesc}>See room status and manage tenant codes</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={18} color={COLORS.textMuted} />
-              </TouchableOpacity>
-
-              <View style={s.divider} />
-
-              <TouchableOpacity
-                style={s.mgmtItem}
-                activeOpacity={0.7}
-                onPress={() => {
-                  setTenantMgmtVisible(false);
-                  Alert.alert(
-                    'Send Access Codes',
-                    'Go to the Rooms tab, tap on any vacant room, and select "Send Code via Email" to invite a tenant.',
-                    [{ text: 'Go to Rooms', onPress: () => router.push('/(landlord)/rooms') }, { text: 'OK' }]
-                  );
-                }}
-              >
-                <View style={[s.mgmtIcon, { backgroundColor: 'rgba(59,130,246,0.1)' }]}>
-                  <Ionicons name="mail-outline" size={22} color={COLORS.info} />
-                </View>
-                <View style={s.mgmtContent}>
-                  <Text style={s.mgmtLabel}>Send Access Codes</Text>
-                  <Text style={s.mgmtDesc}>Email room codes to prospective tenants</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={18} color={COLORS.textMuted} />
-              </TouchableOpacity>
-
-              <View style={s.divider} />
-
-              <TouchableOpacity
-                style={s.mgmtItem}
-                activeOpacity={0.7}
-                onPress={() => {
-                  setTenantMgmtVisible(false);
-                  Alert.alert(
-                    'Generate Reports',
-                    'To generate a PDF consumption report, go to the Rooms tab and tap on an occupied room.',
-                    [{ text: 'Go to Rooms', onPress: () => router.push('/(landlord)/rooms') }, { text: 'OK' }]
-                  );
-                }}
-              >
-                <View style={[s.mgmtIcon, { backgroundColor: 'rgba(59,130,246,0.1)' }]}>
-                  <Ionicons name="document-text-outline" size={22} color={COLORS.info} />
-                </View>
-                <View style={s.mgmtContent}>
-                  <Text style={s.mgmtLabel}>Generate Room Reports</Text>
-                  <Text style={s.mgmtDesc}>Create monthly PDF consumption reports</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={18} color={COLORS.textMuted} />
-              </TouchableOpacity>
-
-              <View style={s.divider} />
-
-              <TouchableOpacity
-                style={s.mgmtItem}
-                activeOpacity={0.7}
-                onPress={() => {
-                  setTenantMgmtVisible(false);
-                  Alert.alert(
-                    'Revoke / Transfer',
-                    'To revoke or transfer a tenant, go to the Rooms tab, tap on an occupied room, and select the appropriate action.\n\nAll historical data is always preserved.',
-                    [{ text: 'Go to Rooms', onPress: () => router.push('/(landlord)/rooms') }, { text: 'OK' }]
-                  );
-                }}
-              >
-                <View style={[s.mgmtIcon, { backgroundColor: 'rgba(245,158,11,0.1)' }]}>
-                  <Ionicons name="swap-horizontal-outline" size={22} color={COLORS.warning} />
-                </View>
-                <View style={s.mgmtContent}>
-                  <Text style={s.mgmtLabel}>Revoke / Transfer Tenant</Text>
-                  <Text style={s.mgmtDesc}>Remove or move a tenant (data preserved)</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={18} color={COLORS.textMuted} />
-              </TouchableOpacity>
-            </View>
-
-            <TouchableOpacity style={s.fullCloseBtn} onPress={() => setTenantMgmtVisible(false)} activeOpacity={0.7}>
-              <Text style={s.fullCloseBtnText}>Close</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {/* ── About Modal ── */}
-      <Modal visible={aboutVisible} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setAboutVisible(false)}>
-        <View style={s.overlay}>
-          <View style={s.modal}>
-            <View style={[s.modalIconWrap, { backgroundColor: 'rgba(34,197,94,0.12)' }]}>
-              <Ionicons name="flash" size={36} color={COLORS.primary} />
-            </View>
-            <Text style={s.modalTitle}>Wattipid</Text>
-            <Text style={s.modalVer}>Version 1.0.0</Text>
-            <Text style={s.modalDesc}>
-              An IoT-based electricity monitoring system designed for student rental dormitories.
-              Track consumption, manage budgets, and save energy with smart tips.
-            </Text>
-            <View style={s.aboutDetails}>
-              {[
-                ['Platform', 'React Native / Expo'],
-                ['Database', 'SQLite (expo-sqlite)'],
-                ['Sensor', 'ESP32 + PZEM-004T'],
-                ['Mode', isMockMode ? 'Mock / Demo' : 'Live Hardware'],
-                ['Developer', 'Wattipid Team'],
-              ].map(([label, value]) => (
-                <View key={label} style={s.aboutRow}>
-                  <Text style={s.aboutLabel}>{label}</Text>
-                  <Text style={s.aboutValue}>{value}</Text>
-                </View>
-              ))}
-            </View>
-            <TouchableOpacity style={s.fullCloseBtn} onPress={() => setAboutVisible(false)} activeOpacity={0.7}>
-              <Text style={s.fullCloseBtnText}>Close</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {/* ── Rate Confirmation Modal ── */}
+      {/* --- MODALS --- */}
+      
       <BaseModal visible={rateConfirmVisible} onClose={() => setRateConfirmVisible(false)}>
-        <ModalHeader title="Update Rate" icon="cash" iconColor={COLORS.primary} onClose={() => setRateConfirmVisible(false)} />
-        <ModalBody scrollable={false}>
-          <Text style={s.modalMessage}>
-            Change the electricity rate to ₱{parseFloat(rate || 0).toFixed(2)}/kWh?
-          </Text>
-          <View style={[s.revokeInfoBox, { backgroundColor: 'rgba(34,197,94,0.08)' }]}>
-            <Ionicons name="information-circle-outline" size={24} color={COLORS.primary} />
-            <Text style={s.revokeInfoText}>
-              This new rate will apply to all future consumption billing.
-            </Text>
-          </View>
-        </ModalBody>
-        <ModalFooter 
-          primaryLabel="Update"
-          onPrimaryPress={handleConfirmSaveRate}
-          secondaryLabel="Cancel"
-          onSecondaryPress={() => setRateConfirmVisible(false)}
-        />
+        <ModalHeader title="Confirm Rate Change" icon="cash" onClose={() => setRateConfirmVisible(false)} />
+        <ModalBody><Text style={styles.confirmMsg}>Apply new rate of ₱{parseFloat(rate||0).toFixed(2)}/kWh to all billing?</Text></ModalBody>
+        <ModalFooter primaryLabel="Update" onPrimaryPress={handleConfirmSaveRate} secondaryLabel="Cancel" onSecondaryPress={() => setRateConfirmVisible(false)} />
       </BaseModal>
 
-      {/* ── Logout Confirmation Modal ── */}
       <BaseModal visible={logoutConfirmVisible} onClose={() => setLogoutConfirmVisible(false)}>
-        <ModalHeader title="Confirm Logout" icon="log-out" iconColor={COLORS.danger} onClose={() => setLogoutConfirmVisible(false)} />
-        <ModalBody scrollable={false}>
-          <Text style={s.modalMessage}>
-            Are you sure you want to log out of your account?
-          </Text>
-        </ModalBody>
-        <ModalFooter 
-          primaryLabel="Log Out"
-          onPrimaryPress={handleConfirmLogout}
-          primaryDanger={true}
-          secondaryLabel="Cancel"
-          onSecondaryPress={() => setLogoutConfirmVisible(false)}
-        />
+        <ModalHeader title="Sign Out" icon="log-out" iconColor={COLORS.danger} onClose={() => setLogoutConfirmVisible(false)} />
+        <ModalBody><Text style={styles.confirmMsg}>Are you sure you want to end your current session?</Text></ModalBody>
+        <ModalFooter primaryLabel="Sign Out" primaryDanger onPrimaryPress={handleConfirmLogout} secondaryLabel="Cancel" onSecondaryPress={() => setLogoutConfirmVisible(false)} />
       </BaseModal>
 
-      {/* ── Edit Profile Modal ── */}
       <BaseModal visible={editing} onClose={() => setEditing(false)}>
         <ModalHeader title="Edit Profile" icon="person" onClose={() => setEditing(false)} />
-        <ModalBody scrollable={false}>
-          <View style={s.editFields}>
-            <Text style={s.inputLabel}>Full Name</Text>
-            <TextInput
-              style={s.editInputModal} value={name} onChangeText={setName}
-              placeholder="Name" placeholderTextColor={COLORS.textMuted}
-            />
-            <Text style={s.inputLabel}>Email Address</Text>
-            <TextInput
-              style={s.editInputModal} value={email} onChangeText={setEmail}
-              placeholder="Email" placeholderTextColor={COLORS.textMuted}
-              keyboardType="email-address" autoCapitalize="none"
-            />
+        <ModalBody>
+          <View style={styles.form}>
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>FULL NAME</Text>
+              <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="Name" placeholderTextColor={COLORS.textMuted} />
+            </View>
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>EMAIL ADDRESS</Text>
+              <TextInput style={styles.input} value={email} onChangeText={setEmail} placeholder="Email" placeholderTextColor={COLORS.textMuted} keyboardType="email-address" autoCapitalize="none" />
+            </View>
           </View>
         </ModalBody>
-        <ModalFooter 
-          primaryLabel="Save Changes"
-          onPrimaryPress={handleSaveProfile}
-          secondaryLabel="Cancel"
-          onSecondaryPress={() => {
-            setEditing(false);
-            setName(user?.name || '');
-            setEmail(user?.email || '');
-          }}
-        />
+        <ModalFooter primaryLabel="Save Changes" onPrimaryPress={handleSaveProfile} secondaryLabel="Cancel" onSecondaryPress={() => setEditing(false)} />
       </BaseModal>
 
-      {/* ── Rate Success Modal ── */}
-      <Modal visible={rateSuccessVisible} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setRateSuccessVisible(false)}>
-        <View style={s.overlay}>
-          <View style={s.modal}>
-            <TouchableOpacity style={s.closeModalBtn} onPress={() => setRateSuccessVisible(false)}>
-              <Ionicons name="close" size={24} color={COLORS.textSecondary} />
-            </TouchableOpacity>
-
-            <View style={s.successIconWrap}>
-              <View style={s.successIconInner}>
-                <Ionicons name="checkmark" size={32} color="#fff" />
-              </View>
-              {/* Decorative particles */}
-              <View style={[s.particle, { top: 10, left: -20 }]} />
-              <View style={[s.particle, { top: -10, left: 20 }]} />
-              <View style={[s.particle, { top: 20, right: -25 }]} />
-              <View style={[s.particle, { bottom: -5, left: -10, transform: [{ rotate: '45deg' }] }]} />
-              <View style={[s.particle, { bottom: 5, right: -15, transform: [{ rotate: '-45deg' }] }]} />
+      <Modal visible={esp32Visible} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setEsp32Visible(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalIconBox}><Ionicons name="wifi" size={32} color={COLORS.primary} /></View>
+            <Text style={styles.modalTitle}>Hardware Gateway</Text>
+            <Text style={styles.modalDesc}>Enter the local IP of your ESP32 monitor.</Text>
+            <TextInput style={styles.modalInput} value={esp32Ip} onChangeText={t => { setEsp32Ip(t); setEsp32IpError(''); }} placeholder="192.168.1.100" placeholderTextColor={COLORS.textMuted} />
+            {esp32IpError ? <Text style={styles.errorText}>{esp32IpError}</Text> : null}
+            <View style={styles.modalFooter}>
+              <TouchableOpacity onPress={() => setEsp32Visible(false)} style={styles.modalCancel}><Text style={styles.modalCancelText}>Cancel</Text></TouchableOpacity>
+              <TouchableOpacity onPress={handleSaveEsp32} style={styles.modalSave}><Text style={styles.modalSaveText}>Save</Text></TouchableOpacity>
             </View>
-            
-            <Text style={s.modalTitle}>Success</Text>
-            <Text style={[s.modalDesc, { fontWeight: '600', color: COLORS.primary }]}>
-              {rateSuccessMsg}
-            </Text>
-
-            <TouchableOpacity style={s.successBtnSolid} onPress={() => setRateSuccessVisible(false)} activeOpacity={0.8}>
-              <Text style={s.removeTextWhite}>OK</Text>
-            </TouchableOpacity>
           </View>
         </View>
       </Modal>
-    </View>
+
+      <Modal visible={notifVisible} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setNotifVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalIconBox}><Ionicons name="notifications" size={32} color={COLORS.primary} /></View>
+            <Text style={styles.modalTitle}>Notification Alerts</Text>
+            <Text style={styles.modalDesc}>Choose which events trigger alerts for you.</Text>
+            <View style={styles.toggleList}>
+              <ToggleRow label="Budget Exceeded" desc="When a tenant hits their limit" value={notifBudget} onToggle={setNotifBudget} />
+              <ToggleRow label="High Consumption" desc="When usage spikes unexpectedly" value={notifHighCons} onToggle={setNotifHighCons} />
+              <ToggleRow label="New Tenant" desc="When a new account is registered" value={notifNewTenant} onToggle={setNotifNewTenant} />
+              <ToggleRow label="Tenant Revoked" desc="When access is removed" value={notifRevoke} onToggle={setNotifRevoke} />
+            </View>
+            <View style={styles.modalFooter}>
+              <TouchableOpacity onPress={() => setNotifVisible(false)} style={styles.modalCancel}><Text style={styles.modalCancelText}>Discard</Text></TouchableOpacity>
+              <TouchableOpacity onPress={handleSaveNotifications} style={styles.modalSave}><Text style={styles.modalSaveText}>Save</Text></TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={aboutVisible} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setAboutVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalIconBox}><Ionicons name="flash" size={36} color={COLORS.primary} /></View>
+            <Text style={styles.modalTitle}>Wattipid</Text>
+            <Text style={styles.modalDesc}>v1.1.0 • Built for Filipino Dorms</Text>
+            <View style={styles.aboutBox}><Text style={styles.aboutText}>Wattipid is an IoT-based electricity monitoring system designed for student rental dormitories. Track consumption, manage budgets, and save energy with smart insights.</Text></View>
+            <TouchableOpacity onPress={() => setAboutVisible(false)} style={[styles.modalSave, { width: '100%', marginTop: 24, flex: 0 }]}><Text style={styles.modalSaveText}>Done</Text></TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+    </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: COLORS.background },
+  scroll: { padding: SPACING.lg },
+  title: { fontSize: 28, fontWeight: FONT_WEIGHT.bold, color: COLORS.textPrimary },
+  subtitle: { fontSize: 14, color: COLORS.textMuted, marginBottom: SPACING.xl },
+  profileCard: { padding: 20, marginBottom: SPACING.xl, borderRadius: RADIUS.xxl },
+  profileTop: { flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 16 },
+  avatar: { width: 60, height: 60, borderRadius: 30, backgroundColor: 'rgba(34,197,94,0.1)', alignItems: 'center', justifyContent: 'center' },
+  profileInfo: { flex: 1 },
+  profileName: { fontSize: 18, fontWeight: FONT_WEIGHT.bold, color: COLORS.textPrimary },
+  profileEmail: { fontSize: 13, color: COLORS.textSecondary, marginBottom: 4 },
+  roleBadge: { alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.05)' },
+  roleText: { fontSize: 9, fontWeight: '800', color: COLORS.primary, letterSpacing: 1 },
+  editProfileBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingTop: 12, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)' },
+  editProfileText: { fontSize: 12, color: COLORS.primary, fontWeight: '600' },
+  rateCard: { padding: 20, marginBottom: SPACING.xl },
+  rateHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 },
+  rateIcon: { width: 32, height: 32, borderRadius: 8, backgroundColor: 'rgba(245,158,11,0.1)', alignItems: 'center', justifyContent: 'center' },
+  rateTitle: { fontSize: 16, fontWeight: '700', color: COLORS.textPrimary },
+  rateDesc: { fontSize: 13, color: COLORS.textMuted, marginBottom: 16 },
+  rateInputRow: { flexDirection: 'row', gap: 12 },
+  currencyInput: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: RADIUS.md, paddingHorizontal: 12, borderWidth: 1, borderColor: COLORS.border },
+  currency: { fontSize: 18, color: COLORS.textSecondary, marginRight: 4 },
+  rateInput: { flex: 1, height: 48, color: COLORS.textPrimary, fontSize: 18, fontWeight: '600' },
+  updateBtn: { flex: 0.6 },
+  updateBtnGradient: { height: 48, borderRadius: RADIUS.md, alignItems: 'center', justifyContent: 'center' },
+  updateBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 14 },
+  groupTitle: { fontSize: 11, fontWeight: '800', color: COLORS.textMuted, letterSpacing: 1.5, marginBottom: 8, marginLeft: 4 },
+  menuCard: { padding: 8, marginBottom: SPACING.xl, borderRadius: RADIUS.xl },
+  menuItem: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: RADIUS.lg },
+  highlightedItem: { backgroundColor: 'rgba(34,197,94,0.05)' },
+  menuIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center', marginRight: 14 },
+  menuContent: { flex: 1 },
+  menuLabel: { fontSize: 15, fontWeight: '600', color: COLORS.textPrimary },
+  menuValue: { fontSize: 12, color: COLORS.textMuted, marginTop: 2 },
+  logoutBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, marginTop: 10, paddingVertical: 16 },
+  logoutText: { fontSize: 15, fontWeight: '700', color: COLORS.danger },
+  footerVersion: { textAlign: 'center', fontSize: 11, color: COLORS.textMuted, marginTop: 20 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', alignItems: 'center', justifyContent: 'center', padding: 30 },
+  modalContent: { backgroundColor: COLORS.surface, width: '100%', borderRadius: 24, padding: 24, alignItems: 'center' },
+  modalIconBox: { width: 64, height: 64, borderRadius: 20, backgroundColor: 'rgba(34,197,94,0.1)', alignItems: 'center', justifyContent: 'center', marginBottom: 20 },
+  modalTitle: { fontSize: 20, fontWeight: 'bold', color: COLORS.textPrimary, marginBottom: 8 },
+  modalDesc: { fontSize: 14, color: COLORS.textMuted, textAlign: 'center', marginBottom: 24 },
+  modalInput: { width: '100%', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12, padding: 14, color: COLORS.textPrimary, fontSize: 16, textAlign: 'center', borderWidth: 1, borderColor: COLORS.border },
+  errorText: { color: COLORS.danger, fontSize: 12, marginTop: 8 },
+  modalFooter: { flexDirection: 'row', gap: 12, marginTop: 32, width: '100%' },
+  modalCancel: { flex: 1, height: 48, alignItems: 'center', justifyContent: 'center' },
+  modalCancelText: { color: COLORS.textMuted, fontWeight: '600' },
+  modalSave: { flex: 1, height: 48, backgroundColor: COLORS.primary, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  modalSaveText: { color: '#fff', fontWeight: 'bold' },
+  confirmMsg: { fontSize: 15, color: COLORS.textSecondary, textAlign: 'center', lineHeight: 22 },
+  modalMenuItem: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', width: '100%' },
+  modalMenuText: { fontSize: 14, color: COLORS.textPrimary, fontWeight: '600' },
+  aboutBox: { padding: 16, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 12, borderWidth: 1, borderColor: COLORS.border },
+  aboutText: { fontSize: 13, color: COLORS.textSecondary, lineHeight: 20, textAlign: 'center' },
+  form: { gap: 16, width: '100%' },
+  inputGroup: { gap: 8 },
+  label: { fontSize: 12, fontWeight: FONT_WEIGHT.heavy, color: COLORS.textMuted, letterSpacing: 1 },
+  input: { backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12, padding: 14, color: COLORS.textPrimary, borderWidth: 1, borderColor: COLORS.border },
+  toggleList: { width: '100%', gap: 12 },
+  toggleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8 },
+  toggleContent: { flex: 1 },
+  toggleLabel: { fontSize: 15, color: COLORS.textPrimary, fontWeight: '600' },
+  toggleDesc: { fontSize: 12, color: COLORS.textMuted, marginTop: 2 },
+});

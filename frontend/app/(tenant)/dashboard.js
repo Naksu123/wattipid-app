@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity } 
 import { useIsFocused } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRef } from 'react';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { fetchRealtimeData } from '../../services/esp32Api';
 import { getSetting, getTotalConsumptionToday, getBudget, getConsumptionComparison, getRoomById, getNotifications } from '../../services/database';
 import { detectHighConsumption, getSmartPopupTip } from '../../services/tipsEngine';
