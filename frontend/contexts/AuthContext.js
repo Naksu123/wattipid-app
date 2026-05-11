@@ -2,6 +2,8 @@ import React, { useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getBaseUrl } from '../services/config';
 import WattipidAuthContext from './AuthContextInstance';
+import { getPushToken, registerPushTokenWithBackend } from '../services/notificationService';
+import { apiCall } from '../services/api';
 
 export function AuthProvider({ children }) {
 
@@ -20,6 +22,11 @@ export function AuthProvider({ children }) {
           const parsedUser = JSON.parse(storedUser);
           setUser(parsedUser);
           setIsAuthenticated(true);
+          
+          // Register push token in background
+          getPushToken().then(token => {
+            if (token) registerPushTokenWithBackend(token);
+          });
         }
       } catch (e) {
         console.error("Auth session load error:", e);
@@ -48,11 +55,15 @@ export function AuthProvider({ children }) {
     try {
       const baseUrl = await getBaseUrl();
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // Increased to 30s for tunnel stability
       
       const response = await fetch(`${baseUrl}/api.php`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Bypass-Tunnel-Reminder': 'true'
+        },
         body: JSON.stringify({ action: 'login', email, password }),
         signal: controller.signal,
       });
@@ -63,25 +74,22 @@ export function AuthProvider({ children }) {
       try {
         result = JSON.parse(text);
       } catch (e) {
-        console.error("Non-JSON response:", text);
-        return { success: false, message: "Server returned an invalid response. Check XAMPP logs." };
+        console.error("[Auth] Login non-JSON:", text.substring(0, 100));
+        return { success: false, message: "Server returned an invalid response. Check XAMPP/Localtunnel." };
       }
 
       if (result.success) {
         const userData = result.data;
         await AsyncStorage.setItem('@auth_user', JSON.stringify(userData));
         await AsyncStorage.setItem('@auth_token', result.authToken);
-        
         setUser(userData);
         setIsAuthenticated(true);
+        getPushToken().then(token => { if (token) registerPushTokenWithBackend(token); });
         return { success: true, user: userData };
       }
       return { success: false, message: result.message };
     } catch (error) {
-      const msg = error.name === 'AbortError'
-        ? 'Server took too long to respond. Make sure XAMPP (Apache + MySQL) is running.'
-        : `Cannot reach server at ${await getBaseUrl()}. Check your WiFi and XAMPP.`;
-      return { success: false, message: msg };
+      return { success: false, message: "Cannot reach server." };
     } finally {
       setIsLoading(false);
     }
@@ -93,39 +101,23 @@ export function AuthProvider({ children }) {
       const baseUrl = await getBaseUrl();
       const response = await fetch(`${baseUrl}/api.php`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          action: 'register', 
-          name, 
-          email, 
-          password, 
-          role,
-          code: extraCode 
-        }),
+        headers: { 
+          'Content-Type': 'application/json',
+          'Bypass-Tunnel-Reminder': 'true'
+        },
+        body: JSON.stringify({ action: 'register', name, email, password, role, code: extraCode }),
       });
-      
-      const text = await response.text();
-      let result;
-      try {
-        result = JSON.parse(text);
-      } catch (e) {
-        console.error("Non-JSON registration response:", text);
-        return { success: false, message: "Registration failed: Server returned an invalid response." };
-      }
-      
+      const result = await response.json();
       if (result.success && result.authToken) {
         const userData = result.data;
         await AsyncStorage.setItem('@auth_user', JSON.stringify(userData));
         await AsyncStorage.setItem('@auth_token', result.authToken);
-        
         setUser(userData);
         setIsAuthenticated(true);
       }
-      
       return result;
     } catch (error) {
-      console.error("Registration error:", error);
-      return { success: false, message: "Cannot reach server. Check your connection." };
+      return { success: false, message: "Cannot reach server." };
     } finally {
       setIsLoading(false);
     }
@@ -157,7 +149,10 @@ export function AuthProvider({ children }) {
       const baseUrl = await getBaseUrl();
       const response = await fetch(`${baseUrl}/api.php`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Bypass-Tunnel-Reminder': 'true'
+        },
         body: JSON.stringify({ action: 'verifyOTP', email, code, type: 'verification' }),
       });
       const result = await response.json();
@@ -178,7 +173,10 @@ export function AuthProvider({ children }) {
       const baseUrl = await getBaseUrl();
       const response = await fetch(`${baseUrl}/api.php`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Bypass-Tunnel-Reminder': 'true'
+        },
         body: JSON.stringify({ action: 'resendVerificationCode', email }),
       });
       const result = await response.json();
@@ -198,7 +196,10 @@ export function AuthProvider({ children }) {
       const baseUrl = await getBaseUrl();
       const response = await fetch(`${baseUrl}/api.php`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Bypass-Tunnel-Reminder': 'true'
+        },
         body: JSON.stringify({ action: 'updateUserProfile', id: user.id, name, email }),
       });
       const result = await response.json();
@@ -224,6 +225,7 @@ export function AuthProvider({ children }) {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
+          'Bypass-Tunnel-Reminder': 'true',
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({ action: 'changePassword', currentPassword, newPassword }),

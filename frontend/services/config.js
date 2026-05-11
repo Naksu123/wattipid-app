@@ -2,12 +2,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const ENVIRONMENTS = {
   local: 'http://192.168.254.109/wattipid_backend',
-  production: 'https://wattipid-backend.infinityfreeapp.com', // Placeholder - update with your actual Hostinger URL
+  tunnel: 'https://graduate-ahead-lip-guidelines.trycloudflare.com/wattipid_backend', 
+  production: 'https://wattipid-backend.infinityfreeapp.com',
 };
 
 const STORAGE_KEY = '@wattipid_api_env';
 
-export const API_URL = ENVIRONMENTS.local;
+// Active: Tunnel mode enabled for cross-network connectivity
+export const API_URL = ENVIRONMENTS.tunnel;
 
 export async function getBaseUrl() {
   // Hardcode for troubleshooting to ensure phone uses the correct PC IP

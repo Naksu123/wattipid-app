@@ -101,3 +101,51 @@ export async function sendLocalNotification(title, body) {
     console.warn('Failed to send notification:', error.message);
   }
 }
+/**
+ * Get the Expo Push Token for this device.
+ * Safe to call in Expo Go — will return null.
+ */
+export async function getPushToken() {
+  const NotificationsModule = getNotificationsModule();
+  if (!NotificationsModule) return null;
+
+  try {
+    const { status: existingStatus } = await NotificationsModule.getPermissionsAsync();
+    let finalStatus = existingStatus;
+    if (existingStatus !== 'granted') {
+      const { status } = await NotificationsModule.requestPermissionsAsync();
+      finalStatus = status;
+    }
+    if (finalStatus !== 'granted') return null;
+
+    const projectId = Constants.expoConfig?.extra?.eas?.projectId || Constants.easConfig?.projectId;
+    if (!projectId) {
+       console.warn('Project ID missing from app config. Push notifications might not work.');
+    }
+
+    const token = (await NotificationsModule.getExpoPushTokenAsync({ projectId })).data;
+    return token;
+  } catch (e) {
+    // If we are in dev and Firebase isn't set up, this is expected. Suppress the loud warning.
+    if (e.message.includes('FirebaseApp is not initialized') || e.message.includes('FCM_CREDENTIALS')) {
+      console.log('ℹ️ Push notifications skipped: Firebase not initialized (Production feature).');
+    } else {
+      console.warn('Error getting push token:', e.message);
+    }
+    return null;
+  }
+}
+
+/**
+ * Register the push token with the backend.
+ */
+export async function registerPushTokenWithBackend(token) {
+  if (!token) return;
+  try {
+    const { apiCall } = require('./api');
+    await apiCall('updatePushToken', { pushToken: token });
+    console.log('Push token registered with backend!');
+  } catch (e) {
+    console.warn('Failed to register push token:', e.message);
+  }
+}

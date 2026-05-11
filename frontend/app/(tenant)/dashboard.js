@@ -36,20 +36,36 @@ export default function DashboardScreen() {
 
   const roomId = user?.room_id || 'Room 1';
 
-  const fetchData = useCallback(async () => {
+  const fetchStaticData = useCallback(async () => {
     try {
-      const [sensorData, rateVal, today, budgetVal, comp, roomInfo, notifications] = await Promise.all([
-        fetchRealtimeData(roomId),
+      const [rateVal, today, budgetVal, comp, roomInfo] = await Promise.all([
         getSetting('rate_per_kwh'),
         getTotalConsumptionToday(roomId, user?.name),
         getBudget(roomId),
         getConsumptionComparison(roomId, 'daily', user?.name),
         getRoomById(roomId),
-        getNotifications(roomId),
       ]);
-      // Handle offline state for real-time metrics
-      const isNowOffline = (roomInfo && roomInfo.last_seen) ? 
-        (new Date().getTime() - new Date(roomInfo.last_seen).getTime()) > 60000 : true;
+      
+      if (rateVal) setRate(parseFloat(rateVal));
+      setTodayUsage(today);
+      if (budgetVal) setBudgetData(budgetVal);
+      setComparison(comp);
+      if (roomInfo) setLastSeen(roomInfo.last_seen);
+      
+      return { today, budgetVal, comp, roomInfo };
+    } catch (err) {
+      console.warn('Static data fetch error:', err);
+      return null;
+    }
+  }, [roomId, user?.name]);
+
+  const fetchRealtimeDataLoop = useCallback(async () => {
+    try {
+      const sensorData = await fetchRealtimeData(roomId);
+      
+      // Handle offline state
+      const isNowOffline = lastSeen ? 
+        (new Date().getTime() - new Date(lastSeen).getTime()) > 60000 : true;
 
       if (isNowOffline) {
         setData({ voltage: 0, current: 0, power: 0, energy: 0, powerFactor: 0 });
@@ -58,75 +74,48 @@ export default function DashboardScreen() {
       }
 
       setRelayOn(sensorData.relayState !== false);
-      if (rateVal) setRate(parseFloat(rateVal));
-      setTodayUsage(today);
-      if (budgetVal) setBudgetData(budgetVal);
-      setComparison(comp);
-      if (roomInfo) setLastSeen(roomInfo.last_seen);
 
-      // Generate smart tip
-      const tip = getSmartPopupTip(sensorData.power, today.totalCost, budgetVal);
+      // Trigger high consumption check (local logic)
+      const tip = getSmartPopupTip(sensorData.power, todayUsage.totalCost, budget);
       setSmartTip(tip);
 
-      // Detect high consumption & trigger alert
       const alert = await detectHighConsumption(roomId, sensorData.power);
-      
-      // Also check API flags for budget and anomalies
-      let finalAlert = alert;
-      
-      // PRIORITY: Check for recent TipsEngine notifications from the server
-      const latestNotification = notifications && notifications.length > 0 ? notifications[0] : null;
-      if (latestNotification) {
-        // If the server notification is recent (within last minute), use it
-        const notifTime = new Date(latestNotification.timestamp).getTime();
-        const nowTime = new Date().getTime();
-        if (nowTime - notifTime < 60000) {
-           finalAlert = {
-             type: latestNotification.type === 'alert' ? 'warning' : latestNotification.type,
-             title: latestNotification.title,
-             message: latestNotification.message,
-             tip: "TipsEngine has confirmed this event based on your recent trends."
-           };
-        }
-      }
-
-      if (!finalAlert && comp?.isBudgetExceeded) {
-        finalAlert = { type: 'danger', title: 'Monthly Budget Exceeded', message: "You have exceeded your monthly budget. Power usage may be limited or extra charges may apply.", tip: "Reduce your consumption immediately to stay within bounds." };
-      } else if (!finalAlert && comp?.isAbnormal) {
-        finalAlert = { type: 'warning', title: 'Abnormal Usage Detected', message: "Your current consumption is significantly different (±30%) from your usual patterns.", tip: "Check if any heavy appliances were left on by mistake." };
-      }
-
-      if (finalAlert) {
-        const alertKey = `${finalAlert.title}-${finalAlert.type}`;
+      if (alert) {
+        const alertKey = `${alert.title}-${alert.type}`;
         if (alertKey !== lastAlertKey) {
-          setAlertData(finalAlert);
+          setAlertData(alert);
           setAlertVisible(true);
           setLastAlertKey(alertKey);
-
-          // Trigger native notification with cooldown (5 mins)
+          
           const now = Date.now();
           if (now - lastNotifyTime.current > 300000) {
-            sendLocalNotification(
-              finalAlert.title,
-              finalAlert.message
-            );
+            sendLocalNotification(alert.title, alert.message);
             lastNotifyTime.current = now;
           }
         }
       }
     } catch (err) {
-      console.warn('Dashboard fetch error:', err);
+      console.warn('Real-time fetch error:', err);
     }
-  }, [roomId, lastAlertKey]);
+  }, [roomId, lastSeen, todayUsage.totalCost, budget, lastAlertKey]);
 
   useEffect(() => {
-    // Only run the loop if the screen is focused AND we have an active session
     if (!isFocused || !isAuthenticated) return;
 
-    fetchData();
-    const interval = setInterval(fetchData, 5000);
-    return () => clearInterval(interval);
-  }, [fetchData, isFocused, isAuthenticated]);
+    // 1. Initial fetch of everything
+    fetchStaticData().then(() => fetchRealtimeDataLoop());
+
+    // 2. Real-time loop (5 seconds)
+    const realtimeInterval = setInterval(fetchRealtimeDataLoop, 5000);
+    
+    // 3. Static data loop (60 seconds)
+    const staticInterval = setInterval(fetchStaticData, 60000);
+
+    return () => {
+      clearInterval(realtimeInterval);
+      clearInterval(staticInterval);
+    };
+  }, [isFocused, isAuthenticated, fetchRealtimeDataLoop, fetchStaticData]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -225,12 +214,40 @@ export default function DashboardScreen() {
         )}
 
         {/* Power Gauge */}
-        <GlassCard gradient style={[ms.gaugeCard, offline && { opacity: 0.6 }]}>
-          <PowerGauge value={offline ? 0 : data.power} maxValue={2000} unit="W" label={offline ? 'Device Offline' : 'Real-Time Power'} size={180} />
-          <View style={ms.pf}>
-            <Text style={ms.pfLabel}>Power Factor</Text>
-            <Text style={ms.pfValue}>{data.powerFactor}</Text>
-          </View>
+        <GlassCard gradient style={[ms.gaugeCard, offline && { opacity: 0.8 }]}>
+          {offline ? (
+            <View style={{ height: 180, justifyContent: 'center', alignItems: 'center' }}>
+              <View style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', padding: 20, borderRadius: 100, marginBottom: 15 }}>
+                <Ionicons name="cloud-offline-outline" size={50} color={COLORS.danger} />
+              </View>
+              <Text style={{ color: COLORS.textPrimary, fontSize: 18, fontWeight: '600' }}>Submeter is Offline</Text>
+              <Text style={{ color: COLORS.textMuted, fontSize: 14, textAlign: 'center', marginTop: 8, paddingHorizontal: 40 }}>
+                Real-time monitoring is currently unavailable. Check your WiFi or submeter power.
+              </Text>
+              <TouchableOpacity 
+                style={{ marginTop: 20, paddingVertical: 10, paddingHorizontal: 20, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}
+                onPress={() => {
+                  setAlertData({
+                    type: 'info',
+                    title: 'Troubleshooting Offline Device',
+                    message: "1. Ensure your WiFi router is on.\n2. Check if the submeter LED is blinking.\n3. Try unplugging and re-plugging the submeter.\n4. If the issue persists, contact your landlord.",
+                    tip: 'Monitoring will resume automatically once the device reconnects.'
+                  });
+                  setAlertVisible(true);
+                }}
+              >
+                <Text style={{ color: COLORS.primary, fontWeight: '500' }}>How to fix this?</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <>
+              <PowerGauge value={data.power} maxValue={2000} unit="W" label="Real-Time Power" size={180} />
+              <View style={ms.pf}>
+                <Text style={ms.pfLabel}>Power Factor</Text>
+                <Text style={ms.pfValue}>{data.powerFactor}</Text>
+              </View>
+            </>
+          )}
         </GlassCard>
 
         {/* Metrics Grid */}

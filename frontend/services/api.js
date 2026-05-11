@@ -6,11 +6,14 @@ let abortController = new AbortController();
 
 /**
  * Cancel all currently pending API requests.
- * Called during logout to prevent "Unauthorized" popups from background calls.
+ * Only used during logout to clear background tasks.
  */
 export function cancelAllRequests() {
-  abortController.abort();
-  abortController = new AbortController(); // Re-initialize for next session
+  // We'll create a new controller first to ensure new requests 
+  // immediately following a logout don't get accidentally aborted.
+  const oldController = abortController;
+  abortController = new AbortController();
+  oldController.abort();
 }
 
 let isSessionExpiring = false;
@@ -32,7 +35,8 @@ export async function apiCall(action, data = {}) {
 
     const headers = {
       'Content-Type': 'application/json',
-      'Accept': 'application/json'
+      'Accept': 'application/json',
+      'Bypass-Tunnel-Reminder': 'true' // Automatically skip Localtunnel landing page
     };
 
     if (token) {
@@ -89,6 +93,12 @@ export async function apiCall(action, data = {}) {
     console.error(`[API Error] Action: ${action} | Message: ${error.message}`);
     console.error(`[API URL]: ${await getBaseUrl()}/api.php`);
     ErrorTracker.log('API', `Network Error during [${action}]`, error.message);
-    throw new Error('Failed to connect to server');
+    
+    // If it's already a specific error message from our code (like 'Failed to send email'), throw it.
+    // Otherwise, throw a generic connection error.
+    if (error.message && error.message !== 'Failed to connect to server') {
+      throw error;
+    }
+    throw new Error('Failed to connect to server. Check your internet or server status.');
   }
 }
