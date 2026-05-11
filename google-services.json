@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "684817954717",
+    "project_id": "wattipid-apps",
+    "storage_bucket": "wattipid-apps.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:684817954717:android:a2ca6b8e32348af4c62174",
+        "android_client_info": {
+          "package_name": "com.wattipid.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDyZJ7Ha8Q_rZUQMBFFHdhGiUra1xlBrQY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
