@@ -7,24 +7,25 @@ export default StyleSheet.create({
     backgroundColor: COLORS.background 
   },
   scroll: { 
-    padding: SPACING.lg, 
-    paddingTop: SPACING.xxl + 10, 
-    paddingBottom: SPACING.xxl 
+    paddingHorizontal: SPACING.lg, 
+    paddingTop: SPACING.xl + 20, 
+    paddingBottom: SPACING.xxl * 2 
   },
   title: { 
     fontSize: FONT_SIZE.xxl, 
     fontWeight: FONT_WEIGHT.bold, 
     color: COLORS.textPrimary, 
-    marginBottom: SPACING.lg 
+    marginBottom: SPACING.xl,
+    letterSpacing: -0.5
   },
   sectionLabel: { 
     fontSize: FONT_SIZE.xs, 
     color: COLORS.textMuted, 
-    fontWeight: FONT_WEIGHT.semibold, 
+    fontWeight: FONT_WEIGHT.bold, 
     textTransform: 'uppercase', 
-    letterSpacing: 1, 
+    letterSpacing: 1.5, 
     marginBottom: SPACING.sm, 
-    marginTop: SPACING.md, 
+    marginTop: SPACING.lg, 
     marginLeft: SPACING.xs 
   },
   profileCard: { 
@@ -98,22 +99,24 @@ export default StyleSheet.create({
   sectionCard: { 
     marginBottom: SPACING.md, 
     padding: 0, 
+    borderRadius: RADIUS.xl,
     overflow: 'hidden' 
   },
   divider: { 
     height: 1, 
-    backgroundColor: COLORS.border 
+    backgroundColor: 'rgba(255,255,255,0.05)' 
   },
   toggleItem: { 
     flexDirection: 'row', 
     alignItems: 'center', 
-    padding: SPACING.md 
+    padding: SPACING.md,
+    paddingVertical: SPACING.lg
   },
   toggleIcon: { 
-    width: 36, 
-    height: 36, 
-    borderRadius: 10, 
-    backgroundColor: 'rgba(34,197,94,0.1)', 
+    width: 44, 
+    height: 44, 
+    borderRadius: RADIUS.md, 
+    backgroundColor: 'rgba(16,185,129,0.1)', 
     alignItems: 'center', 
     justifyContent: 'center' 
   },
@@ -124,30 +127,32 @@ export default StyleSheet.create({
   toggleLabel: { 
     fontSize: FONT_SIZE.md, 
     color: COLORS.textPrimary, 
-    fontWeight: FONT_WEIGHT.medium 
+    fontWeight: FONT_WEIGHT.bold 
   },
   toggleDesc: { 
     fontSize: FONT_SIZE.xs, 
-    color: COLORS.textMuted, 
-    marginTop: 1 
+    color: COLORS.textSecondary, 
+    marginTop: 2 
   },
   menuCard: { 
     marginBottom: SPACING.md, 
     padding: 0, 
+    borderRadius: RADIUS.xl,
     overflow: 'hidden' 
   },
   menuItem: { 
     flexDirection: 'row', 
     alignItems: 'center', 
     padding: SPACING.md, 
+    paddingVertical: SPACING.lg,
     borderBottomWidth: 1, 
-    borderBottomColor: COLORS.border 
+    borderBottomColor: 'rgba(255,255,255,0.05)' 
   },
   menuIcon: { 
-    width: 36, 
-    height: 36, 
-    borderRadius: 10, 
-    backgroundColor: 'rgba(34,197,94,0.1)', 
+    width: 44, 
+    height: 44, 
+    borderRadius: RADIUS.md, 
+    backgroundColor: 'rgba(16,185,129,0.1)', 
     alignItems: 'center', 
     justifyContent: 'center' 
   },
@@ -158,12 +163,12 @@ export default StyleSheet.create({
   menuLabel: { 
     fontSize: FONT_SIZE.md, 
     color: COLORS.textPrimary, 
-    fontWeight: FONT_WEIGHT.medium 
+    fontWeight: FONT_WEIGHT.bold 
   },
   menuValue: { 
     fontSize: FONT_SIZE.xs, 
-    color: COLORS.textMuted, 
-    marginTop: 1 
+    color: COLORS.textSecondary, 
+    marginTop: 2 
   },
   version: { 
     textAlign: 'center', 

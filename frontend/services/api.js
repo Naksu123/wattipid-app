@@ -9,34 +9,44 @@ let abortController = new AbortController();
  * Only used during logout to clear background tasks.
  */
 export function cancelAllRequests() {
-  // We'll create a new controller first to ensure new requests 
-  // immediately following a logout don't get accidentally aborted.
   const oldController = abortController;
   abortController = new AbortController();
   oldController.abort();
 }
 
 let isSessionExpiring = false;
+let unauthorizedCount = 0; // Track consecutive unauthorized responses
 
-export async function apiCall(action, data = {}) {
+// Actions that should NEVER trigger session expiry or show errors
+const SILENT_ACTIONS = [
+  'getUnreadNotificationCount', 'getNotificationHistory', 'registerPushToken',
+  'getAlertSettings', 'getMonthlyForecast', 'getPeakHourPrediction'
+];
+
+// Actions that don't require a token
+const PUBLIC_ACTIONS = [
+  'login', 'register', 'check_email', 'sendVerificationCode', 'verifyOTP', 
+  'resendVerificationCode', 'getTenantInvitationByEmail', 'getRoomByTenantCode',
+  'requestPasswordReset', 'verifyResetOTP', 'resetPassword', 'registerPushToken'
+];
+
+/**
+ * Core API call function with retry-on-unauthorized protection.
+ */
+export async function apiCall(action, data = {}, _isRetry = false) {
   try {
     const baseUrl = await getBaseUrl();
     const token = await AsyncStorage.getItem('@auth_token');
     
-    // 1. Protection: If no token and not a public action, don't even try
-    const publicActions = [
-      'login', 'register', 'check_email', 'sendVerificationCode', 'verifyOTP', 
-      'resendVerificationCode', 'getTenantInvitationByEmail', 'getRoomByTenantCode',
-      'requestPasswordReset', 'verifyResetOTP', 'resetPassword'
-    ];
-    if (!token && !publicActions.includes(action)) {
+    // If no token and not a public action, skip silently
+    if (!token && !PUBLIC_ACTIONS.includes(action)) {
       return null;
     }
 
     const headers = {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
-      'Bypass-Tunnel-Reminder': 'true' // Automatically skip Localtunnel landing page
+      'Bypass-Tunnel-Reminder': 'true'
     };
 
     if (token) {
@@ -44,7 +54,11 @@ export async function apiCall(action, data = {}) {
     }
 
     const fullUrl = `${baseUrl}/api.php`;
-    console.log(`[API Request] Calling: ${fullUrl} | Action: ${action}`);
+    
+    // Only log non-polling actions to reduce console noise
+    if (!SILENT_ACTIONS.includes(action)) {
+      console.log(`[API] ${action}`);
+    }
 
     const response = await fetch(fullUrl, {
       method: 'POST',
@@ -58,47 +72,65 @@ export async function apiCall(action, data = {}) {
       const result = await response.json();
       
       if (result.success) {
-        // Reset the flag if a request succeeds
+        // Reset unauthorized counter on any success
+        unauthorizedCount = 0;
         isSessionExpiring = false;
         return result.data;
       }
       
-      // Handle Failure
+      // Handle "Unauthorized" — possible transient error or real token expiry
       if (result.message && result.message.includes('Unauthorized')) {
-        // Prevent redundant logging and handling
+        unauthorizedCount++;
+        
+        // RETRY ONCE: If this is the first failure, retry before clearing session.
+        // This prevents a single bad response from cascading into a full logout.
+        if (!_isRetry && unauthorizedCount < 3) {
+          console.log(`[API] Retrying ${action} (attempt 2)...`);
+          // Small delay to let any transient issue resolve
+          await new Promise(r => setTimeout(r, 500));
+          return apiCall(action, data, true);
+        }
+        
+        // Multiple consecutive failures = real session expiry
         if (!isSessionExpiring) {
           isSessionExpiring = true;
+          unauthorizedCount = 0;
           await AsyncStorage.multiRemove(['@auth_token', '@auth_user']);
-          ErrorTracker.log('API', 'Session Expired', null, 'Your session has expired. Please log in again.');
+          console.log('ℹ️ Session expired — redirecting to login.');
         }
-        return null; 
+        return null;
+        
+      } else if (SILENT_ACTIONS.includes(action)) {
+        return null;
       } else {
         ErrorTracker.log('API', `Action [${action}] failed: ${result.message}`);
         throw new Error(result.message);
       }
     } else {
+      // Non-JSON response (HTML error page, etc.)
       const text = await response.text();
-      console.log(`[API Debug] Raw Response for ${action}:`, text.substring(0, 500));
-      // Only log if it's not an abort (aborting doesn't produce JSON)
-      if (text) {
-        ErrorTracker.log('API', `Non-JSON response for [${action}]`, text.substring(0, 200));
+      if (!SILENT_ACTIONS.includes(action)) {
+        console.log(`[API Debug] Non-JSON response for ${action}:`, text.substring(0, 200));
       }
       return null;
     }
   } catch (error) {
     if (error.name === 'AbortError') {
-      console.log(`[API] Request for ${action} was cancelled.`);
       return null;
     }
-    console.error(`[API Error] Action: ${action} | Message: ${error.message}`);
-    console.error(`[API URL]: ${await getBaseUrl()}/api.php`);
-    ErrorTracker.log('API', `Network Error during [${action}]`, error.message);
     
-    // If it's already a specific error message from our code (like 'Failed to send email'), throw it.
-    // Otherwise, throw a generic connection error.
-    if (error.message && error.message !== 'Failed to connect to server') {
+    // Silent actions never show errors
+    if (SILENT_ACTIONS.includes(action)) {
+      return null;
+    }
+    
+    // Re-throw specific backend errors (like validation messages)
+    if (error.message && !error.message.includes('Failed to connect') && !error.message.includes('Network request failed')) {
       throw error;
     }
+    
+    // Generic network error
+    console.log(`[API] Network error for ${action}: ${error.message}`);
     throw new Error('Failed to connect to server. Check your internet or server status.');
   }
 }

@@ -55,19 +55,32 @@ export default function BudgetScreen() {
   const handleSetBudget = async () => {
     const val = parseFloat(monthlyBudget);
     if (!val || val <= 0) { Alert.alert('Invalid', 'Enter a valid budget amount'); return; }
-    const result = await setBudget(roomId, val);
-    setBudgetData({ monthly_budget: val, daily_allowance: result.dailyAllowance, weekly_allowance: result.weeklyAllowance, remaining_days: result.remainingDays, days_in_month: result.daysInMonth });
-    setEditing(false);
-    // Inline confirmation instead of pop-up
-    setBudgetConfirm({
-      monthly: val,
-      daily: result.dailyAllowance,
-      weekly: result.weeklyAllowance,
-      daysInMonth: result.daysInMonth,
-    });
-    // Auto-dismiss after 5 seconds
-    setTimeout(() => setBudgetConfirm(null), 5000);
-    loadData();
+    
+    try {
+      const result = await setBudget(roomId, val);
+      setBudgetData({ 
+        monthly_budget: val, 
+        daily_allowance: result.dailyAllowance, 
+        weekly_allowance: result.weeklyAllowance, 
+        remaining_days: result.remainingDays, 
+        days_in_month: result.daysInMonth 
+      });
+      setEditing(false);
+      
+      // Inline confirmation instead of pop-up
+      setBudgetConfirm({
+        monthly: val,
+        daily: result.dailyAllowance,
+        weekly: result.weeklyAllowance,
+        daysInMonth: result.daysInMonth,
+      });
+      
+      // Auto-dismiss after 5 seconds
+      setTimeout(() => setBudgetConfirm(null), 5000);
+    } catch (err) {
+      console.warn("Error setting budget:", err);
+      Alert.alert('Error', 'Failed to save budget. Please try again.');
+    }
   };
 
   const dailyAllowance = budgetData?.daily_allowance || 0;
@@ -125,10 +138,12 @@ export default function BudgetScreen() {
   }, {});
 
   return (
-    <KeyboardAvoidingView style={s.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-      <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
-        <Text style={s.title}>Budget Manager</Text>
-        <Text style={s.subtitle}>Track spending across daily, weekly & monthly</Text>
+    <KeyboardAvoidingView style={[s.container, { backgroundColor: COLORS.background }]} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <ScrollView style={s.container} contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
+        <View style={s.headerContainer}>
+          <Text style={s.title}>Budget Manager</Text>
+          <Text style={s.subtitle}>Track spending across daily, weekly & monthly</Text>
+        </View>
 
 
         {/* Budget Setup / Edit Modal */}
@@ -174,7 +189,7 @@ export default function BudgetScreen() {
             </View>
             <Text style={s.emptyBudgetTitle}>No Budget Set</Text>
             <Text style={s.emptyBudgetDesc}>Set a monthly budget to automatically track your daily and weekly allowances.</Text>
-            <TouchableOpacity onPress={() => setEditing(true)} activeOpacity={0.8} style={{ width: '100%' }}>
+            <TouchableOpacity onPress={() => setEditing(true)} activeOpacity={0.8} style={s.fullWidth}>
               <LinearGradient colors={GRADIENTS.primary} style={s.emptyBudgetBtn}>
                 <Text style={s.emptyBudgetBtnText}>Set Monthly Budget</Text>
               </LinearGradient>
@@ -268,7 +283,7 @@ export default function BudgetScreen() {
             {/* Budget Breakdown */}
             <GlassCard style={s.breakdownCard}>
               <View style={s.breakdownHeader}>
-                <Text style={s.breakdownTitle}>Budget Breakdown</Text>
+                <Text style={s.breakdownTitle} numberOfLines={1}>Budget Breakdown</Text>
                 <View style={s.breakdownActions}>
                   <TouchableOpacity onPress={handleResetBudget} style={s.resetBudgetBtn}>
                     <Ionicons name="refresh-outline" size={14} color={COLORS.danger} />

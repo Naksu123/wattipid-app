@@ -7,23 +7,26 @@ export default StyleSheet.create({
     backgroundColor: COLORS.background 
   },
   scroll: { 
-    padding: SPACING.lg, 
-    paddingTop: SPACING.xxl + 10 
+    paddingHorizontal: SPACING.lg, 
+    paddingTop: SPACING.xl + 20,
+    paddingBottom: SPACING.xxl * 2
   },
   header: { 
     flexDirection: 'row', 
     justifyContent: 'space-between', 
     alignItems: 'center', 
-    marginBottom: SPACING.lg 
+    marginBottom: SPACING.xl 
   },
   greeting: { 
-    fontSize: FONT_SIZE.xl, 
+    fontSize: FONT_SIZE.xxl, 
     fontWeight: FONT_WEIGHT.bold, 
-    color: COLORS.textPrimary 
+    color: COLORS.textPrimary,
+    letterSpacing: -0.5
   },
   roomLabel: { 
     fontSize: FONT_SIZE.sm, 
-    color: COLORS.textSecondary 
+    color: COLORS.textSecondary,
+    fontWeight: FONT_WEIGHT.medium
   },
   lastSeenDot: { 
     fontSize: FONT_SIZE.xs, 
@@ -31,20 +34,20 @@ export default StyleSheet.create({
   },
   lastSeenText: { 
     fontSize: FONT_SIZE.xs, 
-    fontWeight: FONT_WEIGHT.medium 
+    fontWeight: FONT_WEIGHT.semibold 
   },
   alertBanner: { 
     flexDirection: 'row', 
     alignItems: 'center', 
     gap: SPACING.md, 
     padding: SPACING.md, 
-    marginBottom: SPACING.md, 
-    borderLeftWidth: 3 
+    marginBottom: SPACING.lg, 
+    borderLeftWidth: 4 
   },
   alertBannerIcon: { 
-    width: 40, 
-    height: 40, 
-    borderRadius: 12, 
+    width: 44, 
+    height: 44, 
+    borderRadius: RADIUS.md, 
     alignItems: 'center', 
     justifyContent: 'center' 
   },
@@ -52,158 +55,168 @@ export default StyleSheet.create({
     flex: 1 
   },
   alertBannerTitle: { 
-    fontSize: FONT_SIZE.sm, 
+    fontSize: FONT_SIZE.md, 
     fontWeight: FONT_WEIGHT.bold 
   },
   alertBannerSub: { 
-    fontSize: FONT_SIZE.xs, 
-    color: COLORS.textMuted, 
-    marginTop: 2 
+    fontSize: FONT_SIZE.sm, 
+    color: COLORS.textSecondary, 
+    marginTop: 4 
   },
   compChip: { 
     flexDirection: 'row', 
     alignItems: 'center', 
     gap: SPACING.sm, 
-    padding: SPACING.sm + 2, 
+    paddingVertical: SPACING.sm, 
     paddingHorizontal: SPACING.md, 
-    marginBottom: SPACING.md 
+    marginBottom: SPACING.lg,
+    alignSelf: 'flex-start',
+    borderRadius: RADIUS.full,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)'
   },
   compText: { 
-    fontSize: FONT_SIZE.xs, 
+    fontSize: FONT_SIZE.sm, 
     fontWeight: FONT_WEIGHT.semibold 
   },
   gaugeCard: { 
     alignItems: 'center', 
-    paddingVertical: SPACING.xl, 
+    paddingVertical: SPACING.xxl, 
     marginBottom: SPACING.lg 
   },
   pf: { 
     flexDirection: 'row', 
     alignItems: 'center', 
     gap: SPACING.sm, 
-    marginTop: SPACING.md 
+    marginTop: SPACING.lg,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderRadius: RADIUS.full
   },
   pfLabel: { 
     fontSize: FONT_SIZE.sm, 
-    color: COLORS.textMuted 
+    color: COLORS.textSecondary 
   },
   pfValue: { 
     fontSize: FONT_SIZE.md, 
-    color: COLORS.textSecondary, 
-    fontWeight: FONT_WEIGHT.semibold 
+    color: COLORS.textPrimary, 
+    fontWeight: FONT_WEIGHT.bold 
   },
   grid: { 
     flexDirection: 'row', 
-    flexWrap: 'wrap', 
-    gap: SPACING.sm, 
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: SPACING.md, 
     marginBottom: SPACING.lg 
   },
   metricCard: { 
-    width: '48.5%', 
+    width: '47%',
     alignItems: 'flex-start', 
     padding: SPACING.md, 
-    flexGrow: 0, 
-    flexShrink: 0, 
-    flexBasis: '48%' 
+    paddingVertical: SPACING.lg,
   },
   metricValue: { 
-    fontSize: FONT_SIZE.lg, 
+    fontSize: FONT_SIZE.xl, 
     fontWeight: FONT_WEIGHT.bold, 
     color: COLORS.textPrimary, 
-    marginTop: SPACING.sm 
+    marginTop: SPACING.md 
   },
   metricUnit: { 
     fontSize: FONT_SIZE.sm, 
-    fontWeight: FONT_WEIGHT.medium, 
-    color: COLORS.textMuted 
+    fontWeight: FONT_WEIGHT.semibold, 
+    color: COLORS.textSecondary 
   },
   metricLabel: { 
-    fontSize: FONT_SIZE.xs, 
+    fontSize: FONT_SIZE.sm, 
     color: COLORS.textMuted, 
-    marginTop: 2 
+    marginTop: 4 
   },
   budgetCard: { 
-    marginBottom: SPACING.md 
+    marginBottom: SPACING.lg,
+    padding: SPACING.lg
   },
   budgetHeader: { 
     flexDirection: 'row', 
     alignItems: 'center', 
-    gap: SPACING.sm, 
-    marginBottom: SPACING.sm 
+    justifyContent: 'space-between',
+    marginBottom: SPACING.md 
   },
   budgetTitle: { 
-    fontSize: FONT_SIZE.sm, 
+    fontSize: FONT_SIZE.md, 
     fontWeight: FONT_WEIGHT.semibold, 
     color: COLORS.textPrimary, 
-    flex: 1 
   },
   budgetPct: { 
-    fontSize: FONT_SIZE.xs, 
-    color: COLORS.textMuted, 
-    fontWeight: FONT_WEIGHT.semibold 
+    fontSize: FONT_SIZE.sm, 
+    color: COLORS.textSecondary, 
+    fontWeight: FONT_WEIGHT.bold 
   },
   budgetBar: { 
-    height: 6, 
-    backgroundColor: COLORS.surfaceLight, 
-    borderRadius: 3, 
+    height: 8, 
+    backgroundColor: 'rgba(255,255,255,0.1)', 
+    borderRadius: 4, 
     overflow: 'hidden', 
-    marginBottom: SPACING.xs 
+    marginBottom: SPACING.sm 
   },
   budgetFill: { 
     height: '100%', 
-    borderRadius: 3 
+    borderRadius: 4 
   },
   budgetText: { 
-    fontSize: FONT_SIZE.xs, 
-    color: COLORS.textMuted 
+    fontSize: FONT_SIZE.sm, 
+    color: COLORS.textSecondary 
   },
   tipCard: { 
-    marginBottom: SPACING.md, 
+    marginBottom: SPACING.lg, 
+    padding: SPACING.lg,
     position: 'relative' 
   },
   tipDismiss: { 
     position: 'absolute', 
-    top: 12, 
-    right: 12, 
+    top: 16, 
+    right: 16, 
     zIndex: 1, 
     padding: 4 
   },
   tipRow: { 
     flexDirection: 'row', 
     alignItems: 'flex-start', 
-    gap: SPACING.md, 
-    paddingRight: SPACING.lg 
+    gap: SPACING.lg, 
+    paddingRight: SPACING.xl 
   },
   tipIconWrap: { 
-    width: 44, 
-    height: 44, 
-    borderRadius: 14, 
+    width: 48, 
+    height: 48, 
+    borderRadius: RADIUS.lg, 
     alignItems: 'center', 
-    justifyContent: 'center' 
+    justifyContent: 'center',
+    backgroundColor: 'rgba(16, 185, 129, 0.15)'
   },
   tipContent: { 
     flex: 1 
   },
   tipTitle: { 
-    fontSize: FONT_SIZE.sm, 
+    fontSize: FONT_SIZE.md, 
     fontWeight: FONT_WEIGHT.bold, 
     color: COLORS.textPrimary, 
-    marginBottom: 4 
+    marginBottom: 6 
   },
   tipMessage: { 
-    fontSize: FONT_SIZE.xs, 
+    fontSize: FONT_SIZE.sm, 
     color: COLORS.textSecondary, 
-    lineHeight: 18 
+    lineHeight: 20 
   },
   rateCard: { 
     flexDirection: 'row', 
     alignItems: 'center', 
-    gap: SPACING.xs, 
+    gap: SPACING.sm, 
     padding: SPACING.md, 
-    marginBottom: SPACING.xxl 
+    marginBottom: SPACING.xxl,
+    justifyContent: 'center'
   },
   rateText: { 
-    fontSize: FONT_SIZE.xs, 
+    fontSize: FONT_SIZE.sm, 
     color: COLORS.textMuted 
   },
 });

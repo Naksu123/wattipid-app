@@ -124,13 +124,11 @@ export default function TipsScreen() {
 
   return (
     <View style={s.container}>
-      <ScrollView 
-        contentContainerStyle={s.scroll} 
-        showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={COLORS.primary} />}
-      >
-        <Text style={s.title}>Wattipid Tips</Text>
-        <Text style={s.subtitle}>Smart ways to save energy in your dorm</Text>
+      <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={COLORS.primary} />}>
+        <View style={{ marginBottom: 20 }}>
+          <Text style={s.title}>Energy Savings</Text>
+          <Text style={s.subtitle}>Smart tips to lower your electric bill</Text>
+        </View>
 
         {/* Tab Selector */}
         <View style={s.tabRow}>

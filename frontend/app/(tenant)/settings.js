@@ -19,7 +19,9 @@ export default function TenantSettings() {
 
   const [notifEnabled, setNotifEnabled] = useState(true);
   const [budgetAlerts, setBudgetAlerts] = useState(true);
-  const [highConsAlerts, setHighConsAlerts] = useState(true);
+  const [powerSpikeAlerts, setPowerSpikeAlerts] = useState(true);
+  const [forecastAlerts, setForecastAlerts] = useState(true);
+  
   const [env, setEnv] = useState('local');
   const [aboutVisible, setAboutVisible] = useState(false);
   const [helpVisible, setHelpVisible] = useState(false);
@@ -35,8 +37,11 @@ export default function TenantSettings() {
     const ba = await getSetting('budget_alerts');
     if (ba !== null) setBudgetAlerts(ba === 'true');
 
-    const hc = await getSetting('high_cons_alerts');
-    if (hc !== null) setHighConsAlerts(hc === 'true');
+    const psa = await getSetting('power_spike_alerts');
+    if (psa !== null) setPowerSpikeAlerts(psa === 'true');
+    
+    const fa = await getSetting('forecast_alerts');
+    if (fa !== null) setForecastAlerts(fa === 'true');
 
     const currentEnv = await getCurrentEnv();
     setEnv(currentEnv);
@@ -54,20 +59,22 @@ export default function TenantSettings() {
     await setSetting('notif_enabled', val.toString());
     if (!val) {
       setBudgetAlerts(false);
-      setHighConsAlerts(false);
+      setPowerSpikeAlerts(false);
+      setForecastAlerts(false);
       await setSetting('budget_alerts', 'false');
-      await setSetting('high_cons_alerts', 'false');
+      await setSetting('power_spike_alerts', 'false');
+      await setSetting('forecast_alerts', 'false');
     }
   };
 
-  const toggleBudgetAlerts = async (val) => {
-    setBudgetAlerts(val);
-    await setSetting('budget_alerts', val.toString());
-  };
-
-  const toggleHighConsAlerts = async (val) => {
-    setHighConsAlerts(val);
-    await setSetting('high_cons_alerts', val.toString());
+  const handleMarkAllRead = async () => {
+    try {
+      const { markAllNotificationsRead } = require('../../services/notificationApi');
+      await markAllNotificationsRead();
+      Alert.alert('Success', 'All notifications have been marked as read.');
+    } catch (e) {
+      Alert.alert('Error', 'Could not update notifications.');
+    }
   };
 
   const confirmClearData = async () => {
@@ -151,11 +158,17 @@ export default function TenantSettings() {
 
         <Text style={s.sectionLabel}>Notifications</Text>
         <GlassCard style={s.sectionCard}>
+          <MenuItem icon="notifications" label="Notification History" onPress={() => router.push('/(tenant)/notifications')} />
+          <View style={s.divider} />
+          <MenuItem icon="checkmark-done-outline" label="Mark All as Read" onPress={handleMarkAllRead} />
+          <View style={s.divider} />
           <ToggleItem icon="notifications-outline" label="Push Notifications" desc="Enable or disable all alerts" value={notifEnabled} onToggle={toggleNotif} />
           <View style={s.divider} />
-          <ToggleItem icon="wallet-outline" label="Budget Alerts" desc="Warn when approaching budget limit" value={budgetAlerts} onToggle={toggleBudgetAlerts} disabled={!notifEnabled} />
+          <ToggleItem icon="wallet-outline" label="Budget Alerts" desc="Warn when approaching budget limit" value={budgetAlerts} onToggle={val => {setBudgetAlerts(val); setSetting('budget_alerts', val.toString())}} disabled={!notifEnabled} />
           <View style={s.divider} />
-          <ToggleItem icon="flash-outline" label="High Consumption Alerts" desc="Alert when power usage spikes" value={highConsAlerts} onToggle={toggleHighConsAlerts} disabled={!notifEnabled} />
+          <ToggleItem icon="flash-outline" label="Power Spike Alerts" desc="Alert when power usage spikes" value={powerSpikeAlerts} onToggle={val => {setPowerSpikeAlerts(val); setSetting('power_spike_alerts', val.toString())}} disabled={!notifEnabled} />
+          <View style={s.divider} />
+          <ToggleItem icon="trending-up-outline" label="Forecast Alerts" desc="Monthly bill predictions" value={forecastAlerts} onToggle={val => {setForecastAlerts(val); setSetting('forecast_alerts', val.toString())}} disabled={!notifEnabled} />
         </GlassCard>
 
         <Text style={s.sectionLabel}>Connectivity</Text>

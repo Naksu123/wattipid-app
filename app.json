@@ -2,7 +2,7 @@
   "expo": {
     "name": "Wattipid",
     "slug": "wattipid",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./frontend/assets/images/icon.png",
     "scheme": "wattipid",
@@ -22,7 +22,11 @@
         "backgroundImage": "./frontend/assets/images/android-icon-background.png",
         "monochromeImage": "./frontend/assets/images/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "navigationBar": {
+        "backgroundColor": "#0B0F19",
+        "buttonColor": "#F9FAFB"
+      }
     },
     "web": {
       "output": "static",

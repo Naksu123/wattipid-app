@@ -4,9 +4,24 @@ import { StatusBar } from 'expo-status-bar';
 import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { getDatabase } from '../services/database';
-import { initNotifications } from '../services/notificationService';
+import { initNotifications, setupNotificationResponseHandler } from '../services/notificationService';
 import { useAuth } from '@/contexts/AuthContext';
 import ErrorTracker from '../services/errorTracker';
+import { ThemeProvider, DarkTheme } from '@react-navigation/native';
+import { COLORS } from '@/styles/theme';
+
+// Custom dark theme to match Wattipid brand
+const WattipidTheme = {
+  ...DarkTheme,
+  colors: {
+    ...DarkTheme.colors,
+    background: '#0B0F19',
+    card: '#111827',
+    text: '#F9FAFB',
+    border: 'rgba(255, 255, 255, 0.08)',
+    primary: '#10B981',
+  },
+};
 
 function RootLayoutContent() {
   const { isAuthenticated, isLoading, user } = useAuth();
@@ -32,6 +47,12 @@ function RootLayoutContent() {
       }
     }
   }, [isAuthenticated, isLoading, segments]);
+
+  // Set up deep linking for push notification taps
+  useEffect(() => {
+    const sub = setupNotificationResponseHandler(router);
+    return () => { if (sub) sub.remove(); };
+  }, [router]);
 
   if (isLoading) {
     return (
@@ -66,10 +87,12 @@ export default function RootLayout() {
   if (!ready) return null;
 
   return (
-    <AuthProvider>
-      <StatusBar style="light" />
-      <RootLayoutContent />
-    </AuthProvider>
+    <ThemeProvider value={WattipidTheme}>
+      <AuthProvider>
+        <StatusBar style="light" />
+        <RootLayoutContent />
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
 

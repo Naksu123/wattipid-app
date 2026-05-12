@@ -1,13 +1,14 @@
 import React from 'react';
 import { View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { GRADIENTS } from '@/styles/theme';
 import styles from './styles';
 
-export default function GlassCard({ children, style, gradient = false, noPadding = false }) {
-  if (gradient) {
+export default function GlassCard({ children, style, gradient = false, solid = false, noPadding = false }) {
+  if (gradient || solid) {
     return (
       <LinearGradient
-        colors={['rgba(30, 41, 59, 0.85)', 'rgba(15, 23, 42, 0.75)']}
+        colors={solid ? GRADIENTS.card : GRADIENTS.cardGlassPremium}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={[styles.card, noPadding && styles.noPadding, style]}

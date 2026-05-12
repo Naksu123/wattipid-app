@@ -9,37 +9,37 @@ export default StyleSheet.create({
     backgroundColor: COLORS.background 
   },
   scroll: { 
-    padding: SPACING.lg, 
-    paddingTop: SPACING.xxl + 10, 
-    paddingBottom: SPACING.xxl 
+    paddingHorizontal: SPACING.lg, 
+    paddingTop: SPACING.xl + 20,
+    paddingBottom: SPACING.xxl * 2 
   },
   title: { 
     fontSize: FONT_SIZE.xxl, 
     fontWeight: FONT_WEIGHT.bold, 
-    color: COLORS.textPrimary 
+    color: COLORS.textPrimary,
+    letterSpacing: -0.5
   },
   subtitle: { 
     fontSize: FONT_SIZE.md, 
     color: COLORS.textSecondary, 
-    marginBottom: SPACING.lg 
+    marginBottom: SPACING.xl 
   },
   periodRow: { 
     flexDirection: 'row', 
-    gap: SPACING.sm, 
-    marginBottom: SPACING.lg 
+    gap: SPACING.xs, 
+    marginBottom: SPACING.lg,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderRadius: RADIUS.full,
+    padding: 4
   },
   periodBtn: { 
     flex: 1, 
     paddingVertical: SPACING.sm + 2, 
-    borderRadius: RADIUS.md, 
-    backgroundColor: COLORS.surfaceGlass, 
+    borderRadius: RADIUS.full, 
     alignItems: 'center', 
-    borderWidth: 1, 
-    borderColor: COLORS.border 
   },
   periodActive: { 
-    backgroundColor: 'rgba(34,197,94,0.1)', 
-    borderColor: COLORS.primary 
+    backgroundColor: 'rgba(16,185,129,0.15)', 
   },
   periodText: { 
     fontSize: FONT_SIZE.sm, 
@@ -47,28 +47,30 @@ export default StyleSheet.create({
     fontWeight: FONT_WEIGHT.medium 
   },
   periodTextActive: { 
-    color: COLORS.primary 
+    color: COLORS.primary,
+    fontWeight: FONT_WEIGHT.bold 
   },
   statsRow: { 
     flexDirection: 'row', 
-    gap: SPACING.sm, 
+    gap: SPACING.md, 
     marginBottom: SPACING.lg 
   },
   statCard: { 
     flex: 1, 
     alignItems: 'center', 
-    padding: SPACING.md 
+    paddingVertical: SPACING.lg,
+    paddingHorizontal: SPACING.xs
   },
   statValue: { 
-    fontSize: FONT_SIZE.lg, 
+    fontSize: FONT_SIZE.xl, 
     fontWeight: FONT_WEIGHT.bold, 
     color: COLORS.textPrimary, 
-    marginTop: SPACING.xs 
+    marginTop: SPACING.sm 
   },
   statLabel: { 
-    fontSize: FONT_SIZE.xs, 
-    color: COLORS.textMuted, 
-    marginTop: 2 
+    fontSize: FONT_SIZE.sm, 
+    color: COLORS.textSecondary, 
+    marginTop: 4 
   },
   compBanner: { 
     marginBottom: SPACING.lg 
@@ -80,9 +82,9 @@ export default StyleSheet.create({
     marginBottom: SPACING.md 
   },
   compIcon: { 
-    width: 40, 
-    height: 40, 
-    borderRadius: 12, 
+    width: 44, 
+    height: 44, 
+    borderRadius: RADIUS.md, 
     alignItems: 'center', 
     justifyContent: 'center' 
   },
@@ -95,16 +97,16 @@ export default StyleSheet.create({
     color: COLORS.textPrimary 
   },
   compBannerSub: { 
-    fontSize: FONT_SIZE.xs, 
-    color: COLORS.textMuted, 
-    marginTop: 2 
+    fontSize: FONT_SIZE.sm, 
+    color: COLORS.textSecondary, 
+    marginTop: 4 
   },
   compDetails: { 
     flexDirection: 'row', 
     alignItems: 'center', 
     paddingTop: SPACING.md, 
     borderTopWidth: 1, 
-    borderTopColor: COLORS.border 
+    borderTopColor: 'rgba(255,255,255,0.05)' 
   },
   compDetailItem: { 
     flex: 1, 
@@ -117,17 +119,21 @@ export default StyleSheet.create({
   },
   compDetailVal: { 
     fontSize: FONT_SIZE.md, 
-    fontWeight: FONT_WEIGHT.bold 
+    fontWeight: FONT_WEIGHT.bold,
+    color: COLORS.textPrimary
   },
   compDetailDivider: { 
     width: 1, 
     height: 32, 
-    backgroundColor: COLORS.border 
+    backgroundColor: 'rgba(255,255,255,0.1)' 
   },
   viewToggle: { 
     flexDirection: 'row', 
-    gap: SPACING.sm, 
-    marginBottom: SPACING.lg 
+    gap: SPACING.xs, 
+    marginBottom: SPACING.lg,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderRadius: RADIUS.full,
+    padding: 4
   },
   viewTab: { 
     flex: 1, 
@@ -135,24 +141,20 @@ export default StyleSheet.create({
     alignItems: 'center', 
     justifyContent: 'center', 
     gap: SPACING.xs, 
-    paddingVertical: SPACING.sm, 
-    borderRadius: RADIUS.md, 
-    backgroundColor: COLORS.surfaceGlass, 
-    borderWidth: 1, 
-    borderColor: COLORS.border 
+    paddingVertical: SPACING.sm + 2, 
+    borderRadius: RADIUS.full, 
   },
   viewTabActive: { 
-    backgroundColor: 'rgba(34,197,94,0.08)', 
-    borderColor: COLORS.primary 
+    backgroundColor: 'rgba(59,130,246,0.15)', 
   },
   viewTabText: { 
-    fontSize: FONT_SIZE.xs, 
+    fontSize: FONT_SIZE.sm, 
     color: COLORS.textMuted, 
     fontWeight: FONT_WEIGHT.medium 
   },
   viewTabTextActive: { 
-    color: COLORS.primary, 
-    fontWeight: FONT_WEIGHT.semibold 
+    color: COLORS.info, 
+    fontWeight: FONT_WEIGHT.bold 
   },
   reportCard: { 
     marginBottom: SPACING.lg 
@@ -165,48 +167,46 @@ export default StyleSheet.create({
   },
   reportTitle: { 
     fontSize: FONT_SIZE.md, 
-    fontWeight: FONT_WEIGHT.semibold, 
+    fontWeight: FONT_WEIGHT.bold, 
     color: COLORS.textPrimary 
   },
   reportDesc: { 
-    fontSize: FONT_SIZE.xs, 
-    color: COLORS.textMuted, 
-    marginBottom: SPACING.md 
+    fontSize: FONT_SIZE.sm, 
+    color: COLORS.textSecondary, 
+    marginBottom: SPACING.lg 
   },
   reportBtns: { 
     flexDirection: 'row', 
-    gap: SPACING.sm 
+    gap: SPACING.md 
   },
   reportBtn: { 
     flex: 1, 
     flexDirection: 'row', 
     alignItems: 'center', 
     justifyContent: 'center', 
-    gap: SPACING.xs, 
-    paddingVertical: SPACING.sm + 2, 
-    borderRadius: RADIUS.md, 
-    backgroundColor: 'rgba(59,130,246,0.08)', 
-    borderWidth: 1, 
-    borderColor: 'rgba(59,130,246,0.2)' 
+    gap: SPACING.sm, 
+    paddingVertical: SPACING.md, 
+    borderRadius: RADIUS.full, 
+    backgroundColor: 'rgba(59,130,246,0.1)', 
   },
   reportBtnText: { 
     fontSize: FONT_SIZE.sm, 
     color: COLORS.info, 
-    fontWeight: FONT_WEIGHT.semibold 
+    fontWeight: FONT_WEIGHT.bold 
   },
   chartCard: { 
     marginBottom: SPACING.lg 
   },
   chartTitle: { 
     fontSize: FONT_SIZE.md, 
-    fontWeight: FONT_WEIGHT.semibold, 
+    fontWeight: FONT_WEIGHT.bold, 
     color: COLORS.textPrimary 
   },
   chartHelpText: { 
-    fontSize: FONT_SIZE.xs, 
-    color: COLORS.textMuted, 
-    marginBottom: SPACING.md, 
-    marginTop: 2 
+    fontSize: FONT_SIZE.sm, 
+    color: COLORS.textSecondary, 
+    marginBottom: SPACING.lg, 
+    marginTop: 4 
   },
   chartScroll: { 
     paddingRight: SPACING.lg 
@@ -224,7 +224,8 @@ export default StyleSheet.create({
   selectedPointCard: { 
     marginBottom: SPACING.lg, 
     borderColor: COLORS.primary, 
-    borderWidth: 1 
+    borderWidth: 1,
+    backgroundColor: 'rgba(16,185,129,0.05)'
   },
   selectedHeader: { 
     flexDirection: 'row', 
@@ -236,7 +237,7 @@ export default StyleSheet.create({
     fontSize: FONT_SIZE.md, 
     fontWeight: FONT_WEIGHT.bold, 
     color: COLORS.primary, 
-    marginLeft: SPACING.xs 
+    marginLeft: SPACING.sm 
   },
   closeSelectedBtn: { 
     padding: SPACING.xs 
@@ -263,7 +264,7 @@ export default StyleSheet.create({
   selectedDivider: { 
     width: 1, 
     height: 30, 
-    backgroundColor: COLORS.border 
+    backgroundColor: 'rgba(255,255,255,0.1)' 
   },
   insightCard: { 
     marginBottom: SPACING.xxl 
@@ -272,11 +273,11 @@ export default StyleSheet.create({
     flexDirection: 'row', 
     alignItems: 'center', 
     gap: SPACING.sm, 
-    marginBottom: SPACING.sm 
+    marginBottom: SPACING.md 
   },
   insightTitle: { 
     fontSize: FONT_SIZE.md, 
-    fontWeight: FONT_WEIGHT.semibold, 
+    fontWeight: FONT_WEIGHT.bold, 
     color: COLORS.textPrimary 
   },
   insightText: { 
@@ -289,51 +290,52 @@ export default StyleSheet.create({
   },
   totalsTitle: { 
     fontSize: FONT_SIZE.md, 
-    fontWeight: FONT_WEIGHT.semibold, 
+    fontWeight: FONT_WEIGHT.bold, 
     color: COLORS.textPrimary 
   },
   totalsDesc: { 
-    fontSize: FONT_SIZE.xs, 
-    color: COLORS.textMuted, 
-    marginTop: 2, 
-    marginBottom: SPACING.md 
+    fontSize: FONT_SIZE.sm, 
+    color: COLORS.textSecondary, 
+    marginTop: 4, 
+    marginBottom: SPACING.lg 
   },
   totalsGrid: { 
     flexDirection: 'row', 
-    gap: SPACING.sm 
+    gap: SPACING.md 
   },
   totalItem: { 
     flex: 1, 
     alignItems: 'center', 
     gap: 4, 
-    padding: SPACING.sm, 
-    borderRadius: RADIUS.md, 
+    paddingVertical: SPACING.md, 
+    paddingHorizontal: SPACING.xs,
+    borderRadius: RADIUS.lg, 
     backgroundColor: 'rgba(255,255,255,0.03)' 
   },
   totalIcon: { 
-    width: 36, 
-    height: 36, 
-    borderRadius: 10, 
+    width: 40, 
+    height: 40, 
+    borderRadius: 12, 
     alignItems: 'center', 
     justifyContent: 'center', 
-    marginBottom: 4 
+    marginBottom: 8 
   },
   totalLabel: { 
-    fontSize: 10, 
+    fontSize: 11, 
     color: COLORS.textMuted, 
-    fontWeight: FONT_WEIGHT.medium, 
+    fontWeight: FONT_WEIGHT.semibold, 
     textAlign: 'center' 
   },
   totalEnergy: { 
-    fontSize: FONT_SIZE.xs, 
+    fontSize: FONT_SIZE.sm, 
     color: COLORS.textPrimary, 
     fontWeight: FONT_WEIGHT.bold, 
     textAlign: 'center' 
   },
   totalCost: { 
-    fontSize: FONT_SIZE.xs, 
+    fontSize: FONT_SIZE.sm, 
     color: COLORS.primary, 
-    fontWeight: FONT_WEIGHT.semibold, 
+    fontWeight: FONT_WEIGHT.bold, 
     textAlign: 'center' 
   },
   breakdownCard: { 
@@ -346,63 +348,63 @@ export default StyleSheet.create({
   },
   breakdownTitle: { 
     fontSize: FONT_SIZE.md, 
-    fontWeight: FONT_WEIGHT.semibold, 
+    fontWeight: FONT_WEIGHT.bold, 
     color: COLORS.textPrimary 
   },
   breakdownDesc: { 
-    fontSize: FONT_SIZE.xs, 
-    color: COLORS.textMuted, 
-    marginTop: 2, 
-    marginBottom: SPACING.md 
+    fontSize: FONT_SIZE.sm, 
+    color: COLORS.textSecondary, 
+    marginTop: 4, 
+    marginBottom: SPACING.lg 
   },
   tableHeader: { 
     flexDirection: 'row', 
     paddingVertical: SPACING.sm, 
     paddingHorizontal: SPACING.xs, 
     borderBottomWidth: 1, 
-    borderBottomColor: COLORS.border 
+    borderBottomColor: 'rgba(255,255,255,0.1)' 
   },
   tableHeaderCell: { 
     fontSize: FONT_SIZE.xs, 
     color: COLORS.textMuted, 
-    fontWeight: FONT_WEIGHT.semibold, 
+    fontWeight: FONT_WEIGHT.bold, 
     textTransform: 'uppercase', 
     letterSpacing: 0.5 
   },
   tableRow: { 
     flexDirection: 'row', 
-    paddingVertical: SPACING.sm, 
+    paddingVertical: SPACING.md, 
     paddingHorizontal: SPACING.xs, 
     borderBottomWidth: 1, 
-    borderBottomColor: 'rgba(148,163,184,0.06)' 
+    borderBottomColor: 'rgba(255,255,255,0.05)' 
   },
   tableRowAlt: { 
-    backgroundColor: 'rgba(255,255,255,0.02)' 
+    backgroundColor: 'rgba(255,255,255,0.01)' 
   },
   tableCell: { 
-    fontSize: FONT_SIZE.xs, 
+    fontSize: FONT_SIZE.sm, 
     color: COLORS.textSecondary 
   },
   tableCellHighlight: { 
-    fontSize: FONT_SIZE.xs, 
+    fontSize: FONT_SIZE.sm, 
     color: COLORS.textPrimary, 
-    fontWeight: FONT_WEIGHT.medium 
+    fontWeight: FONT_WEIGHT.semibold 
   },
   tableTotalRow: { 
     flexDirection: 'row', 
-    paddingVertical: SPACING.sm + 2, 
+    paddingVertical: SPACING.md, 
     paddingHorizontal: SPACING.xs, 
     borderTopWidth: 2, 
     borderTopColor: COLORS.primary, 
     marginTop: SPACING.xs 
   },
   tableTotalCell: { 
-    fontSize: FONT_SIZE.xs, 
+    fontSize: FONT_SIZE.sm, 
     color: COLORS.textPrimary, 
     fontWeight: FONT_WEIGHT.bold 
   },
   historySection: { 
-    marginBottom: SPACING.xxl 
+    marginBottom: SPACING.xxl * 2 
   },
   histGroup: { 
     marginBottom: SPACING.md 
@@ -422,7 +424,7 @@ export default StyleSheet.create({
     letterSpacing: 1 
   },
   histDayTotal: { 
-    fontSize: FONT_SIZE.xs, 
+    fontSize: FONT_SIZE.sm, 
     color: COLORS.danger, 
     fontWeight: FONT_WEIGHT.bold 
   },
@@ -430,24 +432,23 @@ export default StyleSheet.create({
     flexDirection: 'row', 
     alignItems: 'flex-start', 
     paddingLeft: SPACING.sm, 
-    marginBottom: SPACING.xs 
+    marginBottom: SPACING.sm 
   },
   histDot: { 
-    width: 8, 
-    height: 8, 
-    borderRadius: 4, 
+    width: 10, 
+    height: 10, 
+    borderRadius: 5, 
     backgroundColor: COLORS.primary, 
-    marginTop: 14, 
+    marginTop: 18, 
     zIndex: 1 
   },
   histLine: { 
     position: 'absolute', 
-    left: SPACING.sm + 3, 
-    top: 22, 
-    bottom: -6, 
+    left: SPACING.sm + 4, 
+    top: 28, 
+    bottom: -10, 
     width: 2, 
-    backgroundColor: COLORS.border, 
-    opacity: 0.5 
+    backgroundColor: 'rgba(255,255,255,0.1)', 
   },
   histContent: { 
     flex: 1, 
@@ -455,9 +456,9 @@ export default StyleSheet.create({
     paddingVertical: SPACING.md, 
     paddingHorizontal: SPACING.md, 
     backgroundColor: COLORS.surfaceGlass, 
-    borderRadius: RADIUS.md, 
+    borderRadius: RADIUS.lg, 
     borderWidth: 1, 
-    borderColor: COLORS.border 
+    borderColor: 'rgba(255,255,255,0.05)' 
   },
   histTop: { 
     flexDirection: 'row', 
@@ -467,7 +468,7 @@ export default StyleSheet.create({
   histName: { 
     fontSize: FONT_SIZE.sm, 
     color: COLORS.textPrimary, 
-    fontWeight: FONT_WEIGHT.medium 
+    fontWeight: FONT_WEIGHT.semibold 
   },
   histAmount: { 
     fontSize: FONT_SIZE.sm, 
@@ -475,11 +476,11 @@ export default StyleSheet.create({
     fontWeight: FONT_WEIGHT.bold 
   },
   histBottom: { 
-    marginTop: 2 
+    marginTop: 4 
   },
   histMeta: { 
     fontSize: FONT_SIZE.xs, 
-    color: COLORS.textMuted 
+    color: COLORS.textSecondary 
   },
   emptyHist: { 
     alignItems: 'center', 

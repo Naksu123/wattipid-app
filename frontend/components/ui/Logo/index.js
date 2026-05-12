@@ -22,7 +22,7 @@ export default function Logo({
   variant = 'vertical' 
 }) {
   const isHorizontal = variant === 'horizontal';
-  const logoSource = require('../../../assets/images/wattipid-logo.jpg');
+  const logoSource = require('../../../assets/images/Wattipid 2.0.png');
 
   if (useImage) {
     return (

@@ -59,13 +59,24 @@ export default function DashboardScreen() {
     }
   }, [roomId, user?.name]);
 
+  const todayUsageRef = useRef(todayUsage);
+  const budgetRef = useRef(budget);
+  const lastSeenRef = useRef(lastSeen);
+  const lastAlertKeyRef = useRef(lastAlertKey);
+
+  useEffect(() => {
+    todayUsageRef.current = todayUsage;
+    budgetRef.current = budget;
+    lastSeenRef.current = lastSeen;
+    lastAlertKeyRef.current = lastAlertKey;
+  }, [todayUsage, budget, lastSeen, lastAlertKey]);
+
   const fetchRealtimeDataLoop = useCallback(async () => {
     try {
       const sensorData = await fetchRealtimeData(roomId);
       
-      // Handle offline state
-      const isNowOffline = lastSeen ? 
-        (new Date().getTime() - new Date(lastSeen).getTime()) > 60000 : true;
+      const isNowOffline = lastSeenRef.current ? 
+        (new Date().getTime() - new Date(lastSeenRef.current).getTime()) > 60000 : true;
 
       if (isNowOffline) {
         setData({ voltage: 0, current: 0, power: 0, energy: 0, powerFactor: 0 });
@@ -75,14 +86,13 @@ export default function DashboardScreen() {
 
       setRelayOn(sensorData.relayState !== false);
 
-      // Trigger high consumption check (local logic)
-      const tip = getSmartPopupTip(sensorData.power, todayUsage.totalCost, budget);
+      const tip = getSmartPopupTip(sensorData.power, todayUsageRef.current?.totalCost || 0, budgetRef.current);
       setSmartTip(tip);
 
       const alert = await detectHighConsumption(roomId, sensorData.power);
       if (alert) {
         const alertKey = `${alert.title}-${alert.type}`;
-        if (alertKey !== lastAlertKey) {
+        if (alertKey !== lastAlertKeyRef.current) {
           setAlertData(alert);
           setAlertVisible(true);
           setLastAlertKey(alertKey);
@@ -97,7 +107,7 @@ export default function DashboardScreen() {
     } catch (err) {
       console.warn('Real-time fetch error:', err);
     }
-  }, [roomId, lastSeen, todayUsage.totalCost, budget, lastAlertKey]);
+  }, [roomId]);
 
   useEffect(() => {
     if (!isFocused || !isAuthenticated) return;
@@ -115,7 +125,7 @@ export default function DashboardScreen() {
       clearInterval(realtimeInterval);
       clearInterval(staticInterval);
     };
-  }, [isFocused, isAuthenticated, fetchRealtimeDataLoop, fetchStaticData]);
+  }, [isFocused, isAuthenticated]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -158,10 +168,12 @@ export default function DashboardScreen() {
         {/* Header */}
         <View style={ms.header}>
           <View>
-            <Text style={ms.greeting}>Hello, {user?.name || 'Tenant'} 👋</Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
-              <Text style={ms.roomLabel}>Room: {roomId}</Text>
+            <Text style={ms.greeting}>Hello, {user?.name || 'Tenant'}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
+              <Ionicons name="home-outline" size={14} color={COLORS.textSecondary} />
+              <Text style={ms.roomLabel}>{roomId}</Text>
               <Text style={ms.lastSeenDot}>•</Text>
+              <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: offline ? COLORS.danger : COLORS.success }} />
               <Text style={[ms.lastSeenText, { color: offline ? COLORS.danger : COLORS.success }]}>
                 {offline ? 'Offline' : `Live: ${formatLastSeen()}`}
               </Text>

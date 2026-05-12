@@ -7,19 +7,28 @@ export default StyleSheet.create({
     backgroundColor: COLORS.background 
   },
   scroll: { 
-    padding: SPACING.lg, 
-    paddingTop: SPACING.xxl + 10, 
-    paddingBottom: SPACING.xxl 
+    flexGrow: 1,
+    backgroundColor: COLORS.background,
+    paddingHorizontal: SPACING.lg, 
+    paddingTop: SPACING.xl + 20,
+    paddingBottom: SPACING.xxl * 3 
   },
   title: { 
     fontSize: FONT_SIZE.xxl, 
     fontWeight: FONT_WEIGHT.bold, 
-    color: COLORS.textPrimary 
+    color: COLORS.textPrimary,
+    letterSpacing: -0.5
   },
   subtitle: { 
     fontSize: FONT_SIZE.md, 
     color: COLORS.textSecondary, 
-    marginBottom: SPACING.lg 
+    marginBottom: SPACING.xl 
+  },
+  headerContainer: {
+    marginBottom: 20
+  },
+  fullWidth: {
+    width: '100%'
   },
   sectionDesc: { 
     fontSize: FONT_SIZE.md, 
@@ -37,7 +46,7 @@ export default StyleSheet.create({
     alignItems: 'center', 
     justifyContent: 'center', 
     backgroundColor: COLORS.backgroundLight, 
-    borderRadius: RADIUS.lg, 
+    borderRadius: RADIUS.xl, 
     borderWidth: 2, 
     borderColor: COLORS.primary, 
     paddingHorizontal: SPACING.lg, 
@@ -72,7 +81,7 @@ export default StyleSheet.create({
     width: 80, 
     height: 80, 
     borderRadius: 40, 
-    backgroundColor: 'rgba(59,130,246,0.1)', 
+    backgroundColor: 'rgba(16, 185, 129, 0.1)', 
     alignItems: 'center', 
     justifyContent: 'center', 
     marginBottom: SPACING.md 
@@ -104,7 +113,7 @@ export default StyleSheet.create({
   },
   confirmCard: { 
     marginBottom: SPACING.lg, 
-    borderLeftWidth: 3, 
+    borderLeftWidth: 4, 
     borderLeftColor: COLORS.primary 
   },
   confirmHeader: { 
@@ -130,7 +139,7 @@ export default StyleSheet.create({
   confirmLabel: { 
     fontSize: FONT_SIZE.xs, 
     color: COLORS.textMuted, 
-    marginBottom: 2 
+    marginBottom: 4 
   },
   confirmValue: { 
     fontSize: FONT_SIZE.md, 
@@ -140,31 +149,30 @@ export default StyleSheet.create({
   confirmDivider: { 
     width: 1, 
     height: 28, 
-    backgroundColor: COLORS.border 
+    backgroundColor: 'rgba(255,255,255,0.1)' 
   },
   confirmSub: { 
     fontSize: FONT_SIZE.xs, 
     color: COLORS.textMuted, 
     textAlign: 'center', 
-    marginTop: SPACING.sm 
+    marginTop: SPACING.md 
   },
   tabRow: { 
     flexDirection: 'row', 
     gap: SPACING.sm, 
-    marginBottom: SPACING.md 
+    marginBottom: SPACING.lg,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderRadius: RADIUS.full,
+    padding: 4
   },
   tabBtn: { 
     flex: 1, 
     paddingVertical: SPACING.sm + 2, 
-    borderRadius: RADIUS.md, 
-    backgroundColor: COLORS.surfaceGlass, 
+    borderRadius: RADIUS.full, 
     alignItems: 'center', 
-    borderWidth: 1, 
-    borderColor: COLORS.border 
   },
   tabActive: { 
-    backgroundColor: 'rgba(34,197,94,0.1)', 
-    borderColor: COLORS.primary 
+    backgroundColor: 'rgba(16,185,129,0.15)', 
   },
   tabText: { 
     fontSize: FONT_SIZE.sm, 
@@ -202,52 +210,51 @@ export default StyleSheet.create({
   },
   breakdownHeader: { 
     flexDirection: 'row', 
-    justifyContent: 'space-between', 
     alignItems: 'center', 
-    marginBottom: SPACING.md 
+    marginBottom: SPACING.lg,
+    gap: SPACING.sm 
   },
   breakdownTitle: { 
+    flex: 1,
     fontSize: FONT_SIZE.md, 
-    fontWeight: FONT_WEIGHT.semibold, 
-    color: COLORS.textPrimary 
+    fontWeight: FONT_WEIGHT.bold, 
+    color: COLORS.textPrimary,
   },
   breakdownActions: { 
     flexDirection: 'row', 
     alignItems: 'center', 
-    gap: SPACING.sm 
+    gap: 6 
   },
   resetBudgetBtn: { 
     flexDirection: 'row', 
     alignItems: 'center', 
     gap: 4, 
     paddingHorizontal: SPACING.sm, 
-    paddingVertical: 4, 
+    paddingVertical: 6, 
     borderRadius: RADIUS.full, 
-    borderWidth: 1, 
-    borderColor: COLORS.danger 
+    backgroundColor: 'rgba(239,68,68,0.1)'
   },
   resetBudgetText: { 
     fontSize: FONT_SIZE.xs, 
     color: COLORS.danger, 
-    fontWeight: FONT_WEIGHT.medium 
+    fontWeight: FONT_WEIGHT.semibold 
   },
   editBudgetBtn: { 
     flexDirection: 'row', 
     alignItems: 'center', 
     gap: 4, 
     paddingHorizontal: SPACING.sm, 
-    paddingVertical: 4, 
+    paddingVertical: 6, 
     borderRadius: RADIUS.full, 
-    borderWidth: 1, 
-    borderColor: COLORS.primary 
+    backgroundColor: 'rgba(16,185,129,0.1)'
   },
   editBudgetText: { 
     fontSize: FONT_SIZE.xs, 
     color: COLORS.primary, 
-    fontWeight: FONT_WEIGHT.medium 
+    fontWeight: FONT_WEIGHT.semibold 
   },
   breakdownGrid: { 
-    gap: SPACING.md 
+    gap: SPACING.lg 
   },
   breakdownItem: { 
     gap: SPACING.xs 
@@ -255,12 +262,12 @@ export default StyleSheet.create({
   breakdownItemHeader: { 
     flexDirection: 'row', 
     alignItems: 'center', 
-    gap: SPACING.sm 
+    gap: SPACING.md 
   },
   breakdownIconWrap: { 
-    width: 28, 
-    height: 28, 
-    borderRadius: 8, 
+    width: 32, 
+    height: 32, 
+    borderRadius: RADIUS.sm, 
     backgroundColor: 'rgba(255,255,255,0.05)', 
     alignItems: 'center', 
     justifyContent: 'center' 
@@ -269,48 +276,50 @@ export default StyleSheet.create({
     flex: 1, 
     fontSize: FONT_SIZE.sm, 
     color: COLORS.textPrimary, 
-    fontWeight: FONT_WEIGHT.medium 
+    fontWeight: FONT_WEIGHT.semibold 
   },
   breakdownPct: { 
     fontSize: FONT_SIZE.sm, 
-    color: COLORS.textMuted, 
-    fontWeight: FONT_WEIGHT.semibold 
+    color: COLORS.textSecondary, 
+    fontWeight: FONT_WEIGHT.bold 
   },
   bar: { 
-    height: 6, 
-    backgroundColor: COLORS.surfaceLight, 
-    borderRadius: 3, 
-    overflow: 'hidden' 
+    height: 8, 
+    backgroundColor: 'rgba(255,255,255,0.1)', 
+    borderRadius: 4, 
+    overflow: 'hidden',
+    marginTop: 4
   },
   barFill: { 
     height: '100%', 
-    borderRadius: 3 
+    borderRadius: 4 
   },
   breakdownAmounts: { 
     flexDirection: 'row', 
-    gap: 4 
+    gap: 4,
+    marginTop: 4 
   },
   breakdownSpent: { 
-    fontSize: FONT_SIZE.xs, 
-    color: COLORS.textSecondary, 
-    fontWeight: FONT_WEIGHT.semibold 
+    fontSize: FONT_SIZE.sm, 
+    color: COLORS.textPrimary, 
+    fontWeight: FONT_WEIGHT.bold 
   },
   breakdownLimit: { 
-    fontSize: FONT_SIZE.xs, 
-    color: COLORS.textMuted 
+    fontSize: FONT_SIZE.sm, 
+    color: COLORS.textSecondary 
   },
   remainingInfo: { 
     flexDirection: 'row', 
     alignItems: 'center', 
-    gap: SPACING.xs, 
-    marginTop: SPACING.md, 
+    gap: SPACING.sm, 
+    marginTop: SPACING.lg, 
     paddingTop: SPACING.md, 
     borderTopWidth: 1, 
-    borderTopColor: COLORS.border 
+    borderTopColor: 'rgba(255,255,255,0.05)' 
   },
   remainingText: { 
-    fontSize: FONT_SIZE.xs, 
-    color: COLORS.textMuted 
+    fontSize: FONT_SIZE.sm, 
+    color: COLORS.textSecondary 
   },
   compCard: { 
     marginBottom: SPACING.lg 
@@ -322,33 +331,38 @@ export default StyleSheet.create({
     flexDirection: 'row', 
     alignItems: 'center', 
     gap: SPACING.sm, 
-    marginBottom: SPACING.sm 
+    marginBottom: SPACING.md 
   },
   compTitle: { 
     fontSize: FONT_SIZE.md, 
-    fontWeight: FONT_WEIGHT.semibold, 
+    fontWeight: FONT_WEIGHT.bold, 
     color: COLORS.textPrimary 
   },
   compPeriodRow: { 
     flexDirection: 'row', 
-    gap: SPACING.xs 
+    gap: SPACING.xs,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderRadius: RADIUS.full,
+    padding: 4
   },
   compPeriodBtn: { 
+    flex: 1,
     paddingHorizontal: SPACING.sm, 
-    paddingVertical: 4, 
+    paddingVertical: 6, 
     borderRadius: RADIUS.full, 
-    backgroundColor: COLORS.surfaceLight 
+    alignItems: 'center'
   },
   compPeriodActive: { 
     backgroundColor: 'rgba(59,130,246,0.15)' 
   },
   compPeriodText: { 
     fontSize: FONT_SIZE.xs, 
-    color: COLORS.textMuted 
+    color: COLORS.textMuted,
+    fontWeight: FONT_WEIGHT.medium
   },
   compPeriodTextActive: { 
     color: COLORS.info, 
-    fontWeight: FONT_WEIGHT.semibold 
+    fontWeight: FONT_WEIGHT.bold 
   },
   compBody: { 
     flexDirection: 'row', 
@@ -360,19 +374,19 @@ export default StyleSheet.create({
     alignItems: 'center' 
   },
   compColLabel: { 
-    fontSize: FONT_SIZE.xs, 
-    color: COLORS.textMuted, 
-    marginBottom: 4 
+    fontSize: FONT_SIZE.sm, 
+    color: COLORS.textSecondary, 
+    marginBottom: 6 
   },
   compColVal: { 
-    fontSize: FONT_SIZE.lg, 
+    fontSize: FONT_SIZE.xl, 
     fontWeight: FONT_WEIGHT.bold, 
     color: COLORS.textPrimary 
   },
   compColSub: { 
     fontSize: FONT_SIZE.xs, 
     color: COLORS.textMuted, 
-    marginTop: 2 
+    marginTop: 4 
   },
   compArrow: { 
     paddingHorizontal: SPACING.sm 
@@ -392,13 +406,13 @@ export default StyleSheet.create({
     flex: 1 
   },
   txnSection: { 
-    marginBottom: SPACING.xxl 
+    marginBottom: SPACING.xxl * 2 
   },
   txnHeader: { 
     flexDirection: 'row', 
     alignItems: 'center', 
     gap: SPACING.sm, 
-    marginBottom: SPACING.md 
+    marginBottom: SPACING.lg 
   },
   txnTitle: { 
     fontSize: FONT_SIZE.lg, 
@@ -411,7 +425,7 @@ export default StyleSheet.create({
   txnDate: { 
     fontSize: FONT_SIZE.xs, 
     color: COLORS.textMuted, 
-    fontWeight: FONT_WEIGHT.semibold, 
+    fontWeight: FONT_WEIGHT.bold, 
     textTransform: 'uppercase', 
     letterSpacing: 1, 
     marginBottom: SPACING.sm, 
@@ -422,12 +436,12 @@ export default StyleSheet.create({
     alignItems: 'center', 
     gap: SPACING.md, 
     padding: SPACING.md, 
-    marginBottom: SPACING.xs 
+    marginBottom: SPACING.sm 
   },
   txnIcon: { 
-    width: 40, 
-    height: 40, 
-    borderRadius: 12, 
+    width: 44, 
+    height: 44, 
+    borderRadius: RADIUS.md, 
     backgroundColor: 'rgba(249,115,22,0.1)', 
     alignItems: 'center', 
     justifyContent: 'center' 
@@ -438,25 +452,25 @@ export default StyleSheet.create({
   txnName: { 
     fontSize: FONT_SIZE.sm, 
     color: COLORS.textPrimary, 
-    fontWeight: FONT_WEIGHT.medium 
+    fontWeight: FONT_WEIGHT.semibold 
   },
   txnTime: { 
     fontSize: FONT_SIZE.xs, 
-    color: COLORS.textMuted, 
-    marginTop: 2 
+    color: COLORS.textSecondary, 
+    marginTop: 4 
   },
   txnAmountCol: { 
     alignItems: 'flex-end' 
   },
   txnAmount: { 
-    fontSize: FONT_SIZE.sm, 
+    fontSize: FONT_SIZE.md, 
     color: COLORS.danger, 
     fontWeight: FONT_WEIGHT.bold 
   },
   txnPower: { 
     fontSize: FONT_SIZE.xs, 
     color: COLORS.textMuted, 
-    marginTop: 2 
+    marginTop: 4 
   },
   emptyTxn: { 
     alignItems: 'center', 
@@ -466,10 +480,62 @@ export default StyleSheet.create({
   emptyTxnText: { 
     fontSize: FONT_SIZE.md, 
     color: COLORS.textSecondary, 
-    fontWeight: FONT_WEIGHT.medium 
+    fontWeight: FONT_WEIGHT.semibold 
   },
   emptyTxnSub: { 
     fontSize: FONT_SIZE.sm, 
     color: COLORS.textMuted 
   },
+  // Budget Confirmation Card Styles
+  confirmCard: {
+    backgroundColor: 'rgba(16, 185, 129, 0.08)',
+    borderColor: 'rgba(16, 185, 129, 0.25)',
+    borderWidth: 1,
+    marginBottom: SPACING.lg,
+    padding: SPACING.md,
+    borderRadius: RADIUS.lg,
+  },
+  confirmHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: SPACING.md,
+  },
+  confirmTitle: {
+    flex: 1,
+    fontSize: FONT_SIZE.md,
+    fontWeight: FONT_WEIGHT.bold,
+    color: COLORS.primary,
+    marginLeft: SPACING.sm,
+  },
+  confirmGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  confirmItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  confirmLabel: {
+    fontSize: FONT_SIZE.xs,
+    color: COLORS.textSecondary,
+    marginBottom: 4,
+  },
+  confirmValue: {
+    fontSize: FONT_SIZE.sm,
+    fontWeight: FONT_WEIGHT.bold,
+    color: COLORS.textPrimary,
+  },
+  confirmDivider: {
+    width: 1,
+    height: 30,
+    backgroundColor: 'rgba(16, 185, 129, 0.2)',
+  },
+  confirmSub: {
+    fontSize: 10,
+    color: COLORS.textMuted,
+    textAlign: 'center',
+    marginTop: SPACING.sm,
+    fontStyle: 'italic',
+  }
 });

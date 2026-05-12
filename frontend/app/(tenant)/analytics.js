@@ -6,6 +6,7 @@ import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { useAuth } from '../../contexts/AuthContext';
 import { getConsumptionHistory, getConsumptionComparison, getDailyBreakdown, getHourlyBreakdown, getTransactionHistory, getTotalConsumptionToday, getTotalConsumptionWeek, getTotalConsumptionMonth, getSetting } from '../../services/database';
+import { getMonthlyForecast } from '../../services/notificationApi';
 import { generateConsumptionReport } from '../../services/reportService';
 import GlassCard from '../../components/ui/GlassCard';
 import { COLORS, SPACING } from '@/styles/theme';
@@ -29,6 +30,7 @@ export default function AnalyticsScreen() {
   const [generatingPdf, setGeneratingPdf] = useState(false);
   const [selectedPoint, setSelectedPoint] = useState(null);
   const [rate, setRate] = useState(12.5);
+  const [forecast, setForecast] = useState(null);
   const roomId = user?.room_id || 'Room 1';
 
   const loadData = useCallback(async () => {
@@ -51,6 +53,14 @@ export default function AnalyticsScreen() {
     setMonthUsage(month);
     setTransactions(txns || []);
     if (rateVal) setRate(parseFloat(rateVal));
+
+    // Load forecast data
+    try {
+      const forecastData = await getMonthlyForecast(roomId, tenantName);
+      setForecast(forecastData);
+    } catch (e) {
+      console.warn('Forecast fetch failed:', e);
+    }
 
     // Load breakdown based on period
     if (period === 'daily') {
@@ -214,8 +224,10 @@ export default function AnalyticsScreen() {
   return (
     <View style={s.container}>
       <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
-        <Text style={s.title}>Analytics</Text>
-        <Text style={s.subtitle}>Detailed consumption insights & history</Text>
+        <View style={{ marginBottom: 20 }}>
+          <Text style={s.title}>Analytics</Text>
+          <Text style={s.subtitle}>Analyze your consumption patterns</Text>
+        </View>
 
         {/* Period Selector */}
         <View style={s.periodRow}>
@@ -293,6 +305,72 @@ export default function AnalyticsScreen() {
             </TouchableOpacity>
           ))}
         </View>
+
+        {/* Monthly Forecast Card */}
+        {forecast && forecast.projected_monthly_cost > 0 && (
+          <GlassCard style={[s.insightCard, { borderLeftWidth: 3, borderLeftColor: 
+            forecast.risk_level === 'critical' ? COLORS.danger : 
+            forecast.risk_level === 'high' ? COLORS.warning : 
+            forecast.risk_level === 'medium' ? COLORS.accent : COLORS.primary }]}>
+            <View style={s.insightHeader}>
+              <Ionicons name="analytics" size={20} color={COLORS.info} />
+              <Text style={s.insightTitle}>Monthly Forecast</Text>
+              <View style={[s.periodBtn, { paddingHorizontal: 8, paddingVertical: 2, backgroundColor: 
+                forecast.risk_level === 'critical' ? 'rgba(239,68,68,0.15)' : 
+                forecast.risk_level === 'high' ? 'rgba(245,158,11,0.15)' : 
+                forecast.risk_level === 'medium' ? 'rgba(249,115,22,0.15)' : 'rgba(34,197,94,0.15)' }]}>
+                <Text style={[s.periodText, { fontSize: 11, color: 
+                  forecast.risk_level === 'critical' ? COLORS.danger : 
+                  forecast.risk_level === 'high' ? COLORS.warning : 
+                  forecast.risk_level === 'medium' ? COLORS.accent : COLORS.primary }]}>
+                  {forecast.risk_level.toUpperCase()} RISK
+                </Text>
+              </View>
+            </View>
+            <View style={{ marginTop: 12 }}>
+              <View style={s.compDetails}>
+                <View style={s.compDetailItem}>
+                  <Text style={s.compDetailLabel}>Projected Bill</Text>
+                  <Text style={[s.compDetailVal, { color: forecast.risk_level === 'critical' || forecast.risk_level === 'high' ? COLORS.danger : COLORS.primary, fontSize: 18 }]}>
+                    ₱{Number(forecast.projected_monthly_cost || 0).toFixed(2)}
+                  </Text>
+                </View>
+                <View style={s.compDetailDivider} />
+                <View style={s.compDetailItem}>
+                  <Text style={s.compDetailLabel}>Budget</Text>
+                  <Text style={[s.compDetailVal, { fontSize: 18 }]}>
+                    ₱{Number(forecast.monthly_budget || 0).toFixed(2)}
+                  </Text>
+                </View>
+              </View>
+              <View style={[s.compDetails, { marginTop: 8 }]}>
+                <View style={s.compDetailItem}>
+                  <Text style={s.compDetailLabel}>Trend</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                    <Ionicons name={forecast.trend === 'increasing' ? 'arrow-up' : forecast.trend === 'decreasing' ? 'arrow-down' : 'remove'} 
+                      size={14} color={forecast.trend === 'increasing' ? COLORS.danger : forecast.trend === 'decreasing' ? COLORS.success : COLORS.textMuted} />
+                    <Text style={[s.compDetailVal, { color: forecast.trend === 'increasing' ? COLORS.danger : forecast.trend === 'decreasing' ? COLORS.success : COLORS.textMuted }]}>
+                      {forecast.trend} ({forecast.trend_pct > 0 ? '+' : ''}{Number(forecast.trend_pct || 0).toFixed(1)}%)
+                    </Text>
+                  </View>
+                </View>
+                <View style={s.compDetailDivider} />
+                <View style={s.compDetailItem}>
+                  <Text style={s.compDetailLabel}>Daily Target</Text>
+                  <Text style={[s.compDetailVal, { color: COLORS.primary }]}>
+                    ₱{Number(forecast.daily_budget_to_stay_on_track || 0).toFixed(2)}/day
+                  </Text>
+                </View>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 10, gap: 6 }}>
+                <Ionicons name="information-circle-outline" size={14} color={COLORS.textMuted} />
+                <Text style={{ fontSize: 11, color: COLORS.textMuted }}>
+                  {forecast.days_remaining} days left • Confidence: {forecast.confidence} • Day {forecast.days_elapsed}/{forecast.days_in_month}
+                </Text>
+              </View>
+            </View>
+          </GlassCard>
+        )}
 
         {/* PDF Report Generation */}
         <GlassCard style={s.reportCard}>
@@ -429,7 +507,7 @@ export default function AnalyticsScreen() {
                       <Ionicons name={item.icon} size={18} color={item.color} />
                     </View>
                     <Text style={s.totalLabel}>{item.label}</Text>
-                    <Text style={s.totalEnergy}>{Number(item.energy || 0).toFixed(4)} kWh</Text>
+                    <Text style={s.totalEnergy}>{Number(item.energy || 0).toFixed(3)} kWh</Text>
                     <Text style={s.totalCost}>₱{Number(item.cost || 0).toFixed(2)}</Text>
                   </View>
                 ))}

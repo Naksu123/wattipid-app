@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, RefreshControl, SafeAreaView, StatusBar, TouchableOpacity, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { getBuildingSummary, getSetting } from '../../services/database';
 import GlassCard from '../../components/ui/GlassCard';
@@ -10,6 +11,7 @@ import { COLORS, GRADIENTS, SPACING, RADIUS, FONT_SIZE, FONT_WEIGHT, SHADOWS } f
 
 export default function OverviewScreen() {
   const { user } = useAuth();
+  const router = useRouter();
   const [rooms, setRooms] = useState([]);
   const [stats, setStats] = useState({ totalRooms: 0, occupiedRooms: 0, onProcessRooms: 0, offlineMeters: 0 });
   const [totals, setTotals] = useState({ totalEnergy: 0, totalCost: 0 });

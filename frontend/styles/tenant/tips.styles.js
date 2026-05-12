@@ -7,19 +7,20 @@ export default StyleSheet.create({
     backgroundColor: COLORS.background 
   },
   scroll: { 
-    padding: SPACING.lg, 
-    paddingTop: SPACING.xxl + 10, 
-    paddingBottom: SPACING.xxl + 60 
+    paddingHorizontal: SPACING.lg, 
+    paddingTop: SPACING.xl + 20, 
+    paddingBottom: SPACING.xxl * 2 
   },
   title: { 
     fontSize: FONT_SIZE.xxl, 
     fontWeight: FONT_WEIGHT.bold, 
-    color: COLORS.textPrimary 
+    color: COLORS.textPrimary,
+    letterSpacing: -0.5
   },
   subtitle: { 
     fontSize: FONT_SIZE.md, 
     color: COLORS.textSecondary, 
-    marginBottom: SPACING.lg 
+    marginBottom: SPACING.xl 
   },
   dailyCard: { 
     marginBottom: SPACING.lg, 

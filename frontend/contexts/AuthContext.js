@@ -25,8 +25,8 @@ export function AuthProvider({ children }) {
           
           // Register push token in background
           getPushToken().then(token => {
-            if (token) registerPushTokenWithBackend(token);
-          });
+            if (token) registerPushTokenWithBackend(token, parsedUser.id);
+          }).catch(() => {});
         }
       } catch (e) {
         console.error("Auth session load error:", e);
@@ -84,7 +84,7 @@ export function AuthProvider({ children }) {
         await AsyncStorage.setItem('@auth_token', result.authToken);
         setUser(userData);
         setIsAuthenticated(true);
-        getPushToken().then(token => { if (token) registerPushTokenWithBackend(token); });
+        getPushToken().then(token => { if (token) registerPushTokenWithBackend(token, userData.id); }).catch(() => {});
         return { success: true, user: userData };
       }
       return { success: false, message: result.message };

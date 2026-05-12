@@ -49,11 +49,11 @@ export async function initNotifications() {
       }),
     });
 
-    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    const { status: existingStatus } = await NotificationsModule.getPermissionsAsync();
     let finalStatus = existingStatus;
 
     if (existingStatus !== 'granted') {
-      const { status } = await Notifications.requestPermissionsAsync();
+      const { status } = await NotificationsModule.requestPermissionsAsync();
       finalStatus = status;
     }
 
@@ -62,12 +62,39 @@ export async function initNotifications() {
       return false;
     }
 
+    // Create notification channels for Android
     if (Platform.OS === 'android') {
+      // Main alerts channel
       await NotificationsModule.setNotificationChannelAsync('default', {
         name: 'Wattipid Alerts',
         importance: NotificationsModule.AndroidImportance.MAX,
         vibrationPattern: [0, 250, 250, 250],
         lightColor: '#22C55E',
+      });
+
+      // Budget alerts channel
+      await NotificationsModule.setNotificationChannelAsync('budget_alerts', {
+        name: 'Budget Alerts',
+        description: 'Notifications when you exceed your electricity budget',
+        importance: NotificationsModule.AndroidImportance.HIGH,
+        vibrationPattern: [0, 500, 250, 500],
+        lightColor: '#F59E0B',
+      });
+
+      // Consumption alerts channel
+      await NotificationsModule.setNotificationChannelAsync('consumption_alerts', {
+        name: 'Consumption Alerts',
+        description: 'Notifications about abnormal electricity usage',
+        importance: NotificationsModule.AndroidImportance.HIGH,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#EF4444',
+      });
+
+      // System channel
+      await NotificationsModule.setNotificationChannelAsync('system_alerts', {
+        name: 'System Notifications',
+        description: 'System and maintenance notifications',
+        importance: NotificationsModule.AndroidImportance.DEFAULT,
       });
     }
 
@@ -83,7 +110,39 @@ export async function initNotifications() {
  * Send a local notification immediately.
  * Use for budget alerts, high consumption warnings, etc.
  */
-export async function sendLocalNotification(title, body) {
+export async function sendLocalNotification(title, body, data = {}) {
+  const NotificationsModule = getNotificationsModule();
+  if (!NotificationsModule) return;
+
+  // Choose channel based on alert category
+  let channelId = 'default';
+  if (data?.category === 'budget') channelId = 'budget_alerts';
+  else if (data?.category === 'consumption') channelId = 'consumption_alerts';
+  else if (data?.category === 'system') channelId = 'system_alerts';
+
+  try {
+    await NotificationsModule.scheduleNotificationAsync({
+      content: {
+        title,
+        body,
+        sound: true,
+        priority: data?.severity === 'critical' ? 'high' : 'default',
+        data: {
+          screen: 'notifications',
+          ...data,
+        },
+      },
+      trigger: null,
+    });
+  } catch (error) {
+    console.warn('Failed to send notification:', error.message);
+  }
+}
+
+/**
+ * Schedule a future notification.
+ */
+export async function scheduleNotification(title, body, triggerSeconds = 60, data = {}) {
   const NotificationsModule = getNotificationsModule();
   if (!NotificationsModule) return;
 
@@ -93,14 +152,43 @@ export async function sendLocalNotification(title, body) {
         title,
         body,
         sound: true,
-        priority: 'high',
+        data: { screen: 'notifications', ...data },
       },
-      trigger: null,
+      trigger: { seconds: triggerSeconds },
     });
   } catch (error) {
-    console.warn('Failed to send notification:', error.message);
+    console.warn('Failed to schedule notification:', error.message);
   }
 }
+
+/**
+ * Set up notification response handler for deep linking.
+ * Call this once during app initialization.
+ */
+export function setupNotificationResponseHandler(router) {
+  const NotificationsModule = getNotificationsModule();
+  if (!NotificationsModule) return null;
+
+  try {
+    const subscription = NotificationsModule.addNotificationResponseReceivedListener(response => {
+      const data = response.notification.request.content.data;
+      if (data?.screen === 'notifications') {
+        // Navigate to the notifications screen when user taps the notification
+        try {
+          // Use navigate instead of push to prevent stack duplication/freezing
+          router.navigate('/(tenant)/notifications');
+        } catch (e) {
+          console.warn('Navigation failed:', e.message);
+        }
+      }
+    });
+    return subscription;
+  } catch (e) {
+    console.warn('Notification response handler setup failed:', e.message);
+    return null;
+  }
+}
+
 /**
  * Get the Expo Push Token for this device.
  * Safe to call in Expo Go — will return null.
@@ -137,15 +225,36 @@ export async function getPushToken() {
 }
 
 /**
- * Register the push token with the backend.
+ * Register the push token with the backend notification engine.
+ * Uses the new notification API service.
  */
-export async function registerPushTokenWithBackend(token) {
-  if (!token) return;
+export async function registerPushTokenWithBackend(token, userId = null) {
+  if (!token) {
+    console.log('ℹ️ No push token available — skipping backend registration (dev mode).');
+    return;
+  }
   try {
-    const { apiCall } = require('./api');
-    await apiCall('updatePushToken', { pushToken: token });
-    console.log('Push token registered with backend!');
+    const { registerPushToken } = require('./notificationApi');
+    await registerPushToken(token, userId);
+    console.log('✅ Push token registered with backend notification engine!');
   } catch (e) {
-    console.warn('Failed to register push token:', e.message);
+    // Silently fail — push token registration is not critical for app function
+    console.log('ℹ️ Push token registration skipped:', e.message);
+  }
+}
+
+/**
+ * Get the current badge count from the backend.
+ */
+export async function updateBadgeCount() {
+  const NotificationsModule = getNotificationsModule();
+  if (!NotificationsModule) return;
+
+  try {
+    const { getUnreadNotificationCount } = require('./notificationApi');
+    const count = await getUnreadNotificationCount();
+    await NotificationsModule.setBadgeCountAsync(count);
+  } catch (e) {
+    console.warn('Badge update failed:', e.message);
   }
 }
