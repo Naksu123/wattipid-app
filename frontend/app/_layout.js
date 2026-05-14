@@ -31,22 +31,37 @@ function RootLayoutContent() {
   useEffect(() => {
     if (isLoading) return;
 
+    // Determine current group
     const inAuthGroup = segments[0] === '(auth)';
-    const isVerifyScreen = segments.length > 1 && segments[1] === 'verify';
+    const inTenantGroup = segments[0] === '(tenant)';
+    const inLandlordGroup = segments[0] === '(landlord)';
     
+    console.log(`[Navigation] Path: /${segments.join('/')} | Auth: ${isAuthenticated}`);
+
     if (!isAuthenticated) {
+      // If not authenticated and NOT in auth group, go to login
       if (!inAuthGroup) {
-        // Force redirect to login
-        router.replace('/(auth)/login');
+        const target = '/(auth)/login';
+        if (segments.join('/') !== '(auth)/login') {
+            console.log(`[Navigation] Redirecting to Login...`);
+            router.replace(target);
+        }
       }
     } else {
       // User is authenticated
-      if ((inAuthGroup && !isVerifyScreen) || segments.length === 0) {
+      const isVerifyScreen = segments[1] === 'verify';
+      const atRoot = segments.length === 0;
+
+      if ((inAuthGroup && !isVerifyScreen) || atRoot) {
         const target = user?.role === 'landlord' ? '/(landlord)/overview' : '/(tenant)/dashboard';
-        router.replace(target);
+        const currentPath = `/${segments.join('/')}`;
+        if (currentPath !== target) {
+            console.log(`[Navigation] Redirecting to Dashboard: ${target}`);
+            router.replace(target);
+        }
       }
     }
-  }, [isAuthenticated, isLoading, segments]);
+  }, [isAuthenticated, isLoading, segments, user?.role]);
 
   // Set up deep linking for push notification taps
   useEffect(() => {

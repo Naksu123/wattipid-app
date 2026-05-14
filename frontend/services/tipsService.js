@@ -1,22 +1,23 @@
-import { API_URL } from './config';
+import apiClient from './apiClient';
 
 /**
  * Service for the Dynamic Electricity-Saving Tips System (MySQL Backend)
- * Using native fetch to avoid external dependencies like axios.
  */
-const TIPS_API = `${API_URL}/tips`;
-
 export const tipsService = {
   /**
    * Get a random tip from the database
    */
   getRandomTip: async (lastId = 0) => {
     try {
-      const response = await fetch(`${TIPS_API}/getRandomTip.php?last_id=${lastId}`);
-      return await response.json();
+      const response = await apiClient.post('/api.php?action=getElectricityTips');
+      if (response.data.success && Array.isArray(response.data.data)) {
+        const tips = response.data.data;
+        response.data.data = tips[Math.floor(Math.random() * tips.length)];
+      }
+      return response.data;
     } catch (error) {
       console.error('Error fetching random tip:', error);
-      throw error;
+      return { success: false, message: error.message };
     }
   },
 
@@ -25,11 +26,14 @@ export const tipsService = {
    */
   getTipOfTheDay: async () => {
     try {
-      const response = await fetch(`${TIPS_API}/tipOfTheDay.php`);
-      return await response.json();
+      const response = await apiClient.post('/api.php?action=getElectricityTips');
+      if (response.data.success && Array.isArray(response.data.data)) {
+        response.data.data = response.data.data[0]; // Just pick the first one
+      }
+      return response.data;
     } catch (error) {
       console.error('Error fetching tip of the day:', error);
-      throw error;
+      return { success: false, message: error.message };
     }
   },
 
@@ -38,14 +42,14 @@ export const tipsService = {
    */
   getAllTips: async (category = null) => {
     try {
-      const url = category 
-        ? `${TIPS_API}/getAllTips.php?category=${encodeURIComponent(category)}`
-        : `${TIPS_API}/getAllTips.php`;
-      const response = await fetch(url);
-      return await response.json();
+      const response = await apiClient.post('/api.php?action=getElectricityTips');
+      if (category && response.data.success) {
+        response.data.data = response.data.data.filter(t => t.category === category);
+      }
+      return response.data;
     } catch (error) {
       console.error('Error fetching all tips:', error);
-      throw error;
+      return { success: false, message: error.message };
     }
   },
 
@@ -54,15 +58,8 @@ export const tipsService = {
    */
   likeTip: async (id) => {
     try {
-      // Use URLSearchParams for simple POST requests in PHP
-      const response = await fetch(`${TIPS_API}/likeTip.php`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: `id=${id}`
-      });
-      return await response.json();
+      const response = await apiClient.post('/api.php?action=likeTip', { id });
+      return response.data;
     } catch (error) {
       console.error('Error liking tip:', error);
       throw error;
@@ -73,12 +70,8 @@ export const tipsService = {
   
   addTip: async (tipData) => {
     try {
-      const response = await fetch(`${TIPS_API}/addTip.php`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(tipData)
-      });
-      return await response.json();
+      const response = await apiClient.post('/api.php?action=addTips', tipData);
+      return response.data;
     } catch (error) {
       console.error('Error adding tip:', error);
       throw error;
@@ -87,12 +80,8 @@ export const tipsService = {
 
   updateTip: async (tipData) => {
     try {
-      const response = await fetch(`${TIPS_API}/updateTip.php`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(tipData)
-      });
-      return await response.json();
+      const response = await apiClient.post('/api.php?action=updateTip', tipData);
+      return response.data;
     } catch (error) {
       console.error('Error updating tip:', error);
       throw error;
@@ -101,14 +90,8 @@ export const tipsService = {
 
   deleteTip: async (id) => {
     try {
-      const response = await fetch(`${TIPS_API}/deleteTip.php`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: `id=${id}`
-      });
-      return await response.json();
+      const response = await apiClient.post('/api.php?action=deleteTip', { id });
+      return response.data;
     } catch (error) {
       console.error('Error deleting tip:', error);
       throw error;

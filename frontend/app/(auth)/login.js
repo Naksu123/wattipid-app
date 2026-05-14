@@ -30,10 +30,11 @@ export default function LoginScreen() {
   const handleLogin = async () => {
     if (!validate()) return;
     const result = await login(email.trim(), password);
-    if (result.success) {
-      router.replace(result.user.role === 'landlord' ? '/(landlord)/overview' : '/(tenant)/dashboard');
+    if (result?.success) {
+      const role = result?.user?.role || 'tenant';
+      router.replace(role === 'landlord' ? '/(landlord)/overview' : '/(tenant)/dashboard');
     } else {
-      Alert.alert('Login Failed', result.message);
+      Alert.alert('Login Failed', result?.message || 'Server returned an invalid response.');
     }
   };
 

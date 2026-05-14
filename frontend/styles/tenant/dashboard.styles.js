@@ -219,4 +219,19 @@ export default StyleSheet.create({
     fontSize: FONT_SIZE.sm, 
     color: COLORS.textMuted 
   },
+  demoBadge: {
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+    marginLeft: 8,
+  },
+  demoText: {
+    fontSize: 10,
+    color: COLORS.primary,
+    fontWeight: 'bold',
+    textTransform: 'uppercase',
+  }
 });

@@ -5,15 +5,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { fetchRealtimeData } from '../../services/esp32Api';
-import { getSetting, getTotalConsumptionToday, getBudget, getConsumptionComparison, getRoomById, getNotifications } from '../../services/database';
-import { detectHighConsumption, getSmartPopupTip } from '../../services/tipsEngine';
-import { sendLocalNotification } from '../../services/notificationService';
 import PowerGauge from '../../components/ui/PowerGauge';
 import GlassCard from '../../components/ui/GlassCard';
 import StatusBadge from '../../components/ui/StatusBadge';
 import AlertModal from '../../components/modals/AlertModal';
 import { COLORS } from '@/styles/theme';
 import ms from '@/styles/tenant/dashboard.styles';
+import { getDashboardSummary, getForecast } from '../../services/consumptionService';
 
 export default function DashboardScreen() {
   const { user, isAuthenticated } = useAuth();
@@ -26,38 +24,34 @@ export default function DashboardScreen() {
   const [comparison, setComparison] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [lastSeen, setLastSeen] = useState(null);
-  // Alert & tip state
-  const [alertVisible, setAlertVisible] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [lastAlertKey, setLastAlertKey] = useState(null);
   const [alertData, setAlertData] = useState(null);
+  const [alertVisible, setAlertVisible] = useState(false);
   const [smartTip, setSmartTip] = useState(null);
-  const [tipDismissed, setTipDismissed] = useState(false);
-  const [lastAlertKey, setLastAlertKey] = useState('');
   const lastNotifyTime = useRef(0);
-
+  
   const roomId = user?.room_id || 'Room 1';
 
   const fetchStaticData = useCallback(async () => {
     try {
-      const [rateVal, today, budgetVal, comp, roomInfo] = await Promise.all([
-        getSetting('rate_per_kwh'),
-        getTotalConsumptionToday(roomId, user?.name),
-        getBudget(roomId),
-        getConsumptionComparison(roomId, 'daily', user?.name),
-        getRoomById(roomId),
-      ]);
+      setLoading(true);
+      const result = await getDashboardSummary(roomId);
       
-      if (rateVal) setRate(parseFloat(rateVal));
-      setTodayUsage(today);
-      if (budgetVal) setBudgetData(budgetVal);
-      setComparison(comp);
-      if (roomInfo) setLastSeen(roomInfo.last_seen);
+      if (result.success) {
+        setTodayUsage(result.data.today);
+        setBudgetData(result.data.month.budget); // Assuming new API structure
+        setComparison(result.data.week.comparison);
+      }
       
-      return { today, budgetVal, comp, roomInfo };
+      return result;
     } catch (err) {
-      console.warn('Static data fetch error:', err);
+      console.warn('Dashboard fetch error:', err);
       return null;
+    } finally {
+      setLoading(false);
     }
-  }, [roomId, user?.name]);
+  }, [roomId]);
 
   const todayUsageRef = useRef(todayUsage);
   const budgetRef = useRef(budget);
@@ -70,6 +64,7 @@ export default function DashboardScreen() {
     lastSeenRef.current = lastSeen;
     lastAlertKeyRef.current = lastAlertKey;
   }, [todayUsage, budget, lastSeen, lastAlertKey]);
+
 
   const fetchRealtimeDataLoop = useCallback(async () => {
     try {
@@ -130,7 +125,7 @@ export default function DashboardScreen() {
   const onRefresh = async () => {
     setRefreshing(true);
     setTipDismissed(false);
-    await fetchData();
+    await Promise.all([fetchStaticData(), fetchRealtimeDataLoop()]);
     setRefreshing(false);
   };
 
@@ -168,7 +163,9 @@ export default function DashboardScreen() {
         {/* Header */}
         <View style={ms.header}>
           <View>
-            <Text style={ms.greeting}>Hello, {user?.name || 'Tenant'}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Text style={ms.greeting}>Hello, {user?.name || 'Tenant'}</Text>
+            </View>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
               <Ionicons name="home-outline" size={14} color={COLORS.textSecondary} />
               <Text style={ms.roomLabel}>{roomId}</Text>
@@ -325,4 +322,82 @@ export default function DashboardScreen() {
       />
     </View>
   );
+}
+
+// --- HELPER FUNCTIONS ---
+
+/**
+ * Detects high consumption based on real-time power and historical averages
+ */
+async function detectHighConsumption(roomId, currentPower) {
+  if (currentPower < 500) return null; // Ignore low power usage
+
+  if (currentPower > 1500) {
+    return {
+      type: 'danger',
+      title: '⚠️ Critical Power Usage!',
+      message: `Extremely high power detected: ${Math.round(currentPower)}W. Are you using a heater or aircon?`,
+      tip: 'High-wattage appliances consume your budget rapidly. Unplug what you don\'t need.'
+    };
+  }
+
+  if (currentPower > 800) {
+    return {
+      type: 'warning',
+      title: 'High Consumption Alert',
+      message: `Your current usage is ${Math.round(currentPower)}W. This is higher than your usual pattern.`,
+      tip: 'Consider turning off some lights or fans to save on your daily budget.'
+    };
+  }
+
+  return null;
+}
+
+/**
+ * Generates dynamic tips based on current power and remaining budget
+ */
+function getSmartPopupTip(power, todayCost, budget) {
+  if (!budget) return null;
+  const budgetPct = (todayCost / budget.daily_allowance) * 100;
+
+  if (budgetPct > 95) {
+    return {
+      icon: 'alert-circle',
+      color: COLORS.danger,
+      title: 'Budget Exhausted',
+      message: 'You have reached your daily limit. Try to minimize usage until tomorrow.'
+    };
+  }
+
+  if (power > 1000) {
+    return {
+      icon: 'flash',
+      color: COLORS.warning,
+      title: 'Heavy Appliance Detected',
+      message: 'A high-power device is running. Keep track of how long it stays on!'
+    };
+  }
+
+  if (budgetPct < 30 && power < 100) {
+    return {
+      icon: 'leaf',
+      color: COLORS.success,
+      title: 'Doing Great!',
+      message: 'You are well within your budget today. Keep up the good work!'
+    };
+  }
+
+  return {
+    icon: 'bulb',
+    color: COLORS.primary,
+    title: 'Did you know?',
+    message: 'Switching to LED bulbs can save up to 80% on lighting costs.'
+  };
+}
+
+/**
+ * Mock for Local Notifications (Integration point for expo-notifications)
+ */
+function sendLocalNotification(title, message) {
+  console.log(`[PUSH] ${title}: ${message}`);
 }

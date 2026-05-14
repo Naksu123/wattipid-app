@@ -27,7 +27,7 @@ export default function ManageTipsScreen() {
     try {
       setLoading(true);
       const res = await tipsService.getAllTips();
-      if (res.success) setTips(res.data);
+      if (res) setTips(res);
     } catch (err) {
       console.error(err);
     } finally {

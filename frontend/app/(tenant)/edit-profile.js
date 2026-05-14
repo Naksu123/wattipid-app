@@ -7,6 +7,51 @@ import GlassCard from '../../components/ui/GlassCard';
 import { COLORS } from '@/styles/theme';
 import s from '@/styles/tenant/edit-profile.styles';
 
+const StrengthIndicator = ({ strength }) => {
+  const colors = ['#EF4444', '#F59E0B', '#FACC15', '#22C55E', '#10B981'];
+  const labels = ['Weak', 'Fair', 'Good', 'Strong', 'Very Strong'];
+  return (
+    <View>
+      <View style={s.strengthBar}>
+        <View style={[s.strengthFill, { width: `${(strength / 4) * 100}%`, backgroundColor: colors[strength] }]} />
+      </View>
+      <Text style={[s.strengthLabel, { color: colors[strength] }]}>{labels[strength]}</Text>
+    </View>
+  );
+};
+
+const InputField = ({ label, value, onChangeText, icon, placeholder, error, secureTextEntry, showToggle, toggleValue, onToggle, keyboardType, activeField, setActiveField }) => (
+  <View style={s.inputGroup}>
+    <Text style={s.label}>{label}</Text>
+    <View style={[s.inputWrapper, activeField === label && s.inputWrapperActive, error && { borderColor: COLORS.danger }]}>
+      <Ionicons name={icon} size={20} color={activeField === label ? COLORS.primary : COLORS.textMuted} style={s.inputIcon} />
+      <TextInput
+        style={s.input}
+        value={value}
+        onChangeText={onChangeText}
+        placeholder={placeholder}
+        placeholderTextColor={COLORS.textMuted}
+        secureTextEntry={secureTextEntry}
+        onFocus={() => setActiveField(label)}
+        onBlur={() => setActiveField(null)}
+        keyboardType={keyboardType}
+        autoCapitalize="none"
+      />
+      {showToggle && (
+        <TouchableOpacity style={s.eyeIcon} onPress={onToggle}>
+          <Ionicons name={toggleValue ? 'eye-off-outline' : 'eye-outline'} size={20} color={COLORS.textMuted} />
+        </TouchableOpacity>
+      )}
+    </View>
+    {error ? (
+      <View style={s.validationRow}>
+        <Ionicons name="alert-circle" size={14} color={COLORS.danger} />
+        <Text style={s.validationText}>{error}</Text>
+      </View>
+    ) : null}
+  </View>
+);
+
 export default function EditProfile() {
   const router = useRouter();
   const { user, updateProfile, changePassword } = useAuth();
@@ -95,50 +140,7 @@ export default function EditProfile() {
     }
   };
 
-  const StrengthIndicator = () => {
-    const colors = ['#EF4444', '#F59E0B', '#FACC15', '#22C55E', '#10B981'];
-    const labels = ['Weak', 'Fair', 'Good', 'Strong', 'Very Strong'];
-    return (
-      <View>
-        <View style={s.strengthBar}>
-          <View style={[s.strengthFill, { width: `${(strength / 4) * 100}%`, backgroundColor: colors[strength] }]} />
-        </View>
-        <Text style={[s.strengthLabel, { color: colors[strength] }]}>{labels[strength]}</Text>
-      </View>
-    );
-  };
 
-  const InputField = ({ label, value, onChangeText, icon, placeholder, error, secureTextEntry, showToggle, toggleValue, onToggle, keyboardType }) => (
-    <View style={s.inputGroup}>
-      <Text style={s.label}>{label}</Text>
-      <View style={[s.inputWrapper, activeField === label && s.inputWrapperActive, error && { borderColor: COLORS.danger }]}>
-        <Ionicons name={icon} size={20} color={activeField === label ? COLORS.primary : COLORS.textMuted} style={s.inputIcon} />
-        <TextInput
-          style={s.input}
-          value={value}
-          onChangeText={onChangeText}
-          placeholder={placeholder}
-          placeholderTextColor={COLORS.textMuted}
-          secureTextEntry={secureTextEntry}
-          onFocus={() => setActiveField(label)}
-          onBlur={() => setActiveField(null)}
-          keyboardType={keyboardType}
-          autoCapitalize="none"
-        />
-        {showToggle && (
-          <TouchableOpacity style={s.eyeIcon} onPress={onToggle}>
-            <Ionicons name={toggleValue ? 'eye-off-outline' : 'eye-outline'} size={20} color={COLORS.textMuted} />
-          </TouchableOpacity>
-        )}
-      </View>
-      {error ? (
-        <View style={s.validationRow}>
-          <Ionicons name="alert-circle" size={14} color={COLORS.danger} />
-          <Text style={s.validationText}>{error}</Text>
-        </View>
-      ) : null}
-    </View>
-  );
 
   return (
     <SafeAreaView style={s.container}>
@@ -163,6 +165,8 @@ export default function EditProfile() {
                 onChangeText={setName}
                 icon="person-outline"
                 placeholder="Ex. Juan Dela Cruz"
+                activeField={activeField}
+                setActiveField={setActiveField}
               />
               <InputField
                 label="EMAIL ADDRESS"
@@ -172,6 +176,8 @@ export default function EditProfile() {
                 placeholder="juan@example.com"
                 keyboardType="email-address"
                 error={emailError}
+                activeField={activeField}
+                setActiveField={setActiveField}
               />
             </GlassCard>
           </View>
@@ -192,6 +198,8 @@ export default function EditProfile() {
                 showToggle={true}
                 toggleValue={showCurrent}
                 onToggle={() => setShowCurrent(!showCurrent)}
+                activeField={activeField}
+                setActiveField={setActiveField}
               />
 
               <View style={{ height: 10 }} />
@@ -206,8 +214,10 @@ export default function EditProfile() {
                 showToggle={true}
                 toggleValue={showNew}
                 onToggle={() => setShowNew(!showNew)}
+                activeField={activeField}
+                setActiveField={setActiveField}
               />
-              {newPassword ? <StrengthIndicator /> : null}
+              {newPassword ? <StrengthIndicator strength={strength} /> : null}
 
               <View style={{ height: 10 }} />
 
@@ -222,6 +232,8 @@ export default function EditProfile() {
                 toggleValue={showConfirm}
                 onToggle={() => setShowConfirm(!showConfirm)}
                 error={passwordError}
+                activeField={activeField}
+                setActiveField={setActiveField}
               />
             </GlassCard>
           </View>
