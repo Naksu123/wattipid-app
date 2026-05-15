@@ -26,6 +26,7 @@ apiClient.interceptors.request.use(
     const token = await Storage.getItem('user_token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+      config.headers['X-Authorization'] = `Bearer ${token}`; // Fallback for reverse proxies
     }
     return config;
   },
@@ -63,7 +64,7 @@ apiClient.interceptors.response.use(
           await Storage.deleteItem('user_token');
           await Storage.deleteItem('refresh_token');
           await Storage.deleteItem('user_data');
-          throw new Error('Session expired: No refresh token available');
+          return Promise.resolve({ data: { success: false, message: 'Session expired' } });
         }
 
         // Call the refresh endpoint on the backend
@@ -89,7 +90,7 @@ apiClient.interceptors.response.use(
         await Storage.deleteItem('user_data');
         
         // You might want to trigger a global logout event here or redirect to login
-        return Promise.reject(refreshError);
+        return Promise.resolve({ data: { success: false, message: 'Session expired' } });
       }
     }
 

@@ -19,15 +19,44 @@ export default function ManageTipsScreen() {
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({ id: null, title: '', message: '', category: 'Energy Saving', icon: 'bulb-outline' });
 
-  const categories = ['Energy Saving', 'Appliance Safety', 'Budget Friendly', 'Smart Dorm Living'];
+  const categories = [
+    'Air Conditioning',
+    'Fan Usage',
+    'Charging Devices',
+    'Kitchen Appliances',
+    'Refrigerator Usage',
+    'Laundry',
+    'Study Setup',
+    'Shared Room Efficiency',
+    'Gaming & Entertainment',
+    'Appliance Maintenance',
+    'Daily Habits'
+  ];
 
-  useEffect(() => { loadTips(); }, []);
+  useEffect(() => { 
+    loadTips(); 
+    
+    // Background polling for live engagement stats
+    const interval = setInterval(async () => {
+      try {
+        const res = await tipsService.getAllTips();
+        if (res && res.success) {
+          setTips(currentTips => currentTips.map(t => {
+            const updatedTip = (res.data || []).find(ut => ut.id === t.id);
+            return updatedTip ? { ...t, likesCount: updatedTip.likesCount, viewsCount: updatedTip.viewsCount, isActive: updatedTip.isActive } : t;
+          }));
+        }
+      } catch (err) {}
+    }, 5000); // 5-second polling
+
+    return () => clearInterval(interval);
+  }, []);
 
   const loadTips = async () => {
     try {
       setLoading(true);
       const res = await tipsService.getAllTips();
-      if (res) setTips(res);
+      if (res && res.success) setTips(res.data || []);
     } catch (err) {
       console.error(err);
     } finally {

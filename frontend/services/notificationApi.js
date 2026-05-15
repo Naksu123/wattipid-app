@@ -4,17 +4,36 @@ import { apiCall } from './api';
 
 /**
  * Fetch notification history from the backend.
+ * GHOST FIX: Wrapped in try/catch to prevent error spam when
+ * notification_history table doesn't exist or has SQL issues.
  */
 export async function getNotificationHistory(category = null, limit = 50, offset = 0) {
-  return await apiCall('getNotificationHistory', { category, limit, offset }) || [];
+  try {
+    const data = await apiCall('getNotificationHistory', { category, limit: Number(limit), offset: Number(offset) });
+    return data || [];
+  } catch (err) {
+    // Silently return empty — don't spam the console every 30s
+    if (!getNotificationHistory._errorLogged) {
+      console.warn('[API Bridge Error] getNotificationHistory:', err.message);
+      getNotificationHistory._errorLogged = true;
+      // Reset after 5 minutes so we log again if still failing
+      setTimeout(() => { getNotificationHistory._errorLogged = false; }, 300000);
+    }
+    return [];
+  }
 }
 
 /**
  * Get unread notification count.
+ * GHOST FIX: Returns 0 on error to prevent badge count spam.
  */
 export async function getUnreadNotificationCount() {
-  const data = await apiCall('getUnreadNotificationCount');
-  return data?.count || 0;
+  try {
+    const data = await apiCall('getUnreadNotificationCount');
+    return data?.count || data || 0;
+  } catch (err) {
+    return 0;
+  }
 }
 
 /**

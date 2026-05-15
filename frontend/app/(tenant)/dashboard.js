@@ -4,7 +4,7 @@ import { useIsFocused } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { fetchRealtimeData } from '../../services/esp32Api';
+import { fetchRealtimeData, isDeviceConnected } from '../../services/esp32Api';
 import PowerGauge from '../../components/ui/PowerGauge';
 import GlassCard from '../../components/ui/GlassCard';
 import StatusBadge from '../../components/ui/StatusBadge';
@@ -12,6 +12,7 @@ import AlertModal from '../../components/modals/AlertModal';
 import { COLORS } from '@/styles/theme';
 import ms from '@/styles/tenant/dashboard.styles';
 import { getDashboardSummary, getForecast } from '../../services/consumptionService';
+import { tipsService } from '../../services/tipsService';
 
 export default function DashboardScreen() {
   const { user, isAuthenticated } = useAuth();
@@ -29,6 +30,10 @@ export default function DashboardScreen() {
   const [alertData, setAlertData] = useState(null);
   const [alertVisible, setAlertVisible] = useState(false);
   const [smartTip, setSmartTip] = useState(null);
+  const [randomTip, setRandomTip] = useState(null);
+  const [tipDismissed, setTipDismissed] = useState(false);
+  // GHOST FIX: Track whether we have REAL device data
+  const [deviceOnline, setDeviceOnline] = useState(false);
   const lastNotifyTime = useRef(0);
   
   const roomId = user?.room_id || 'Room 1';
@@ -44,6 +49,11 @@ export default function DashboardScreen() {
         setComparison(result.data.week.comparison);
       }
       
+      const tipResult = await tipsService.getSmartRecommendation();
+      if (tipResult && tipResult.success && tipResult.data) {
+        setRandomTip(tipResult.data);
+      }
+      
       return result;
     } catch (err) {
       console.warn('Dashboard fetch error:', err);
@@ -57,45 +67,57 @@ export default function DashboardScreen() {
   const budgetRef = useRef(budget);
   const lastSeenRef = useRef(lastSeen);
   const lastAlertKeyRef = useRef(lastAlertKey);
+  const deviceOnlineRef = useRef(deviceOnline);
 
   useEffect(() => {
     todayUsageRef.current = todayUsage;
     budgetRef.current = budget;
     lastSeenRef.current = lastSeen;
     lastAlertKeyRef.current = lastAlertKey;
-  }, [todayUsage, budget, lastSeen, lastAlertKey]);
+    deviceOnlineRef.current = deviceOnline;
+  }, [todayUsage, budget, lastSeen, lastAlertKey, deviceOnline]);
 
 
   const fetchRealtimeDataLoop = useCallback(async () => {
     try {
       const sensorData = await fetchRealtimeData(roomId);
       
-      const isNowOffline = lastSeenRef.current ? 
-        (new Date().getTime() - new Date(lastSeenRef.current).getTime()) > 60000 : true;
-
-      if (isNowOffline) {
+      // GHOST FIX: If sensorData is null, the ESP32 is unreachable.
+      // Do NOT use mock data, do NOT trigger any alerts.
+      if (!sensorData) {
+        setDeviceOnline(false);
         setData({ voltage: 0, current: 0, power: 0, energy: 0, powerFactor: 0 });
-      } else {
-        setData(sensorData);
+        setSmartTip(null); // Clear any power-based tips
+        return;
       }
 
+      // We have REAL data from the ESP32
+      setDeviceOnline(true);
+      setLastSeen(new Date().toISOString());
+      setData(sensorData);
       setRelayOn(sensorData.relayState !== false);
 
+      // GHOST FIX: Only generate smart tips from REAL, validated data
       const tip = getSmartPopupTip(sensorData.power, todayUsageRef.current?.totalCost || 0, budgetRef.current);
       setSmartTip(tip);
 
-      const alert = await detectHighConsumption(roomId, sensorData.power);
-      if (alert) {
-        const alertKey = `${alert.title}-${alert.type}`;
-        if (alertKey !== lastAlertKeyRef.current) {
-          setAlertData(alert);
-          setAlertVisible(true);
-          setLastAlertKey(alertKey);
-          
-          const now = Date.now();
-          if (now - lastNotifyTime.current > 300000) {
-            sendLocalNotification(alert.title, alert.message);
-            lastNotifyTime.current = now;
+      // GHOST FIX: Only detect high consumption if we have REAL device data
+      // AND the power reading is from a validated source
+      if (sensorData.power > 0) {
+        const alert = detectHighConsumption(sensorData.power, budgetRef.current, todayUsageRef.current);
+        if (alert) {
+          const alertKey = `${alert.title}-${alert.type}`;
+          if (alertKey !== lastAlertKeyRef.current) {
+            setAlertData(alert);
+            setAlertVisible(true);
+            setLastAlertKey(alertKey);
+            
+            // Cooldown: only send push every 5 minutes
+            const now = Date.now();
+            if (now - lastNotifyTime.current > 300000) {
+              sendLocalNotification(alert.title, alert.message);
+              lastNotifyTime.current = now;
+            }
           }
         }
       }
@@ -132,14 +154,8 @@ export default function DashboardScreen() {
   const amountDue = todayUsage.totalEnergy * rate;
   const budgetPct = budget && budget.daily_allowance > 0 ? (todayUsage.totalCost / budget.daily_allowance) * 100 : 0;
 
-  const isDeviceOffline = () => {
-    if (!lastSeen) return true;
-    const last = new Date(lastSeen).getTime();
-    const now = new Date().getTime();
-    return (now - last) > 60000; // Offline if > 1 minute
-  };
-
-  const offline = isDeviceOffline();
+  // GHOST FIX: Use our tracked deviceOnline state instead of guessing from lastSeen
+  const offline = !deviceOnline;
 
   const formatLastSeen = () => {
     if (!lastSeen) return 'Never seen';
@@ -179,8 +195,8 @@ export default function DashboardScreen() {
           <StatusBadge status={offline ? 'offline' : (relayOn ? 'active' : 'idle')} />
         </View>
 
-        {/* High Consumption Banner (inline) */}
-        {budget && budgetPct >= 80 && (
+        {/* GHOST FIX: Only show budget warning banner when device is ONLINE and real data exists */}
+        {!offline && budget && budgetPct >= 80 && todayUsage.totalCost > 0 && (
           <TouchableOpacity activeOpacity={0.8} onPress={() => {
             setAlertData({
               type: budgetPct >= 100 ? 'danger' : 'warning',
@@ -206,8 +222,8 @@ export default function DashboardScreen() {
           </TouchableOpacity>
         )}
 
-        {/* Comparison Chip */}
-        {comparison && comparison.costPctChange !== 0 && (
+        {/* Comparison Chip — only show if device has real data */}
+        {!offline && comparison && comparison.costPctChange !== 0 && (
           <GlassCard style={ms.compChip}>
             <Ionicons 
               name={(comparison.costPctChange || 0) > 0 ? 'trending-up' : 'trending-down'} 
@@ -286,18 +302,18 @@ export default function DashboardScreen() {
         )}
 
         {/* Smart Tip Card */}
-        {smartTip && !tipDismissed && (
+        {(smartTip || randomTip) && !tipDismissed && (
           <GlassCard style={ms.tipCard}>
             <TouchableOpacity style={ms.tipDismiss} onPress={() => setTipDismissed(true)}>
               <Ionicons name="close" size={16} color={COLORS.textMuted} />
             </TouchableOpacity>
             <View style={ms.tipRow}>
-              <View style={[ms.tipIconWrap, { backgroundColor: `${smartTip.color || COLORS.primary}15` }]}>
-                <Ionicons name={smartTip.icon || 'leaf'} size={22} color={smartTip.color || COLORS.primary} />
+              <View style={[ms.tipIconWrap, { backgroundColor: `${smartTip ? (smartTip.color || COLORS.primary) : COLORS.primary}15` }]}>
+                <Ionicons name={smartTip ? (smartTip.icon || 'leaf') : (randomTip?.icon || 'bulb')} size={22} color={smartTip ? (smartTip.color || COLORS.primary) : COLORS.primary} />
               </View>
               <View style={ms.tipContent}>
-                <Text style={ms.tipTitle}>{smartTip.title || 'Wattipid Tip'}</Text>
-                <Text style={ms.tipMessage}>{smartTip.message || smartTip.tip}</Text>
+                <Text style={ms.tipTitle}>{smartTip ? (smartTip.title || 'Wattipid Tip') : randomTip?.title}</Text>
+                <Text style={ms.tipMessage}>{smartTip ? (smartTip.message || smartTip.tip) : randomTip?.message}</Text>
               </View>
             </View>
           </GlassCard>
@@ -327,10 +343,20 @@ export default function DashboardScreen() {
 // --- HELPER FUNCTIONS ---
 
 /**
- * Detects high consumption based on real-time power and historical averages
+ * GHOST FIX: Detects high consumption ONLY from real, validated power readings.
+ * This function is ONLY called when we have confirmed real ESP32 data.
+ * It no longer receives roomId — it uses pure values that are already validated.
  */
-async function detectHighConsumption(roomId, currentPower) {
-  if (currentPower < 500) return null; // Ignore low power usage
+function detectHighConsumption(currentPower, budget, todayUsage) {
+  // GHOST FIX: Require minimum meaningful power (eliminates zero/noise readings)
+  if (!currentPower || currentPower < 500) return null;
+
+  // GHOST FIX: Validate that power is within physically possible range
+  // Typical residential submeter max is ~5000W
+  if (currentPower > 5000) {
+    console.warn('Ignoring unrealistic power reading:', currentPower);
+    return null;
+  }
 
   if (currentPower > 1500) {
     return {
@@ -354,7 +380,8 @@ async function detectHighConsumption(roomId, currentPower) {
 }
 
 /**
- * Generates dynamic tips based on current power and remaining budget
+ * Generates dynamic tips based on current power and remaining budget.
+ * GHOST FIX: Only called when deviceOnline is true with real data.
  */
 function getSmartPopupTip(power, todayCost, budget) {
   if (!budget) return null;
@@ -387,16 +414,12 @@ function getSmartPopupTip(power, todayCost, budget) {
     };
   }
 
-  return {
-    icon: 'bulb',
-    color: COLORS.primary,
-    title: 'Did you know?',
-    message: 'Switching to LED bulbs can save up to 80% on lighting costs.'
-  };
+  // If no dynamic alert is triggered, return null so the dashboard can display a random database tip
+  return null;
 }
 
 /**
- * Mock for Local Notifications (Integration point for expo-notifications)
+ * Local Notification sender (Integration point for expo-notifications)
  */
 function sendLocalNotification(title, message) {
   console.log(`[PUSH] ${title}: ${message}`);

@@ -3,7 +3,8 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, TextInput,
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
-import { getSetting, setSetting, getDatabase } from '../../services/database';
+import { getDatabase } from '../../services/database';
+import { getAlertSettings, updateAlertSettings } from '../../services/notificationApi';
 import { getCurrentEnv, setApiEnvironment, ENVIRONMENTS } from '../../services/config';
 import GlassCard from '../../components/ui/GlassCard';
 import { BaseModal, ModalHeader, ModalBody, ModalFooter } from '../../components/modals/BaseModal';
@@ -31,17 +32,17 @@ export default function TenantSettings() {
   useEffect(() => { loadSettings(); }, []);
 
   const loadSettings = async () => {
-    const n = await getSetting('notif_enabled');
-    if (n !== null) setNotifEnabled(n === 'true');
-
-    const ba = await getSetting('budget_alerts');
-    if (ba !== null) setBudgetAlerts(ba === 'true');
-
-    const psa = await getSetting('power_spike_alerts');
-    if (psa !== null) setPowerSpikeAlerts(psa === 'true');
-    
-    const fa = await getSetting('forecast_alerts');
-    if (fa !== null) setForecastAlerts(fa === 'true');
+    try {
+      const result = await getAlertSettings(user?.room_id || 'Room 1');
+      if (result && result.data) {
+        setNotifEnabled(result.data.notif_enabled !== false);
+        setBudgetAlerts(result.data.budget_alerts !== false);
+        setPowerSpikeAlerts(result.data.power_spike_alerts !== false);
+        setForecastAlerts(result.data.forecast_alerts !== false);
+      }
+    } catch (error) {
+      console.warn('Failed to load alert settings:', error);
+    }
 
     const currentEnv = await getCurrentEnv();
     setEnv(currentEnv);
@@ -54,16 +55,31 @@ export default function TenantSettings() {
     router.replace('/(auth)/login');
   };
 
+  const saveAlertSettings = async (updates) => {
+    try {
+      const currentSettings = {
+        notif_enabled: notifEnabled,
+        budget_alerts: budgetAlerts,
+        power_spike_alerts: powerSpikeAlerts,
+        forecast_alerts: forecastAlerts,
+        ...updates
+      };
+      await updateAlertSettings(user?.room_id || 'Room 1', currentSettings);
+    } catch (error) {
+      console.warn('Failed to update alert settings:', error);
+      Alert.alert('Error', 'Could not save your preferences.');
+    }
+  };
+
   const toggleNotif = async (val) => {
     setNotifEnabled(val);
-    await setSetting('notif_enabled', val.toString());
     if (!val) {
       setBudgetAlerts(false);
       setPowerSpikeAlerts(false);
       setForecastAlerts(false);
-      await setSetting('budget_alerts', 'false');
-      await setSetting('power_spike_alerts', 'false');
-      await setSetting('forecast_alerts', 'false');
+      await saveAlertSettings({ notif_enabled: false, budget_alerts: false, power_spike_alerts: false, forecast_alerts: false });
+    } else {
+      await saveAlertSettings({ notif_enabled: true });
     }
   };
 
@@ -164,11 +180,11 @@ export default function TenantSettings() {
           <View style={s.divider} />
           <ToggleItem icon="notifications-outline" label="Push Notifications" desc="Enable or disable all alerts" value={notifEnabled} onToggle={toggleNotif} />
           <View style={s.divider} />
-          <ToggleItem icon="wallet-outline" label="Budget Alerts" desc="Warn when approaching budget limit" value={budgetAlerts} onToggle={val => {setBudgetAlerts(val); setSetting('budget_alerts', val.toString())}} disabled={!notifEnabled} />
+          <ToggleItem icon="wallet-outline" label="Budget Alerts" desc="Warn when approaching budget limit" value={budgetAlerts} onToggle={val => {setBudgetAlerts(val); saveAlertSettings({ budget_alerts: val });}} disabled={!notifEnabled} />
           <View style={s.divider} />
-          <ToggleItem icon="flash-outline" label="Power Spike Alerts" desc="Alert when power usage spikes" value={powerSpikeAlerts} onToggle={val => {setPowerSpikeAlerts(val); setSetting('power_spike_alerts', val.toString())}} disabled={!notifEnabled} />
+          <ToggleItem icon="flash-outline" label="Power Spike Alerts" desc="Alert when power usage spikes" value={powerSpikeAlerts} onToggle={val => {setPowerSpikeAlerts(val); saveAlertSettings({ power_spike_alerts: val });}} disabled={!notifEnabled} />
           <View style={s.divider} />
-          <ToggleItem icon="trending-up-outline" label="Forecast Alerts" desc="Monthly bill predictions" value={forecastAlerts} onToggle={val => {setForecastAlerts(val); setSetting('forecast_alerts', val.toString())}} disabled={!notifEnabled} />
+          <ToggleItem icon="trending-up-outline" label="Forecast Alerts" desc="Monthly bill predictions" value={forecastAlerts} onToggle={val => {setForecastAlerts(val); saveAlertSettings({ forecast_alerts: val });}} disabled={!notifEnabled} />
         </GlassCard>
 
         <Text style={s.sectionLabel}>Connectivity</Text>

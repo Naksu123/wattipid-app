@@ -27,21 +27,36 @@ export const getDashboardSummary = async (roomId) => {
 };
 
 export const getDailyBreakdown = async (roomId, year, month) => {
-  const response = await apiClient.post('/api.php?action=getDailyBreakdownFiltered', {
-    roomId,
-    year,
-    month
-  });
-  return response.data;
+  try {
+    const response = await apiClient.post('/api.php?action=getDailyBreakdownFiltered', {
+      roomId,
+      year,
+      month
+    });
+    return response.data;
+  } catch (error) {
+    console.warn('[API Error] getDailyBreakdownFiltered:', error.message);
+    return [];
+  }
 };
 
 export const getHourlyBreakdown = async (roomId) => {
-  const response = await apiClient.post('/api.php?action=getHourlyBreakdown', { roomId });
-  return response.data;
+  try {
+    const response = await apiClient.post('/api.php?action=getHourlyBreakdown', { roomId });
+    return response.data;
+  } catch (error) {
+    console.warn('[API Error] getHourlyBreakdown:', error.message);
+    return [];
+  }
 };
 
 export const getForecast = async (roomId) => {
+  try {
     // This uses the new ForecastEngine on the backend
     const response = await apiClient.post('/api.php?action=getMonthlyForecast', { roomId });
     return response.data;
+  } catch (error) {
+    console.warn('[API Error] getForecast:', error.message);
+    return null;
+  }
 };
