@@ -104,11 +104,11 @@ export async function generateMonthlyReport({ roomId, tenantName, tenantStartDat
     <div class="summary-grid">
       <div class="summary-card">
         <div class="label">Current Month</div>
-        <div class="value">${current.totalEnergy.toFixed(4)} kWh</div>
+        <div class="value">${(parseFloat(current.totalEnergy || current.energy || 0)).toFixed(4)} kWh</div>
       </div>
       <div class="summary-card">
         <div class="label">Last Month</div>
-        <div class="value">${previous.totalEnergy.toFixed(4)} kWh</div>
+        <div class="value">${(parseFloat(previous.totalEnergy || previous.energy || 0)).toFixed(4)} kWh</div>
       </div>
       <div class="summary-card diff">
         <div class="label">Difference</div>
@@ -129,7 +129,7 @@ export async function generateMonthlyReport({ roomId, tenantName, tenantStartDat
     <div class="section-title">Billing</div>
     <div class="billing">
       <div class="billing-row"><span>Rate per kWh</span><span>₱${rate.toFixed(2)}</span></div>
-      <div class="billing-row"><span>Total Consumption</span><span>${current.totalEnergy.toFixed(4)} kWh</span></div>
+      <div class="billing-row"><span>Total Consumption</span><span>${(parseFloat(current.totalEnergy || current.energy || 0)).toFixed(4)} kWh</span></div>
       <div class="billing-row billing-total"><span>Total Bill</span><span>₱${totalBill.toFixed(2)}</span></div>
     </div>
   </div>

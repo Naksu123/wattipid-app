@@ -259,7 +259,7 @@ export default function TipsScreen() {
                     <Ionicons name="sparkles" size={16} color={COLORS.primary} />
                     <Text style={{ color: COLORS.primary, fontSize: 13, fontWeight: '700', letterSpacing: 0.5 }}>RECOMMENDED FOR YOU</Text>
                   </View>
-                  <GlassCard gradient style={s.interactiveCard}>
+                  <GlassCard gradient style={[s.interactiveCard, { borderLeftWidth: 3, borderLeftColor: COLORS.primary }]}>
                     {loading ? (
                       <ActivityIndicator color={COLORS.primary} size="large" />
                     ) : currentTip ? (
@@ -377,7 +377,7 @@ export default function TipsScreen() {
               smartTips.map((tip, i) => {
                 const pColor = getPriorityColor(tip.priority);
                 return (
-                  <GlassCard key={i} style={s.dynamicCard}>
+                  <GlassCard key={i} style={[s.dynamicCard, { borderLeftWidth: 3, borderLeftColor: pColor }]}>
                     <View style={s.dynamicHeader}>
                       <View style={[s.dynamicIcon, { backgroundColor: `${pColor}15` }]}>
                         <Ionicons name={tip.icon || 'analytics'} size={20} color={pColor} />
@@ -421,7 +421,7 @@ export default function TipsScreen() {
             </ScrollView>
 
             {allTips.map((tip) => (
-              <GlassCard key={tip.id} style={s.tipCard}>
+              <GlassCard key={tip.id} style={[s.tipCard, { borderLeftWidth: 3, borderLeftColor: COLORS.primary }]}>
                 <View style={s.tipIcon}>
                   <Ionicons name={tip.icon || 'bulb'} size={22} color={COLORS.primary} />
                 </View>

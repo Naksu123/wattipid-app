@@ -3,7 +3,8 @@ import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert,
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../contexts/AuthContext';
-import { setBudget, getBudget, resetBudget, getTotalConsumptionToday, getTotalConsumptionWeek, getTotalConsumptionMonth, getTransactionHistory, getConsumptionComparison, getDatabase } from '../../services/database';
+import { setBudget, getBudget, resetBudget, getBillingCycle, getTotalConsumptionToday, getTotalConsumptionWeek, getTotalConsumptionMonth, getTransactionHistory, getConsumptionComparison, getDatabase } from '../../services/database';
+import TransactionTable from '../../components/ui/TransactionTable';
 import BudgetProgressRing from '../../components/ui/BudgetProgressRing';
 import GlassCard from '../../components/ui/GlassCard';
 import { BaseModal, ModalHeader, ModalBody, ModalFooter } from '../../components/modals/BaseModal';
@@ -28,11 +29,13 @@ export default function BudgetScreen() {
   const [editing, setEditing] = useState(false);
   const [resetVisible, setResetVisible] = useState(false);
   const [budgetConfirm, setBudgetConfirm] = useState(null); // inline confirmation message
+  const [billingCycle, setBillingCycle] = useState(null);
 
   const loadData = useCallback(async () => {
     if (!user || !roomId) return;
-    const [b, t, w, m, txns, comp] = await Promise.all([
+    const [b, bc, t, w, m, txns, comp] = await Promise.all([
       getBudget(roomId),
+      getBillingCycle(roomId),
       getTotalConsumptionToday(roomId, user?.name),
       getTotalConsumptionWeek(roomId, user?.name),
       getTotalConsumptionMonth(roomId, user?.name),
@@ -42,6 +45,9 @@ export default function BudgetScreen() {
     if (b) { 
       setBudgetData(b); 
       setMonthlyBudgetInput(String(b.monthly_budget || '')); 
+    }
+    if (bc) {
+      setBillingCycle(bc);
     }
     setTodayUsage(t);
     setWeekUsage(w);
@@ -128,15 +134,6 @@ export default function BudgetScreen() {
     return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
-  // Group transactions by date
-  const groupedTxns = (transactions || []).reduce((acc, tx) => {
-    if (!tx) return acc;
-    const date = tx.date_label || formatDate(tx.timestamp);
-    if (!acc[date]) acc[date] = [];
-    acc[date].push(tx);
-    return acc;
-  }, {});
-
   return (
     <KeyboardAvoidingView style={[s.container, { backgroundColor: COLORS.background }]} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <ScrollView style={s.container} contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
@@ -144,7 +141,6 @@ export default function BudgetScreen() {
           <Text style={s.title}>Budget Manager</Text>
           <Text style={s.subtitle}>Track spending across daily, weekly & monthly</Text>
         </View>
-
 
         {/* Budget Setup / Edit Modal */}
         <BaseModal visible={editing} onClose={() => setEditing(false)}>
@@ -325,7 +321,9 @@ export default function BudgetScreen() {
               </View>
               <View style={s.remainingInfo}>
                 <Ionicons name="time-outline" size={14} color={COLORS.textMuted} />
-                <Text style={s.remainingText}>{budgetData?.remaining_days || 0} days remaining this month</Text>
+                <Text style={s.remainingText}>
+                  {billingCycle ? Math.max(0, Math.ceil((new Date(billingCycle.billing_end_date) - new Date()) / (1000 * 60 * 60 * 24))) : (budgetData?.remaining_days || 0)} days remaining this cycle
+                </Text>
               </View>
             </GlassCard>
           </View>
@@ -377,40 +375,14 @@ export default function BudgetScreen() {
           </GlassCard>
         )}
 
-        {/* Transaction History - GCash Style */}
+        {/* Transaction History - New Data Table */}
         <View style={s.txnSection}>
           <View style={s.txnHeader}>
             <Ionicons name="receipt-outline" size={20} color={COLORS.primary} />
             <Text style={s.txnTitle}>Recent Transactions</Text>
           </View>
-          {Object.keys(groupedTxns).length > 0 ? (
-            Object.entries(groupedTxns).map(([date, txns]) => (
-              <View key={date} style={s.txnGroup}>
-                <Text style={s.txnDate}>{formatDate(date)}</Text>
-                {txns.map((tx, i) => (
-                  <GlassCard key={tx.id || i} style={s.txnCard}>
-                    <View style={s.txnIcon}>
-                      <Ionicons name="flash" size={18} color={COLORS.accent} />
-                    </View>
-                    <View style={s.txnContent}>
-                      <Text style={s.txnName}>Energy Consumption</Text>
-                      <Text style={s.txnTime}>{tx.time_label || formatTime(tx.timestamp)} • {Number(tx.energy || 0).toFixed(4)} kWh</Text>
-                    </View>
-                    <View style={s.txnAmountCol}>
-                      <Text style={s.txnAmount}>-₱{(tx.cost || 0).toFixed(2)}</Text>
-                      <Text style={s.txnPower}>{(tx.power || 0).toFixed(0)}W</Text>
-                    </View>
-                  </GlassCard>
-                ))}
-              </View>
-            ))
-          ) : (
-            <GlassCard style={s.emptyTxn}>
-              <Ionicons name="document-text-outline" size={32} color={COLORS.textMuted} />
-              <Text style={s.emptyTxnText}>No transactions yet</Text>
-              <Text style={s.emptyTxnSub}>Consumption data will appear here</Text>
-            </GlassCard>
-          )}
+          
+          <TransactionTable groupedTransactions={transactions || []} />
         </View>
       </ScrollView>
     </KeyboardAvoidingView>

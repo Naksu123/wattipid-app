@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { Alert } from 'react-native';
 import Storage from './storage';
 import { API_URL } from './config';
 
@@ -64,6 +65,7 @@ apiClient.interceptors.response.use(
           await Storage.deleteItem('user_token');
           await Storage.deleteItem('refresh_token');
           await Storage.deleteItem('user_data');
+          Alert.alert('Session Expired', 'Your security token has expired. Please restart the app or go to Profile -> Logout, then log back in to see your data.');
           return Promise.resolve({ data: { success: false, message: 'Session expired' } });
         }
 
@@ -89,7 +91,7 @@ apiClient.interceptors.response.use(
         await Storage.deleteItem('refresh_token');
         await Storage.deleteItem('user_data');
         
-        // You might want to trigger a global logout event here or redirect to login
+        Alert.alert('Session Expired', 'Your security token has expired. Please restart the app or go to Profile -> Logout, then log back in to see your data.');
         return Promise.resolve({ data: { success: false, message: 'Session expired' } });
       }
     }

@@ -169,7 +169,7 @@ export const tipsService = {
   },
 
   // --- Admin/Landlord CRUD Operations ---
-  
+
   addTip: async (tipData) => {
     try {
       const response = await apiClient.post('/api.php?action=addTips', tipData);

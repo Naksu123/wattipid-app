@@ -37,32 +37,16 @@ export function getConnectionStatus() {
  * The dashboard must handle null gracefully by showing "Device Offline" state.
  */
 export async function fetchRealtimeData(roomId) {
-  // Circuit breaker: if too many consecutive failures, skip the fetch
-  // to avoid spamming the network. Will retry after backoff.
-  if (_consecutiveFailures >= MAX_FAILURES_BEFORE_BACKOFF) {
-    const backoffMs = Math.min(30000, 5000 * Math.pow(2, _consecutiveFailures - MAX_FAILURES_BEFORE_BACKOFF));
-    const timeSinceLastAttempt = Date.now() - _lastAttemptTime;
-    if (timeSinceLastAttempt < backoffMs) {
-      // Still in backoff period — return null without attempting
+  try {
+    const response = await apiClient.post('/api.php?action=getLatestConsumption', { roomId });
+    if (!response.data || !response.data.success || !response.data.data) {
       return null;
     }
-  }
 
-  _lastAttemptTime = Date.now();
-
-  try {
-    const response = await fetch(`${BASE_URL}/api/data?room=${roomId}`, {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-      timeout: 3000,
-    });
-    if (!response.ok) throw new Error('ESP32 not responding');
-    
-    const data = await response.json();
+    const data = response.data.data;
     
     // Validate that we got real sensor data
     if (!data || typeof data.power !== 'number' || data.power < 0) {
-      console.warn('ESP32 returned invalid data:', data);
       return null;
     }
 
@@ -73,12 +57,6 @@ export async function fetchRealtimeData(roomId) {
     return data;
   } catch (error) {
     _consecutiveFailures++;
-    // Only log on first failure or every 10th to avoid console spam
-    if (_consecutiveFailures === 1 || _consecutiveFailures % 10 === 0) {
-      console.warn(`ESP32 fetch failed (attempt #${_consecutiveFailures}):`, error.message);
-    }
-    // CRITICAL FIX: Return null instead of mock data.
-    // The dashboard will show "Device Offline" state.
     return null;
   }
 }

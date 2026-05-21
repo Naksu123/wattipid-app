@@ -14,7 +14,9 @@ import { Platform } from 'react-native';
  * @param {number} data.rate - Rate per kWh
  */
 export async function generateConsumptionReport(data) {
-  const { tenantName, roomId, period, breakdown, totalCost, totalEnergy, rate } = data;
+  const { tenantName, roomId, period, breakdown, rate } = data;
+  const totalCost = parseFloat(data.totalCost || 0);
+  const totalEnergy = parseFloat(data.totalEnergy || 0);
   const dateStr = new Date().toLocaleDateString('en-PH', { month: 'long', day: 'numeric', year: 'numeric' });
   
   const html = `
@@ -79,7 +81,7 @@ export async function generateConsumptionReport(data) {
           </div>
           <div class="summary-card">
             <div class="summary-label">Average Rate</div>
-            <div class="summary-value">₱${rate.toFixed(2)}<span class="summary-unit">/kWh</span></div>
+            <div class="summary-value">₱${(parseFloat(rate) || 0).toFixed(2)}<span class="summary-unit">/kWh</span></div>
           </div>
           <div class="summary-card" style="background: #22c55e10; border-color: #22c55e40;">
             <div class="summary-label">Total Amount Due</div>

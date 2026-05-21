@@ -4,12 +4,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { LineChart, BarChart } from 'react-native-chart-kit';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useAuth } from '../../contexts/AuthContext';
 import { getConsumptionHistory, getConsumptionComparison, getDailyBreakdown, getHourlyBreakdown, getTransactionHistory, getTotalConsumptionToday, getTotalConsumptionWeek, getTotalConsumptionMonth, getSetting } from '../../services/database';
 import { getMonthlyForecast } from '../../services/notificationApi';
 import { generateConsumptionReport } from '../../services/reportService';
 import GlassCard from '../../components/ui/GlassCard';
-import { COLORS, SPACING } from '@/styles/theme';
+import { COLORS, SPACING, RADIUS } from '@/styles/theme';
 import s from '@/styles/tenant/analytics.styles';
 
 const screenWidth = Dimensions.get('window').width - SPACING.lg * 2;
@@ -18,6 +19,7 @@ const PERIODS = ['daily', 'weekly', 'monthly'];
 export default function AnalyticsScreen() {
   const { user } = useAuth();
   const [period, setPeriod] = useState('weekly');
+  const [historyFilter, setHistoryFilter] = useState('minute');
   const [history, setHistory] = useState([]);
   const [comparison, setComparison] = useState(null);
   const [breakdown, setBreakdown] = useState([]);
@@ -31,18 +33,21 @@ export default function AnalyticsScreen() {
   const [selectedPoint, setSelectedPoint] = useState(null);
   const [rate, setRate] = useState(12.5);
   const [forecast, setForecast] = useState(null);
+  const [showFilter, setShowFilter] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [historyLimit, setHistoryLimit] = useState(20);
   const roomId = user?.room_id || 'Room 1';
 
-  const loadData = useCallback(async () => {
+  const loadStatsData = useCallback(async () => {
     if (!user || !roomId) return;
     const tenantName = user?.name;
-    const [data, comp, today, week, month, txns, rateVal] = await Promise.all([
+    const [data, comp, today, week, month, rateVal] = await Promise.all([
       getConsumptionHistory(roomId, period, tenantName),
       getConsumptionComparison(roomId, period, tenantName),
       getTotalConsumptionToday(roomId, tenantName),
       getTotalConsumptionWeek(roomId, tenantName),
       getTotalConsumptionMonth(roomId, tenantName),
-      getTransactionHistory(roomId, 50, period, tenantName),
       getSetting('rate_per_kwh')
     ]);
     
@@ -51,34 +56,55 @@ export default function AnalyticsScreen() {
     setTodayUsage(today);
     setWeekUsage(week);
     setMonthUsage(month);
-    setTransactions(txns || []);
     if (rateVal) setRate(parseFloat(rateVal));
 
-    // Load forecast data
     try {
       const forecastData = await getMonthlyForecast(roomId, tenantName);
       setForecast(forecastData);
-    } catch (e) {
-      console.warn('Forecast fetch failed:', e);
-    }
+    } catch (e) {}
 
-    // Load breakdown based on period
     if (period === 'daily') {
       const hourly = await getHourlyBreakdown(roomId, tenantName);
       setHourlyBreakdown(hourly || []);
       setBreakdown([]);
     } else {
-      // Use the history data (which is already grouped by day for weekly/monthly)
       const dailyBreakdown = [...(data || [])].reverse();
       setBreakdown(dailyBreakdown);
       setHourlyBreakdown([]);
     }
     
-    // Clear selection when period changes
     setSelectedPoint(null);
   }, [roomId, period]);
 
-  useEffect(() => { loadData(); }, [loadData]);
+  const loadHistoryData = useCallback(async () => {
+    if (!user || !roomId) return;
+    const tenantName = user?.name;
+    const dateStr = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`;
+    const txns = await getTransactionHistory(roomId, 500, historyFilter, tenantName, 0, historyFilter === 'minute' ? dateStr : null);
+    setTransactions(txns || []);
+  }, [roomId, historyFilter, selectedDate]);
+
+  useEffect(() => { 
+    loadStatsData(); 
+    const interval = setInterval(() => {
+      loadStatsData();
+    }, 60000);
+    return () => clearInterval(interval);
+  }, [loadStatsData]);
+
+  useEffect(() => {
+    loadHistoryData();
+    const interval = setInterval(() => {
+      loadHistoryData();
+    }, 60000);
+    return () => clearInterval(interval);
+  }, [loadHistoryData]);
+
+  const changeDate = (days) => {
+    const newDate = new Date(selectedDate);
+    newDate.setDate(newDate.getDate() + days);
+    if (newDate <= new Date()) setSelectedDate(newDate);
+  };
 
   const chartConfig = {
     backgroundGradientFrom: 'transparent', backgroundGradientTo: 'transparent',
@@ -160,7 +186,7 @@ export default function AnalyticsScreen() {
 
       const compData = comparison || { current: { totalEnergy: 0, totalCost: 0 }, previous: { totalEnergy: 0, totalCost: 0 }, costPctChange: 0, energyPctChange: 0, costDiff: 0 };
       const breakdownRows = breakdown.slice(0, 31).map(r =>
-        `<tr><td>${formatDate(r.day)}</td><td>${r.totalEnergy.toFixed(3)} kWh</td><td>₱${r.totalCost.toFixed(2)}</td><td>${(r.avgPower || 0).toFixed(1)}W</td></tr>`
+        `<tr><td>${formatDate(r.day)}</td><td>${(parseFloat(r.totalEnergy || r.energy || 0)).toFixed(3)} kWh</td><td>₱${(parseFloat(r.totalCost || r.cost || 0)).toFixed(2)}</td><td>${(parseFloat(r.avgPower || 0)).toFixed(1)}W</td></tr>`
       ).join('');
 
       const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
@@ -213,13 +239,7 @@ export default function AnalyticsScreen() {
     }
   };
 
-  // Group transactions by date
-  const groupedTxns = transactions.reduce((acc, tx) => {
-    const date = tx.date_label || '';
-    if (!acc[date]) acc[date] = [];
-    acc[date].push(tx);
-    return acc;
-  }, {});
+  // Backend now handles the heavy lifting and returns exactly {title, data} arrays
 
   return (
     <View style={s.container}>
@@ -246,12 +266,12 @@ export default function AnalyticsScreen() {
           <GlassCard style={s.statCard}>
             <Ionicons name="flash" size={18} color={COLORS.primary} />
             <Text style={s.statValue}>{Number(totalEnergy || 0).toFixed(2)}</Text>
-            <Text style={s.statLabel}>kWh Total</Text>
+            <Text style={s.statLabel}>{period === 'daily' ? 'Daily kWh' : period === 'weekly' ? 'Weekly kWh' : 'Monthly kWh'}</Text>
           </GlassCard>
           <GlassCard style={s.statCard}>
             <Ionicons name="cash" size={18} color={COLORS.warning} />
             <Text style={s.statValue}>₱{Number(totalCost || 0).toFixed(2)}</Text>
-            <Text style={s.statLabel}>Total Cost</Text>
+            <Text style={s.statLabel}>{period === 'daily' ? 'Daily Cost' : period === 'weekly' ? 'Weekly Cost' : 'Monthly Cost'}</Text>
           </GlassCard>
           <GlassCard style={s.statCard}>
             <Ionicons name="trending-up" size={18} color={COLORS.danger} />
@@ -298,7 +318,7 @@ export default function AnalyticsScreen() {
         {/* View Toggle */}
         <View style={s.viewToggle}>
           {VIEW_TABS.map(tab => (
-            <TouchableOpacity key={tab.key} onPress={() => setActiveView(tab.key)}
+            <TouchableOpacity key={tab.key} onPress={() => { setActiveView(tab.key); setHistoryLimit(20); }}
               style={[s.viewTab, activeView === tab.key && s.viewTabActive]} activeOpacity={0.7}>
               <Ionicons name={tab.icon} size={16} color={activeView === tab.key ? COLORS.primary : COLORS.textMuted} />
               <Text style={[s.viewTabText, activeView === tab.key && s.viewTabTextActive]}>{tab.label}</Text>
@@ -492,60 +512,40 @@ export default function AnalyticsScreen() {
         {/* Breakdown View - Detailed Computation */}
         {activeView === 'breakdown' && (
           <>
-            {/* Period Totals */}
-            <GlassCard style={s.totalsCard}>
-              <Text style={s.totalsTitle}>Consumption Totals</Text>
-              <Text style={s.totalsDesc}>How your totals are computed from individual readings</Text>
-              <View style={s.totalsGrid}>
-                {[
-                  { label: 'Today', energy: todayUsage.totalEnergy, cost: todayUsage.totalCost, icon: 'today-outline', color: COLORS.info },
-                  { label: 'This Week', energy: weekUsage.totalEnergy, cost: weekUsage.totalCost, icon: 'calendar-outline', color: COLORS.accent },
-                  { label: 'This Month', energy: monthUsage.totalEnergy, cost: monthUsage.totalCost, icon: 'albums-outline', color: COLORS.primary },
-                ].map((item, i) => (
-                  <View key={i} style={s.totalItem}>
-                    <View style={[s.totalIcon, { backgroundColor: `${item.color}15` }]}>
-                      <Ionicons name={item.icon} size={18} color={item.color} />
-                    </View>
-                    <Text style={s.totalLabel}>{item.label}</Text>
-                    <Text style={s.totalEnergy}>{Number(item.energy || 0).toFixed(3)} kWh</Text>
-                    <Text style={s.totalCost}>₱{Number(item.cost || 0).toFixed(2)}</Text>
-                  </View>
-                ))}
-              </View>
-            </GlassCard>
+
 
             {/* Daily Breakdown Table */}
             {breakdown.length > 0 && (
               <GlassCard style={s.breakdownCard}>
                 <View style={s.breakdownHeader}>
                   <Ionicons name="calendar" size={18} color={COLORS.primary} />
-                  <Text style={s.breakdownTitle}>Daily Breakdown</Text>
+                  <Text style={s.breakdownTitle}>{period === 'monthly' ? 'Monthly' : (period === 'weekly' ? 'Weekly' : 'Daily')} Breakdown</Text>
                 </View>
-                <Text style={s.breakdownDesc}>Sum of all readings per day this month</Text>
+                <Text style={s.breakdownDesc}>Detailed daily consumption metrics</Text>
                 {/* Table Header */}
                 <View style={s.tableHeader}>
-                  <Text style={[s.tableHeaderCell, { flex: 1.3 }]}>Date</Text>
-                  <Text style={[s.tableHeaderCell, { flex: 1 }]}>kWh</Text>
-                  <Text style={[s.tableHeaderCell, { flex: 0.8 }]}>Watts</Text>
-                  <Text style={[s.tableHeaderCell, { flex: 1 }]}>Cost</Text>
-                  <Text style={[s.tableHeaderCell, { flex: 0.5 }]}>Reads</Text>
+                  <Text style={[s.tableHeaderCell, s.colDate]}>Date</Text>
+                  <Text style={[s.tableHeaderCell, s.colKwh]}>kWh</Text>
+                  <Text style={[s.tableHeaderCell, s.colWatts]}>Watts</Text>
+                  <Text style={[s.tableHeaderCell, s.colCost, { color: COLORS.primary }]}>Cost</Text>
+                  <Text style={[s.tableHeaderCell, s.colReads]}>Read</Text>
                 </View>
                 {breakdown.map((row, i) => (
                   <View key={i} style={[s.tableRow, i % 2 === 0 && s.tableRowAlt]}>
-                    <Text style={[s.tableCell, { flex: 1.3 }]}>{formatDate(row.day || row.timestamp)}</Text>
-                    <Text style={[s.tableCell, { flex: 1 }]}>{Number(row.totalEnergy || row.energy || 0).toFixed(4)}</Text>
-                    <Text style={[s.tableCell, { flex: 0.8 }]}>{(row.avgPower || 0).toFixed(2)}</Text>
-                    <Text style={[s.tableCellHighlight, { flex: 1 }]}>₱{Number(row.totalCost || row.cost || 0).toFixed(2)}</Text>
-                    <Text style={[s.tableCell, { flex: 0.5, textAlign: 'center' }]}>{row.entries || row.entryCount || '-'}</Text>
+                    <Text style={[s.tableCell, s.colDate]} numberOfLines={1}>{formatDate(row.day || row.timestamp)}</Text>
+                    <Text style={[s.tableCell, s.colKwh]} numberOfLines={1}>{Number(row.totalEnergy || row.energy || 0).toFixed(3)}</Text>
+                    <Text style={[s.tableCell, s.colWatts]} numberOfLines={1}>{(row.avgPower || 0).toFixed(0)}</Text>
+                    <Text style={[s.tableCellHighlight, s.colCost]} numberOfLines={1}>₱{Number(row.totalCost || row.cost || 0).toFixed(2)}</Text>
+                    <Text style={[s.tableCell, s.colReads]} numberOfLines={1}>{row.entries || row.entryCount || '-'}</Text>
                   </View>
                 ))}
                 {/* Totals Row */}
                 <View style={s.tableTotalRow}>
-                  <Text style={[s.tableTotalCell, { flex: 1.3 }]}>TOTAL</Text>
-                  <Text style={[s.tableTotalCell, { flex: 1 }]}>{breakdown.reduce((a, r) => a + (Number(r.totalEnergy || r.energy || 0)), 0).toFixed(4)}</Text>
-                  <Text style={[s.tableTotalCell, { flex: 0.8 }]}>{(breakdown.reduce((a, r) => a + (Number(r.avgPower || 0)), 0) / Math.max(breakdown.length, 1)).toFixed(2)}</Text>
-                  <Text style={[s.tableTotalCell, { flex: 1, color: COLORS.primary }]}>₱{breakdown.reduce((a, r) => a + (Number(r.totalCost || r.cost || 0)), 0).toFixed(2)}</Text>
-                  <Text style={[s.tableTotalCell, { flex: 0.5, textAlign: 'center' }]}>{breakdown.reduce((a, r) => a + (Number(r.entries || r.entryCount || 0)), 0)}</Text>
+                  <Text style={[s.tableTotalCell, s.colDate]}>TOTAL</Text>
+                  <Text style={[s.tableTotalCell, s.colKwh]} numberOfLines={1}>{breakdown.reduce((a, r) => a + (Number(r.totalEnergy || r.energy || 0)), 0).toFixed(3)}</Text>
+                  <Text style={[s.tableTotalCell, s.colWatts]} numberOfLines={1}>{(breakdown.reduce((a, r) => a + (Number(r.avgPower || 0)), 0) / Math.max(breakdown.length, 1)).toFixed(0)}</Text>
+                  <Text style={[s.tableTotalCell, s.colCost, { color: COLORS.primary }]} numberOfLines={1}>₱{breakdown.reduce((a, r) => a + (Number(r.totalCost || r.cost || 0)), 0).toFixed(2)}</Text>
+                  <Text style={[s.tableTotalCell, s.colReads]} numberOfLines={1}>{breakdown.reduce((a, r) => a + (Number(r.entries || r.entryCount || 0)), 0)}</Text>
                 </View>
               </GlassCard>
             )}
@@ -559,66 +559,128 @@ export default function AnalyticsScreen() {
                 </View>
                 <Text style={s.breakdownDesc}>Consumption per hour today (00:00–23:59)</Text>
                 <View style={s.tableHeader}>
-                  <Text style={[s.tableHeaderCell, { flex: 1 }]}>Hour</Text>
-                  <Text style={[s.tableHeaderCell, { flex: 1 }]}>kWh</Text>
-                  <Text style={[s.tableHeaderCell, { flex: 1 }]}>Watts</Text>
-                  <Text style={[s.tableHeaderCell, { flex: 1 }]}>Cost</Text>
+                  <Text style={[s.tableHeaderCell, s.colDate]}>Hour</Text>
+                  <Text style={[s.tableHeaderCell, s.colKwh]}>kWh</Text>
+                  <Text style={[s.tableHeaderCell, s.colWatts]}>Watts</Text>
+                  <Text style={[s.tableHeaderCell, s.colCost, { color: COLORS.primary }]}>Cost</Text>
+                  <Text style={[s.tableHeaderCell, s.colReads]}></Text>
                 </View>
                 {hourlyBreakdown.map((row, i) => (
                   <View key={i} style={[s.tableRow, i % 2 === 0 && s.tableRowAlt]}>
-                    <Text style={[s.tableCell, { flex: 1 }]}>{String(row.hour).padStart(2, '0')}:00</Text>
-                    <Text style={[s.tableCell, { flex: 1 }]}>{row.totalEnergy.toFixed(4)}</Text>
-                    <Text style={[s.tableCell, { flex: 1 }]}>{(row.avgPower || 0).toFixed(2)}</Text>
-                    <Text style={[s.tableCellHighlight, { flex: 1 }]}>₱{row.totalCost.toFixed(2)}</Text>
+                    <Text style={[s.tableCell, s.colDate]} numberOfLines={1}>{String(row.hour).padStart(2, '0')}:00</Text>
+                    <Text style={[s.tableCell, s.colKwh]} numberOfLines={1}>{(parseFloat(row.totalEnergy || row.energy || 0)).toFixed(3)}</Text>
+                    <Text style={[s.tableCell, s.colWatts]} numberOfLines={1}>{(parseFloat(row.avgPower || 0)).toFixed(0)}</Text>
+                    <Text style={[s.tableCellHighlight, s.colCost]} numberOfLines={1}>₱{(parseFloat(row.totalCost || row.cost || 0)).toFixed(2)}</Text>
+                    <Text style={[s.tableCell, s.colReads]}></Text>
                   </View>
                 ))}
                 <View style={s.tableTotalRow}>
-                  <Text style={[s.tableTotalCell, { flex: 1 }]}>TOTAL</Text>
-                  <Text style={[s.tableTotalCell, { flex: 1 }]}>{hourlyBreakdown.reduce((a, r) => a + (Number(r.totalEnergy || r.energy || 0)), 0).toFixed(4)}</Text>
-                  <Text style={[s.tableTotalCell, { flex: 1 }]}>{(hourlyBreakdown.reduce((a, r) => a + (Number(r.avgPower || 0)), 0) / Math.max(hourlyBreakdown.length, 1)).toFixed(2)}</Text>
-                  <Text style={[s.tableTotalCell, { flex: 1, color: COLORS.primary }]}>₱{hourlyBreakdown.reduce((a, r) => a + (Number(r.totalCost || r.cost || 0)), 0).toFixed(2)}</Text>
+                  <Text style={[s.tableTotalCell, s.colDate]}>TOTAL</Text>
+                  <Text style={[s.tableTotalCell, s.colKwh]} numberOfLines={1}>{hourlyBreakdown.reduce((a, r) => a + (Number(r.totalEnergy || r.energy || 0)), 0).toFixed(3)}</Text>
+                  <Text style={[s.tableTotalCell, s.colWatts]} numberOfLines={1}>{(hourlyBreakdown.reduce((a, r) => a + (Number(r.avgPower || 0)), 0) / Math.max(hourlyBreakdown.length, 1)).toFixed(0)}</Text>
+                  <Text style={[s.tableTotalCell, s.colCost, { color: COLORS.primary }]} numberOfLines={1}>₱{hourlyBreakdown.reduce((a, r) => a + (Number(r.totalCost || r.cost || 0)), 0).toFixed(2)}</Text>
+                  <Text style={[s.tableTotalCell, s.colReads]}></Text>
                 </View>
               </GlassCard>
             )}
           </>
         )}
 
-        {/* History View - GCash-style Transaction List */}
+        {/* Table-based History System */}
         {activeView === 'history' && (
           <View style={s.historySection}>
-            {Object.keys(groupedTxns).length > 0 ? (
-              Object.entries(groupedTxns)
-                .sort((a, b) => b[0].localeCompare(a[0]))
-                .map(([date, txns]) => {
-                const dayTotal = txns.reduce((a, t) => a + (t.cost || 0), 0);
-                return (
-                  <View key={date} style={s.histGroup}>
-                    <View style={s.histDateRow}>
-                      <Text style={s.histDate}>{formatDate(date)}</Text>
-                      <Text style={s.histDayTotal}>-₱{Number(dayTotal || 0).toFixed(2)}</Text>
-                    </View>
-                    {txns.map((tx, i) => (
-                      <View key={tx.id || i} style={s.histItem}>
-                        <View style={s.histDot} />
-                        <View style={s.histLine} />
-                        <View style={s.histContent}>
-                          <View style={s.histTop}>
-                            <Text style={s.histName}>Energy Reading</Text>
-                            <Text style={s.histAmount}>-₱{Number(tx.cost || 0).toFixed(2)}</Text>
-                          </View>
-                          <View style={s.histBottom}>
-                            <Text style={s.histMeta}>{tx.time_label} • {(tx.power || 0).toFixed(0)}W • {(tx.energy || 0).toFixed(4)} kWh</Text>
-                          </View>
-                        </View>
-                      </View>
-                    ))}
+            <View style={s.filterHeader}>
+              <Text style={s.filterTitle}>History Logs</Text>
+              <TouchableOpacity style={s.filterDropdown} onPress={() => setShowFilter(!showFilter)} activeOpacity={0.7}>
+                <Text style={s.filterDropdownText}>
+                  {historyFilter === 'minute' ? 'Every Minute' : historyFilter === 'daily' ? 'Daily' : historyFilter === 'weekly' ? 'Weekly' : 'Monthly'}
+                </Text>
+                <Ionicons name={showFilter ? "chevron-up" : "chevron-down"} size={16} color={COLORS.textPrimary} />
+              </TouchableOpacity>
+            </View>
+
+            {historyFilter === 'minute' && (
+              <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.02)', padding: 12, borderRadius: RADIUS.lg, marginBottom: SPACING.lg, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)'}}>
+                <TouchableOpacity onPress={() => changeDate(-1)} style={{padding: 8, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: RADIUS.md}}>
+                  <Ionicons name="chevron-back" size={20} color={COLORS.primary}/>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => setShowDatePicker(true)} style={{flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, paddingHorizontal: 16, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: RADIUS.md}}>
+                  <Ionicons name="calendar-outline" size={18} color={COLORS.textPrimary}/>
+                  <Text style={{color: COLORS.textPrimary, fontSize: 14, fontWeight: 'bold'}}>
+                    {`${['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][selectedDate.getMonth()]} ${selectedDate.getDate()}, ${selectedDate.getFullYear()}`}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => changeDate(1)} style={{padding: 8, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: RADIUS.md}} disabled={selectedDate >= new Date(new Date().setHours(0,0,0,0))}>
+                  <Ionicons name="chevron-forward" size={20} color={selectedDate >= new Date(new Date().setHours(0,0,0,0)) ? 'rgba(255,255,255,0.2)' : COLORS.primary}/>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {showDatePicker && (
+              <DateTimePicker
+                value={selectedDate}
+                mode="date"
+                display="default"
+                maximumDate={new Date()}
+                onChange={(event, date) => {
+                  setShowDatePicker(false);
+                  if (date) setSelectedDate(date);
+                }}
+              />
+            )}
+
+            {showFilter && (
+              <View style={{ backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: RADIUS.lg, padding: 8, marginBottom: SPACING.lg, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
+                {['minute', 'daily', 'weekly', 'monthly'].map(f => (
+                  <TouchableOpacity key={f} style={{ padding: 12, borderBottomWidth: f !== 'monthly' ? 1 : 0, borderBottomColor: 'rgba(255,255,255,0.05)' }} onPress={() => { setHistoryFilter(f); setShowFilter(false); setHistoryLimit(20); }}>
+                    <Text style={{ color: historyFilter === f ? COLORS.primary : COLORS.textPrimary, fontWeight: historyFilter === f ? 'bold' : 'normal', fontSize: 15 }}>
+                      {f === 'minute' ? 'Every Minute (Real-time)' : f.charAt(0).toUpperCase() + f.slice(1)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+
+            {transactions.length > 0 ? (
+              transactions.map((group, gIdx) => (
+                <View key={gIdx} style={s.histGroup}>
+                  <View style={s.histGroupHeader}>
+                    <Text style={s.histDate}>{group.title}</Text>
+                    <Ionicons name="calendar-outline" size={16} color={COLORS.primary} />
                   </View>
-                );
-              })
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.histTableWrapper}>
+                    <View style={{ minWidth: 350, paddingHorizontal: 0 }}>
+                      {group.data.slice(0, historyLimit).map((tx, i) => {
+                        const power = Number(tx.power || 0);
+                        const statusColor = power > 1500 ? COLORS.danger : (power > 500 ? COLORS.warning : COLORS.primary);
+                        return (
+                          <View key={i} style={[s.histRow, i % 2 === 0 && s.histRowAlt]}>
+                            <Text style={s.histColTime} numberOfLines={1}>{tx.time_label || '--'}</Text>
+                            <Text style={s.histColWatts} numberOfLines={1}>{power.toFixed(0)}W</Text>
+                            <Text style={s.histColKwh} numberOfLines={1}>{Number(tx.energy || 0).toFixed(4)}</Text>
+                            <Text style={s.histColCost} numberOfLines={1}>₱{Math.abs(Number(tx.cost || 0)).toFixed(2)}</Text>
+                            <View style={s.histColStatus}>
+                              <View style={[s.statusDot, { backgroundColor: statusColor }]} />
+                            </View>
+                          </View>
+                        );
+                      })}
+                      {group.data.length > historyLimit && (
+                        <TouchableOpacity 
+                          onPress={() => setHistoryLimit(prev => prev + 20)}
+                          style={{ padding: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.03)', marginTop: 10, borderRadius: RADIUS.md }}
+                        >
+                          <Text style={{ color: COLORS.primary, fontWeight: 'bold' }}>Load 20 More Logs</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  </ScrollView>
+                </View>
+              ))
             ) : (
               <GlassCard style={s.emptyHist}>
                 <Ionicons name="analytics-outline" size={36} color={COLORS.textMuted} />
-                <Text style={s.emptyHistText}>No consumption history yet</Text>
+                <Text style={s.emptyHistText}>No history logs found</Text>
               </GlassCard>
             )}
           </View>

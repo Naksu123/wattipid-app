@@ -16,9 +16,9 @@ export const getDashboardSummary = async (roomId) => {
     return {
       success: true,
       data: {
-        today: today.data,
-        week: week.data,
-        month: month.data
+        today: today.data?.data || { totalEnergy: 0, totalCost: 0 },
+        week: week.data?.data || { totalEnergy: 0, totalCost: 0 },
+        month: month.data?.data || { totalEnergy: 0, totalCost: 0 }
       }
     };
   } catch (error) {

@@ -132,6 +132,62 @@ export default StyleSheet.create({
     color: COLORS.textMuted, 
     marginTop: 4 
   },
+  totalsCard: { 
+    marginBottom: SPACING.lg 
+  },
+  totalsTitle: { 
+    fontSize: FONT_SIZE.md, 
+    fontWeight: FONT_WEIGHT.bold, 
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.md
+  },
+  totalsGrid: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between',
+    gap: SPACING.sm 
+  },
+  totalItem: { 
+    flex: 1, 
+    alignItems: 'center', 
+    paddingVertical: SPACING.lg, 
+    paddingHorizontal: SPACING.xs,
+    borderRadius: RADIUS.xl, 
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)'
+  },
+  totalIcon: { 
+    width: 44, 
+    height: 44, 
+    borderRadius: 14, 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    marginBottom: SPACING.sm 
+  },
+  totalLabel: { 
+    fontSize: 12, 
+    color: COLORS.textSecondary, 
+    fontWeight: FONT_WEIGHT.medium, 
+    marginBottom: 4
+  },
+  totalEnergy: { 
+    fontSize: FONT_SIZE.lg, 
+    color: COLORS.textPrimary, 
+    fontWeight: FONT_WEIGHT.bold, 
+    textAlign: 'center',
+    marginBottom: 2
+  },
+  totalUnit: {
+    fontSize: 11,
+    color: COLORS.textMuted,
+    fontWeight: FONT_WEIGHT.medium,
+  },
+  totalCost: { 
+    fontSize: 13, 
+    color: COLORS.primary, 
+    fontWeight: FONT_WEIGHT.bold, 
+    textAlign: 'center' 
+  },
   budgetCard: { 
     marginBottom: SPACING.lg,
     padding: SPACING.lg

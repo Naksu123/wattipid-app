@@ -146,10 +146,11 @@ export async function getConsumptionHistory(roomId, period = 'daily', tenantName
   const data = await apiCall('getConsumptionHistory', { roomId, period, tenantName });
   return (data || []).map(d => ({
     ...d,
-    energy: parseFloat(d.energy || 0),
-    cost: parseFloat(d.cost || 0),
+    energy: parseFloat(d.totalEnergy || d.energy || 0),
+    cost: parseFloat(d.totalCost || d.cost || 0),
     avgPower: parseFloat(d.avgPower || 0),
     peakPower: parseFloat(d.peakPower || 0),
+    label: d.hour !== undefined ? d.hour : d.day,
   }));
 }
 
@@ -168,16 +169,10 @@ export async function getTotalConsumptionMonth(roomId, tenantName = null) {
   return data ? { totalEnergy: parseFloat(data.totalEnergy || 0), totalCost: parseFloat(data.totalCost || 0) } : { totalEnergy: 0, totalCost: 0 };
 }
 
-export async function getTransactionHistory(roomId, limit = 50, period = 'all', tenantName = null, offset = 0) {
-  const data = await apiCall('getTransactionHistory', { roomId, limit, period, tenantName, offset });
-  return (data || []).map(tx => ({
-    ...tx,
-    voltage: parseFloat(tx.voltage || 0),
-    current_val: parseFloat(tx.current_val || 0),
-    power: parseFloat(tx.power || 0),
-    energy: parseFloat(tx.energy || 0),
-    cost: parseFloat(tx.cost || 0),
-  }));
+export async function getTransactionHistory(roomId, limit = 50, filter = 'minute', tenantName = null, offset = 0, date = null) {
+  const data = await apiCall('getTransactionHistory', { roomId, limit, filter, tenantName, offset, date });
+  // The backend now returns a perfectly grouped array: [{ title: 'May 21', data: [...] }]
+  return data || [];
 }
 
 export async function getConsumptionComparison(roomId, period = 'weekly', tenantName = null) {
@@ -262,6 +257,10 @@ export async function getBudget(roomId) {
 
 export async function resetBudget(roomId) {
   await apiCall('resetBudget', { roomId });
+}
+
+export async function getBillingCycle(roomId) {
+  return await apiCall('getBillingCycle', { roomId });
 }
 
 // ============ SETTINGS ============

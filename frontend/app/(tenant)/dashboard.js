@@ -21,6 +21,8 @@ export default function DashboardScreen() {
   const [relayOn, setRelayOn] = useState(true);
   const [rate, setRate] = useState(12.5);
   const [todayUsage, setTodayUsage] = useState({ totalEnergy: 0, totalCost: 0 });
+  const [weekUsage, setWeekUsage] = useState({ totalEnergy: 0, totalCost: 0 });
+  const [monthUsage, setMonthUsage] = useState({ totalEnergy: 0, totalCost: 0 });
   const [budget, setBudgetData] = useState(null);
   const [comparison, setComparison] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -45,6 +47,8 @@ export default function DashboardScreen() {
       
       if (result.success) {
         setTodayUsage(result.data.today);
+        setWeekUsage(result.data.week);
+        setMonthUsage(result.data.month);
         setBudgetData(result.data.month.budget); // Assuming new API structure
         setComparison(result.data.week.comparison);
       }
@@ -91,19 +95,38 @@ export default function DashboardScreen() {
         return;
       }
 
-      // We have REAL data from the ESP32
-      setDeviceOnline(true);
-      setLastSeen(new Date().toISOString());
-      setData(sensorData);
+      // We have REAL data from the backend
+      // Use the 'online' and 'lastSeen' properties calculated by the backend
+      setDeviceOnline(sensorData.online === true);
+      setLastSeen(sensorData.lastSeen || new Date().toISOString());
+      
+      // If the device is offline, zero out the real-time readings 
+      // but keep the rest of the data intact (like energy)
+      if (!sensorData.online) {
+        setData({ 
+          voltage: 0, 
+          current: 0, 
+          power: 0, 
+          energy: sensorData.energy || 0, 
+          powerFactor: 0 
+        });
+      } else {
+        setData(sensorData);
+      }
+      
       setRelayOn(sensorData.relayState !== false);
 
-      // GHOST FIX: Only generate smart tips from REAL, validated data
-      const tip = getSmartPopupTip(sensorData.power, todayUsageRef.current?.totalCost || 0, budgetRef.current);
-      setSmartTip(tip);
+      // GHOST FIX: Only generate smart tips from REAL, validated data when online
+      if (sensorData.online) {
+        const tip = getSmartPopupTip(sensorData.power, todayUsageRef.current?.totalCost || 0, budgetRef.current);
+        setSmartTip(tip);
+      } else {
+        setSmartTip(null);
+      }
 
       // GHOST FIX: Only detect high consumption if we have REAL device data
-      // AND the power reading is from a validated source
-      if (sensorData.power > 0) {
+      // AND the device is online AND the power reading is from a validated source
+      if (sensorData.online && sensorData.power > 0) {
         const alert = detectHighConsumption(sensorData.power, budgetRef.current, todayUsageRef.current);
         if (alert) {
           const alertKey = `${alert.title}-${alert.type}`;
@@ -151,7 +174,9 @@ export default function DashboardScreen() {
     setRefreshing(false);
   };
 
-  const amountDue = todayUsage.totalEnergy * rate;
+  // Use the backend's pre-calculated totalCost (not client-side energy*rate)
+  // This ensures we only count cost from REAL sensor readings
+  const amountDue = todayUsage.totalCost || 0;
   const budgetPct = budget && budget.daily_allowance > 0 ? (todayUsage.totalCost / budget.daily_allowance) * 100 : 0;
 
   // GHOST FIX: Use our tracked deviceOnline state instead of guessing from lastSeen
@@ -277,11 +302,35 @@ export default function DashboardScreen() {
 
         {/* Metrics Grid */}
         <View style={ms.grid}>
-          <MetricCard icon="flash" label="Voltage" value={Number(data.voltage || 0).toFixed(1)} unit="V" color={COLORS.accent} />
-          <MetricCard icon="water" label="Current" value={Number(data.current || 0).toFixed(2)} unit="A" color={COLORS.info} />
+          <MetricCard icon="flash" label="Voltage" value={offline ? '0.0' : Number(data.voltage || 0).toFixed(1)} unit="V" color={COLORS.accent} />
+          <MetricCard icon="water" label="Current" value={offline ? '0.00' : Number(data.current || 0).toFixed(2)} unit="A" color={COLORS.info} />
           <MetricCard icon="battery-charging" label="Energy Today" value={Number(todayUsage.totalEnergy || 0).toFixed(3)} unit="kWh" color={COLORS.primary} />
           <MetricCard icon="cash" label="Amount Due" value={`₱${Number(amountDue || 0).toFixed(2)}`} unit="" color={COLORS.warning} />
         </View>
+
+        {/* Consumption Totals (Moved from Analytics) */}
+        <GlassCard style={ms.totalsCard}>
+          <Text style={ms.totalsTitle}>Consumption Totals</Text>
+          <View style={ms.totalsGrid}>
+            {[
+              { label: 'Today', energy: todayUsage.totalEnergy, cost: todayUsage.totalCost, icon: 'calendar-outline', color: COLORS.info },
+              { label: 'This Week', energy: weekUsage.totalEnergy, cost: weekUsage.totalCost, icon: 'grid-outline', color: COLORS.warning },
+              { label: 'This Month', energy: monthUsage.totalEnergy, cost: monthUsage.totalCost, icon: 'albums-outline', color: COLORS.primary },
+            ].map((item, i) => (
+              <View key={i} style={ms.totalItem}>
+                <View style={[ms.totalIcon, { backgroundColor: `${item.color}15` }]}>
+                  <Ionicons name={item.icon} size={20} color={item.color} />
+                </View>
+                <Text style={ms.totalLabel}>{item.label}</Text>
+                <Text style={ms.totalEnergy} numberOfLines={1} adjustsFontSizeToFit>
+                  {Number(item.energy || 0).toFixed(3)}
+                </Text>
+                <Text style={ms.totalUnit}>kWh</Text>
+                <Text style={[ms.totalCost, { marginTop: 6 }]} numberOfLines={1}>₱{Number(item.cost || 0).toFixed(2)}</Text>
+              </View>
+            ))}
+          </View>
+        </GlassCard>
 
         {/* Budget Quick View */}
         {budget && (
@@ -348,7 +397,19 @@ export default function DashboardScreen() {
  * It no longer receives roomId — it uses pure values that are already validated.
  */
 function detectHighConsumption(currentPower, budget, todayUsage) {
-  // GHOST FIX: Require minimum meaningful power (eliminates zero/noise readings)
+  // First, check if the daily budget is exceeded (regardless of current power load)
+  if (budget && budget.daily_allowance > 0 && todayUsage && todayUsage.totalCost > 0) {
+    if (todayUsage.totalCost >= budget.daily_allowance) {
+      return {
+        type: 'danger',
+        title: 'Daily Budget Exceeded!',
+        message: `You have hit your daily limit! Your total cost today is ₱${todayUsage.totalCost.toFixed(2)} (Budget: ₱${budget.daily_allowance.toFixed(2)}).`,
+        tip: 'Minimize non-essential appliances for the rest of the day to avoid high bills.'
+      };
+    }
+  }
+
+  // Next, check for high power (requires minimum meaningful power to eliminate zero/noise readings)
   if (!currentPower || currentPower < 500) return null;
 
   // GHOST FIX: Validate that power is within physically possible range

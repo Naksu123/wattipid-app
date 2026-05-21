@@ -97,15 +97,15 @@ export async function getPeakHourPrediction(roomId, tenantName = null) {
 export async function registerPushToken(pushToken, userId = null, deviceName = null) {
   // Silent skip if no token or no userId (prevents red error boxes in dev)
   if (!pushToken) return;
-  
+
   // If no explicit userId is provided, we rely on the backend session/auth headers.
   // We'll proceed but wrap it to ensure no red boxes show up.
   try {
-    await apiCall('registerPushToken', { 
-      pushToken, 
-      userId, 
+    await apiCall('registerPushToken', {
+      pushToken,
+      userId,
       deviceName,
-      platform: 'android' 
+      platform: 'android'
     });
   } catch (e) {
     console.log('ℹ️ Push registration skipped or delayed:', e.message);

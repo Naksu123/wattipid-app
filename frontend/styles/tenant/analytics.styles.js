@@ -359,13 +359,13 @@ export default StyleSheet.create({
   },
   tableHeader: { 
     flexDirection: 'row', 
-    paddingVertical: SPACING.sm, 
+    paddingVertical: SPACING.md, 
     paddingHorizontal: SPACING.xs, 
     borderBottomWidth: 1, 
     borderBottomColor: 'rgba(255,255,255,0.1)' 
   },
   tableHeaderCell: { 
-    fontSize: FONT_SIZE.xs, 
+    fontSize: 10, 
     color: COLORS.textMuted, 
     fontWeight: FONT_WEIGHT.bold, 
     textTransform: 'uppercase', 
@@ -376,19 +376,19 @@ export default StyleSheet.create({
     paddingVertical: SPACING.md, 
     paddingHorizontal: SPACING.xs, 
     borderBottomWidth: 1, 
-    borderBottomColor: 'rgba(255,255,255,0.05)' 
+    borderBottomColor: 'rgba(255,255,255,0.03)' 
   },
   tableRowAlt: { 
-    backgroundColor: 'rgba(255,255,255,0.01)' 
+    backgroundColor: 'rgba(255,255,255,0.02)' 
   },
   tableCell: { 
-    fontSize: FONT_SIZE.sm, 
+    fontSize: 12, 
     color: COLORS.textSecondary 
   },
   tableCellHighlight: { 
-    fontSize: FONT_SIZE.sm, 
+    fontSize: 12, 
     color: COLORS.textPrimary, 
-    fontWeight: FONT_WEIGHT.semibold 
+    fontWeight: FONT_WEIGHT.bold 
   },
   tableTotalRow: { 
     flexDirection: 'row', 
@@ -396,91 +396,102 @@ export default StyleSheet.create({
     paddingHorizontal: SPACING.xs, 
     borderTopWidth: 2, 
     borderTopColor: COLORS.primary, 
-    marginTop: SPACING.xs 
+    backgroundColor: 'rgba(16,185,129,0.05)',
+    marginTop: 0,
+    borderBottomLeftRadius: RADIUS.lg,
+    borderBottomRightRadius: RADIUS.lg
   },
   tableTotalCell: { 
-    fontSize: FONT_SIZE.sm, 
+    fontSize: 12, 
     color: COLORS.textPrimary, 
     fontWeight: FONT_WEIGHT.bold 
   },
+  // Exact Column Layouts to prevent overlapping
+  colDate: { flex: 0.28, textAlign: 'left' },
+  colKwh: { flex: 0.20, textAlign: 'right' },
+  colWatts: { flex: 0.17, textAlign: 'right' },
+  colCost: { flex: 0.22, textAlign: 'right' },
+  colReads: { flex: 0.13, textAlign: 'right' },
   historySection: { 
     marginBottom: SPACING.xxl * 2 
   },
-  histGroup: { 
-    marginBottom: SPACING.md 
+  // Filter Dropdown
+  filterHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.lg,
+    paddingHorizontal: SPACING.xs
   },
-  histDateRow: { 
+  filterTitle: {
+    fontSize: FONT_SIZE.md,
+    fontWeight: FONT_WEIGHT.bold,
+    color: COLORS.textPrimary
+  },
+  filterDropdown: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    borderRadius: RADIUS.full,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    gap: 6
+  },
+  filterDropdownText: {
+    fontSize: FONT_SIZE.sm,
+    color: COLORS.textPrimary,
+    fontWeight: FONT_WEIGHT.semibold
+  },
+  // Timeline Group
+  histGroup: { 
+    marginBottom: SPACING.lg,
+    backgroundColor: 'rgba(255,255,255,0.02)',
+    borderRadius: RADIUS.lg,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)'
+  },
+  histGroupHeader: { 
     flexDirection: 'row', 
     justifyContent: 'space-between', 
     alignItems: 'center', 
-    marginBottom: SPACING.sm, 
-    paddingHorizontal: SPACING.sm 
+    padding: SPACING.md,
+    backgroundColor: 'rgba(255,255,255,0.03)'
   },
   histDate: { 
-    fontSize: FONT_SIZE.xs, 
-    color: COLORS.textMuted, 
+    fontSize: FONT_SIZE.sm, 
+    color: COLORS.primary, 
     fontWeight: FONT_WEIGHT.bold, 
     textTransform: 'uppercase', 
     letterSpacing: 1 
   },
-  histDayTotal: { 
-    fontSize: FONT_SIZE.sm, 
-    color: COLORS.danger, 
-    fontWeight: FONT_WEIGHT.bold 
+  // History Table
+  histTableWrapper: {
+    paddingBottom: SPACING.sm
   },
-  histItem: { 
-    flexDirection: 'row', 
-    alignItems: 'flex-start', 
-    paddingLeft: SPACING.sm, 
-    marginBottom: SPACING.sm 
+  histRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: SPACING.md,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.03)'
   },
-  histDot: { 
-    width: 10, 
-    height: 10, 
-    borderRadius: 5, 
-    backgroundColor: COLORS.primary, 
-    marginTop: 18, 
-    zIndex: 1 
+  histRowAlt: {
+    backgroundColor: 'rgba(255,255,255,0.01)'
   },
-  histLine: { 
-    position: 'absolute', 
-    left: SPACING.sm + 4, 
-    top: 28, 
-    bottom: -10, 
-    width: 2, 
-    backgroundColor: 'rgba(255,255,255,0.1)', 
-  },
-  histContent: { 
-    flex: 1, 
-    marginLeft: SPACING.md, 
-    paddingVertical: SPACING.md, 
-    paddingHorizontal: SPACING.md, 
-    backgroundColor: COLORS.surfaceGlass, 
-    borderRadius: RADIUS.lg, 
-    borderWidth: 1, 
-    borderColor: 'rgba(255,255,255,0.05)' 
-  },
-  histTop: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    alignItems: 'center' 
-  },
-  histName: { 
-    fontSize: FONT_SIZE.sm, 
-    color: COLORS.textPrimary, 
-    fontWeight: FONT_WEIGHT.semibold 
-  },
-  histAmount: { 
-    fontSize: FONT_SIZE.sm, 
-    color: COLORS.danger, 
-    fontWeight: FONT_WEIGHT.bold 
-  },
-  histBottom: { 
-    marginTop: 4 
-  },
-  histMeta: { 
-    fontSize: FONT_SIZE.xs, 
-    color: COLORS.textSecondary 
+  histColTime: { flex: 0.22, textAlign: 'left', fontSize: 12, color: COLORS.textSecondary },
+  histColWatts: { flex: 0.20, textAlign: 'right', fontSize: 12, color: COLORS.textPrimary, fontWeight: 'bold' },
+  histColKwh: { flex: 0.22, textAlign: 'right', fontSize: 12, color: COLORS.textSecondary },
+  histColCost: { flex: 0.26, textAlign: 'right', fontSize: 12, color: COLORS.primary, fontWeight: 'bold' },
+  histColStatus: { flex: 0.10, alignItems: 'flex-end', justifyContent: 'center' },
+  
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4
   },
   emptyHist: { 
     alignItems: 'center', 
@@ -490,5 +501,5 @@ export default StyleSheet.create({
   emptyHistText: { 
     fontSize: FONT_SIZE.md, 
     color: COLORS.textMuted 
-  },
+  }
 });
