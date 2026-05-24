@@ -26,12 +26,17 @@ export default function OverviewScreen() {
       getSetting('rate_per_kwh')
     ]);
     
+    const currentRate = rateVal ? parseFloat(rateVal) : 11.38;
+    setRate(currentRate);
+
     if (summary) {
       setRooms(summary.rooms || []);
       setStats(summary.stats || { totalRooms: 0, occupiedRooms: 0, onProcessRooms: 0, offlineMeters: 0 });
-      setTotals(summary.totals || { totalEnergy: 0, totalCost: 0 });
+      setTotals({
+        totalEnergy: summary.totals?.totalEnergy || 0,
+        totalCost: (summary.totals?.totalEnergy || 0) * currentRate
+      });
     }
-    if (rateVal) setRate(parseFloat(rateVal));
   };
 
   const onRefresh = async () => { setRefreshing(true); await loadData(); setRefreshing(false); };

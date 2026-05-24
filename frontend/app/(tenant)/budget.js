@@ -4,7 +4,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../contexts/AuthContext';
 import { setBudget, getBudget, resetBudget, getBillingCycle, getTotalConsumptionToday, getTotalConsumptionWeek, getTotalConsumptionMonth, getTransactionHistory, getConsumptionComparison, getDatabase } from '../../services/database';
-import TransactionTable from '../../components/ui/TransactionTable';
 import BudgetProgressRing from '../../components/ui/BudgetProgressRing';
 import GlassCard from '../../components/ui/GlassCard';
 import { BaseModal, ModalHeader, ModalBody, ModalFooter } from '../../components/modals/BaseModal';
@@ -375,15 +374,6 @@ export default function BudgetScreen() {
           </GlassCard>
         )}
 
-        {/* Transaction History - New Data Table */}
-        <View style={s.txnSection}>
-          <View style={s.txnHeader}>
-            <Ionicons name="receipt-outline" size={20} color={COLORS.primary} />
-            <Text style={s.txnTitle}>Recent Transactions</Text>
-          </View>
-          
-          <TransactionTable groupedTransactions={transactions || []} />
-        </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );

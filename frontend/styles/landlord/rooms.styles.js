@@ -140,6 +140,7 @@ export default StyleSheet.create({
   },
   cardActions: { 
     flexDirection: 'row', 
+    flexWrap: 'wrap',
     alignItems: 'center', 
     justifyContent: 'space-between', 
     borderTopWidth: 1, 
@@ -149,7 +150,7 @@ export default StyleSheet.create({
     gap: SPACING.xs 
   },
   actionBtn: { 
-    flex: 1, 
+    width: '48%', 
     flexDirection: 'row', 
     alignItems: 'center', 
     justifyContent: 'center', 

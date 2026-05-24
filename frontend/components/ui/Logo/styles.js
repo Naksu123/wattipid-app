@@ -29,6 +29,6 @@ export default StyleSheet.create({
     textTransform: 'uppercase',
   },
   logoImage: {
-    resizeMode: 'contain',
+    resizeMode: 'cover',
   },
 });

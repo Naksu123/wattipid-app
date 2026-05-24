@@ -12,6 +12,7 @@ import AlertModal from '../../components/modals/AlertModal';
 import { COLORS } from '@/styles/theme';
 import ms from '@/styles/tenant/dashboard.styles';
 import { getDashboardSummary, getForecast } from '../../services/consumptionService';
+import { getBillingCycle } from '../../services/database';
 import { tipsService } from '../../services/tipsService';
 
 export default function DashboardScreen() {
@@ -40,17 +41,35 @@ export default function DashboardScreen() {
   
   const roomId = user?.room_id || 'Room 1';
 
+  const [billingCycle, setBillingCycle] = useState(null);
+
   const fetchStaticData = useCallback(async () => {
     try {
       setLoading(true);
       const result = await getDashboardSummary(roomId);
+      const cycle = await getBillingCycle(roomId);
       
       if (result.success) {
         setTodayUsage(result.data.today);
         setWeekUsage(result.data.week);
-        setMonthUsage(result.data.month);
-        setBudgetData(result.data.month.budget); // Assuming new API structure
         setComparison(result.data.week.comparison);
+        
+        // GHOST FIX: Pull dynamic billing cycle info from the backend's monthly response
+        if (result.data.month) {
+            setMonthUsage({
+                totalEnergy: result.data.month.totalEnergy || 0,
+                totalCost: result.data.month.totalCost || 0,
+                cycle_start: result.data.month.cycle_start || null,
+                cycle_end: result.data.month.cycle_end || null,
+                next_reset: result.data.month.next_reset || null,
+                tenant_start_date: result.data.month.tenant_start_date || null
+            });
+        }
+      }
+      
+      if (cycle) {
+        setBillingCycle(cycle);
+        setBudgetData(cycle.budget || null);
       }
       
       const tipResult = await tipsService.getSmartRecommendation();
@@ -174,9 +193,8 @@ export default function DashboardScreen() {
     setRefreshing(false);
   };
 
-  // Use the backend's pre-calculated totalCost (not client-side energy*rate)
-  // This ensures we only count cost from REAL sensor readings
-  const amountDue = todayUsage.totalCost || 0;
+  // Use the accurate total cost from the current active billing cycle
+  const amountDue = monthUsage.totalCost || 0;
   const budgetPct = budget && budget.daily_allowance > 0 ? (todayUsage.totalCost / budget.daily_allowance) * 100 : 0;
 
   // GHOST FIX: Use our tracked deviceOnline state instead of guessing from lastSeen
@@ -368,10 +386,34 @@ export default function DashboardScreen() {
           </GlassCard>
         )}
 
-        {/* Rate Info */}
-        <GlassCard style={ms.rateCard}>
-          <Ionicons name="information-circle-outline" size={16} color={COLORS.textMuted} />
-          <Text style={ms.rateText}>Current rate: ₱{Number(rate || 0).toFixed(2)}/kWh</Text>
+        {/* Billing Cycle Info */}
+        <GlassCard style={[ms.rateCard, { flexDirection: 'column', alignItems: 'flex-start', padding: 16 }]}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+            <Ionicons name="calendar-outline" size={18} color={COLORS.primary} />
+            <Text style={[ms.rateText, { marginLeft: 8, fontWeight: 'bold', color: COLORS.textPrimary, flex: 1 }]}>Active Billing Cycle</Text>
+            <Text style={{ fontSize: 12, color: COLORS.textMuted }}>Rate: ₱{Number(rate || 0).toFixed(2)}/kWh</Text>
+          </View>
+          
+          <View style={{ width: '100%', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 8, padding: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+              <Text style={{ fontSize: 12, color: COLORS.textMuted }}>Billing Period</Text>
+              <Text style={{ fontSize: 12, color: COLORS.textPrimary, fontWeight: '500' }}>
+                {monthUsage.cycle_start ? new Date(monthUsage.cycle_start).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '--'} - {monthUsage.cycle_end ? new Date(monthUsage.cycle_end).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '--'}
+              </Text>
+            </View>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+              <Text style={{ fontSize: 12, color: COLORS.textMuted }}>Next Reset</Text>
+              <Text style={{ fontSize: 12, color: COLORS.warning, fontWeight: '500' }}>
+                {monthUsage.next_reset ? new Date(monthUsage.next_reset).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : '--'}
+              </Text>
+            </View>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingTop: 8, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)' }}>
+              <Text style={{ fontSize: 12, color: COLORS.textMuted }}>Move-in Date</Text>
+              <Text style={{ fontSize: 12, color: COLORS.textSecondary, fontWeight: '500' }}>
+                {monthUsage.tenant_start_date ? new Date(monthUsage.tenant_start_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : '--'}
+              </Text>
+            </View>
+          </View>
         </GlassCard>
       </ScrollView>
 
@@ -410,7 +452,7 @@ function detectHighConsumption(currentPower, budget, todayUsage) {
   }
 
   // Next, check for high power (requires minimum meaningful power to eliminate zero/noise readings)
-  if (!currentPower || currentPower < 500) return null;
+  if (!currentPower || currentPower < 100) return null;
 
   // GHOST FIX: Validate that power is within physically possible range
   // Typical residential submeter max is ~5000W
@@ -419,7 +461,7 @@ function detectHighConsumption(currentPower, budget, todayUsage) {
     return null;
   }
 
-  if (currentPower > 1500) {
+  if (currentPower > 350) {
     return {
       type: 'danger',
       title: '⚠️ Critical Power Usage!',
@@ -428,7 +470,7 @@ function detectHighConsumption(currentPower, budget, todayUsage) {
     };
   }
 
-  if (currentPower > 800) {
+  if (currentPower > 300) {
     return {
       type: 'warning',
       title: 'High Consumption Alert',

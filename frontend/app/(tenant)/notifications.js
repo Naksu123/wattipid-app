@@ -20,7 +20,7 @@ const FILTERS = [
   { key: null, label: 'All', icon: 'list' },
   { key: 'budget', label: 'Budget', icon: 'wallet' },
   { key: 'consumption', label: 'Usage', icon: 'flash' },
-  { key: 'forecast', label: 'Forecast', icon: 'trending-up' },
+
   { key: 'system', label: 'System', icon: 'settings' },
 ];
 

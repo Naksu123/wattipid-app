@@ -42,7 +42,7 @@ export default function LoginScreen() {
     <KeyboardAvoidingView style={s.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <ScrollView contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         <View style={s.header}>
-          <Logo size={240} />
+          <Logo size={120} />
         </View>
 
         <View style={s.card}>

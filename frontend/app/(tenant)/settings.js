@@ -184,13 +184,9 @@ export default function TenantSettings() {
           <View style={s.divider} />
           <ToggleItem icon="flash-outline" label="Power Spike Alerts" desc="Alert when power usage spikes" value={powerSpikeAlerts} onToggle={val => {setPowerSpikeAlerts(val); saveAlertSettings({ power_spike_alerts: val });}} disabled={!notifEnabled} />
           <View style={s.divider} />
-          <ToggleItem icon="trending-up-outline" label="Forecast Alerts" desc="Monthly bill predictions" value={forecastAlerts} onToggle={val => {setForecastAlerts(val); saveAlertSettings({ forecast_alerts: val });}} disabled={!notifEnabled} />
+
         </GlassCard>
 
-        <Text style={s.sectionLabel}>Connectivity</Text>
-        <GlassCard style={s.menuCard}>
-          <MenuItem icon="server-outline" label="API Environment" value={env === 'local' ? 'Local' : 'Production'} onPress={handleSwitchEnv} />
-        </GlassCard>
 
         <Text style={s.sectionLabel}>Data Management</Text>
         <GlassCard style={s.menuCard}>

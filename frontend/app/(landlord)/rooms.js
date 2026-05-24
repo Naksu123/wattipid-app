@@ -6,10 +6,11 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { getAllRooms, generateNewTenantCode, updateRoomStatus, saveTenantInvitation, getMonthlyConsumptionFiltered, getSetting, revokeTenant, transferTenant, getVacantRooms, getBuildingSummary } from '../../services/database';
+import { getAllRooms, generateNewTenantCode, updateRoomStatus, saveTenantInvitation, getMonthlyConsumptionFiltered, getSetting, revokeTenant, transferTenant, getVacantRooms, getBuildingSummary, getAvailableBillingCycles } from '../../services/database';
 import { sendTenantAccessCode } from '../../services/emailService';
-import { generateMonthlyReport, shareReport } from '../../services/pdfService';
+import { generateMonthlyReport, generateCycleReport, shareReport } from '../../services/pdfService';
 import RoomCard from '../../components/ui/RoomCard';
+import RoomHistoryModal from '../../components/landlord/RoomHistoryModal';
 import GlassCard from '../../components/ui/GlassCard';
 import StatusBadge from '../../components/ui/StatusBadge';
 import { COLORS, GRADIENTS } from '@/styles/theme';
@@ -27,7 +28,14 @@ export default function RoomsScreen() {
 
   // Report modal
   const [reportModalVisible, setReportModalVisible] = useState(false);
+  const [historyModalVisible, setHistoryModalVisible] = useState(false);
+  const [historyRoomId, setHistoryRoomId] = useState(null);
   const [reportRoom, setReportRoom] = useState(null);
+  const [availableCycles, setAvailableCycles] = useState([]);
+  const [selectedPdfCycle, setSelectedPdfCycle] = useState(null);
+  const [selectedPdfWeek, setSelectedPdfWeek] = useState(null);
+  const [showPdfCycleDrop, setShowPdfCycleDrop] = useState(false);
+  const [showPdfWeekDrop, setShowPdfWeekDrop] = useState(false);
   const [generatingPdf, setGeneratingPdf] = useState(false);
 
   // Transfer modal
@@ -57,12 +65,16 @@ export default function RoomsScreen() {
 
   // Consumption cache
   const [consumptionData, setConsumptionData] = useState({});
-  const [rate, setRate] = useState(12.5);
+  const [rate, setRate] = useState(11.38);
 
   useEffect(() => { loadRooms(); }, []);
 
   const loadRooms = async () => {
     const summary = await getBuildingSummary();
+    const rateVal = await getSetting('rate_per_kwh');
+    const currentRate = rateVal ? parseFloat(rateVal) : 11.38;
+    setRate(currentRate);
+
     if (summary) {
       const { rooms: roomData, totals } = summary;
       
@@ -71,11 +83,11 @@ export default function RoomsScreen() {
         ...r,
         consumption: {
           energy: r.currEnergy || 0,
-          cost: (r.currEnergy || 0) * rate
+          cost: (r.currEnergy || 0) * currentRate
         },
         prevConsumption: {
           energy: r.prevEnergy || 0,
-          cost: (r.prevEnergy || 0) * rate
+          cost: (r.prevEnergy || 0) * currentRate
         }
       }));
       
@@ -94,9 +106,6 @@ export default function RoomsScreen() {
       });
       setConsumptionData(cData);
     }
-    
-    const rateVal = await getSetting('rate_per_kwh');
-    if (rateVal) setRate(parseFloat(rateVal));
   };
 
   const onRefresh = async () => { setRefreshing(true); await loadRooms(); setRefreshing(false); };
@@ -184,18 +193,30 @@ export default function RoomsScreen() {
   };
 
   const handleGenerateReport = async () => {
-    if (!reportRoom) return;
+    if (!reportRoom || !selectedPdfCycle) return;
     setGeneratingPdf(true);
     try {
-      const now = new Date();
-      const result = await generateMonthlyReport({
+      let startDate, endDate, reportTitle;
+      
+      if (selectedPdfWeek) {
+        startDate = new Date(selectedPdfWeek.start);
+        endDate = new Date(selectedPdfWeek.end);
+        reportTitle = 'Weekly Consumption Report';
+      } else {
+        startDate = new Date(selectedPdfCycle.cycle_start);
+        endDate = new Date(selectedPdfCycle.cycle_end);
+        reportTitle = 'Monthly Consumption Report';
+      }
+
+      const result = await generateCycleReport({
         roomId: reportRoom.room_id,
         tenantName: reportRoom.tenant_name,
-        tenantStartDate: reportRoom.tenant_start_date,
-        moveOutDate: reportRoom.move_out_date,
-        year: now.getFullYear(),
-        month: now.getMonth() + 1,
+        startDate,
+        endDate,
+        reportTitle,
+        isWeekly: !!selectedPdfWeek,
       });
+      
       setReportModalVisible(false);
       await shareReport(result.uri);
     } catch (err) {
@@ -291,10 +312,29 @@ export default function RoomsScreen() {
                     <TouchableOpacity
                       style={s.actionBtn}
                       activeOpacity={0.7}
-                      onPress={(e) => { e.stopPropagation && e.stopPropagation(); setReportRoom(room); setReportModalVisible(true); }}
+                      onPress={(e) => { e.stopPropagation && e.stopPropagation(); setReportRoom(room); setReportModalVisible(true);
+                        getAvailableBillingCycles(room.room_id).then(res => {
+                          if (res && res.length > 0) {
+                            setAvailableCycles(res);
+                            setSelectedPdfCycle(res[0]);
+                          } else {
+                            setAvailableCycles([]);
+                            setSelectedPdfCycle(null);
+                          }
+                          setSelectedPdfWeek(null);
+                        }); }}
                     >
                       <Ionicons name="document-text-outline" size={16} color={COLORS.info} />
                       <Text style={[s.actionBtnText, { color: COLORS.info }]}>Report</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={s.actionBtn}
+                      activeOpacity={0.7}
+                      onPress={(e) => { e.stopPropagation && e.stopPropagation(); setHistoryRoomId(room.room_id); setHistoryModalVisible(true); }}
+                    >
+                      <Ionicons name="time-outline" size={16} color={COLORS.primary} />
+                      <Text style={[s.actionBtnText, { color: COLORS.primary }]}>History</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
@@ -403,14 +443,10 @@ export default function RoomsScreen() {
               </View>
               <Text style={s.modalTitle}>Send Access Code</Text>
               <Text style={s.modalDesc}>
-                Enter the tenant's email. They will receive the access code for{' '}
-                <Text style={s.modalRoom}>{selectedRoom?.room_id}</Text>. Code expires in 5 minutes.
+                Enter the tenant's email. They will receive a secure access code for{' '}
+                <Text style={s.modalRoom}>{selectedRoom?.room_id}</Text>.
               </Text>
-              <View style={s.codePreview}>
-                <Ionicons name="key-outline" size={16} color={COLORS.warning} />
-                <Text style={s.codePreviewText}>Code: </Text>
-                <Text style={s.codePreviewValue}>{selectedRoom?.tenant_code}</Text>
-              </View>
+
 
               <View style={[s.emailWrap, emailError && s.emailWrapErr]}>
                 <Ionicons name="mail-outline" size={18} color={COLORS.textMuted} />
@@ -423,6 +459,11 @@ export default function RoomsScreen() {
               <View style={s.timerNote}>
                 <Ionicons name="time-outline" size={14} color={COLORS.warning} />
                 <Text style={s.timerNoteText}>Access code will expire 5 minutes after sending</Text>
+              </View>
+              
+              <View style={[s.timerNote, { backgroundColor: 'rgba(239, 68, 68, 0.1)', borderColor: 'rgba(239, 68, 68, 0.2)', marginTop: 8 }]}>
+                <Ionicons name="shield-checkmark-outline" size={14} color={COLORS.danger} />
+                <Text style={[s.timerNoteText, { color: COLORS.danger }]}>For security reasons, access codes are only visible in email and are not shown inside the app.</Text>
               </View>
 
               <View style={s.modalActions}>
@@ -456,27 +497,88 @@ export default function RoomsScreen() {
             </Text>
 
             {reportRoom && consumptionData[reportRoom.room_id] && (
-              <View style={s.reportPreview}>
-                <View style={s.reportRow}>
-                  <Text style={s.reportLabel}>Current Month</Text>
-                  <Text style={s.reportValue}>{Number(consumptionData[reportRoom.room_id].current.totalEnergy || 0).toFixed(4)} kWh</Text>
+              <View style={{ width: '100%', marginTop: 12, marginBottom: 20 }}>
+              <Text style={{ color: COLORS.textMuted, fontSize: 13, marginBottom: 8, textAlign: 'left' }}>Select Billing Cycle</Text>
+              <TouchableOpacity style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', padding: 14, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }} onPress={() => setShowPdfCycleDrop(!showPdfCycleDrop)}>
+                <Text style={{ color: COLORS.textPrimary }}>
+                  {selectedPdfCycle ? `${new Date(selectedPdfCycle.cycle_start).toLocaleDateString('default', { month: 'short', day: 'numeric', year: 'numeric' })} – ${new Date(selectedPdfCycle.cycle_end).toLocaleDateString('default', { month: 'short', day: 'numeric', year: 'numeric' })}` : (availableCycles.length === 0 ? 'No data' : 'Loading...')}
+                </Text>
+                <Ionicons name={showPdfCycleDrop ? 'chevron-up' : 'chevron-down'} size={18} color={COLORS.primary} />
+              </TouchableOpacity>
+
+              {showPdfCycleDrop && availableCycles.length > 0 && (
+                <View style={{ backgroundColor: 'rgba(30,41,59,0.95)', borderRadius: 8, marginTop: 4, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', maxHeight: 150, overflow: 'hidden' }}>
+                  <ScrollView nestedScrollEnabled>
+                    {availableCycles.map((c, i) => (
+                      <TouchableOpacity key={i} style={{ padding: 14, borderBottomWidth: i !== availableCycles.length - 1 ? 1 : 0, borderBottomColor: 'rgba(255,255,255,0.05)' }} 
+                        onPress={() => {
+                          setSelectedPdfCycle(c);
+                          setSelectedPdfWeek(null);
+                          setShowPdfCycleDrop(false);
+                        }}>
+                        <Text style={{ color: selectedPdfCycle?.id === c.id ? COLORS.primary : COLORS.textPrimary, fontWeight: selectedPdfCycle?.id === c.id ? 'bold' : 'normal' }}>
+                          {new Date(c.cycle_start).toLocaleDateString('default', { month: 'short', day: 'numeric' })} – {new Date(c.cycle_end).toLocaleDateString('default', { month: 'short', day: 'numeric', year: 'numeric' })}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
                 </View>
-                <View style={s.reportRow}>
-                  <Text style={s.reportLabel}>Last Month</Text>
-                  <Text style={s.reportValue}>{Number(consumptionData[reportRoom.room_id].previous.totalEnergy || 0).toFixed(4)} kWh</Text>
-                </View>
-                <View style={[s.reportRow, { borderBottomWidth: 0 }]}>
-                  <Text style={s.reportLabel}>Est. Bill</Text>
-                  <Text style={[s.reportValue, { color: COLORS.warning }]}>₱{(Number(consumptionData[reportRoom.room_id].current.totalEnergy || 0) * rate).toFixed(2)}</Text>
-                </View>
-              </View>
+              )}
+
+              {selectedPdfCycle && (
+                <>
+                  <Text style={{ color: COLORS.textMuted, fontSize: 13, marginTop: 16, marginBottom: 8, textAlign: 'left' }}>Select Week (Optional)</Text>
+                  <TouchableOpacity style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', padding: 14, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }} onPress={() => setShowPdfWeekDrop(!showPdfWeekDrop)}>
+                    <Text style={{ color: COLORS.textPrimary }}>
+                      {selectedPdfWeek ? `${selectedPdfWeek.label} (${new Date(selectedPdfWeek.start).toLocaleDateString('default', { month: 'short', day: 'numeric' })} – ${new Date(selectedPdfWeek.end).toLocaleDateString('default', { month: 'short', day: 'numeric' })})` : 'Entire Billing Cycle'}
+                    </Text>
+                    <Ionicons name={showPdfWeekDrop ? 'chevron-up' : 'chevron-down'} size={18} color={COLORS.primary} />
+                  </TouchableOpacity>
+
+                  {showPdfWeekDrop && (() => {
+                    const weeks = [];
+                    let curr = new Date(selectedPdfCycle.cycle_start);
+                    const end = new Date(selectedPdfCycle.cycle_end);
+                    let w = 1;
+                    while (curr < end) {
+                      let wEnd = new Date(curr);
+                      wEnd.setDate(wEnd.getDate() + 6);
+                      if (wEnd > end) wEnd = new Date(end);
+                      weeks.push({ label: `Week ${w}`, start: new Date(curr), end: wEnd });
+                      curr.setDate(curr.getDate() + 7);
+                      w++;
+                    }
+
+                    return (
+                      <View style={{ backgroundColor: 'rgba(30,41,59,0.95)', borderRadius: 8, marginTop: 4, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }}>
+                        <TouchableOpacity style={{ padding: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }} 
+                          onPress={() => { setSelectedPdfWeek(null); setShowPdfWeekDrop(false); }}>
+                          <Text style={{ color: !selectedPdfWeek ? COLORS.primary : COLORS.textPrimary, fontWeight: !selectedPdfWeek ? 'bold' : 'normal' }}>Entire Billing Cycle</Text>
+                        </TouchableOpacity>
+                        {weeks.map((week, i) => (
+                          <TouchableOpacity key={i} style={{ padding: 14, borderBottomWidth: i !== weeks.length - 1 ? 1 : 0, borderBottomColor: 'rgba(255,255,255,0.05)' }} 
+                            onPress={() => {
+                              setSelectedPdfWeek(week);
+                              setShowPdfWeekDrop(false);
+                            }}>
+                            <Text style={{ color: selectedPdfWeek?.label === week.label ? COLORS.primary : COLORS.textPrimary, fontWeight: selectedPdfWeek?.label === week.label ? 'bold' : 'normal' }}>
+                              {week.label} ({week.start.toLocaleDateString('default', { month: 'short', day: 'numeric' })} – {week.end.toLocaleDateString('default', { month: 'short', day: 'numeric' })})
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    );
+                  })()}
+                </>
+              )}
+            </View>
             )}
 
             <View style={s.modalActions}>
               <TouchableOpacity style={s.cancelBtn} onPress={() => setReportModalVisible(false)} activeOpacity={0.7}>
                 <Text style={s.cancelText}>Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={s.sendBtnWrap} onPress={handleGenerateReport} disabled={generatingPdf} activeOpacity={0.8}>
+              <TouchableOpacity style={s.sendBtnWrap} onPress={handleGenerateReport} disabled={generatingPdf || !selectedPdfCycle} activeOpacity={0.8}>
                 <LinearGradient colors={['#3B82F6', '#2563EB']} style={s.sendBtn}>
                   {generatingPdf
                     ? <ActivityIndicator color="#fff" size="small" />
@@ -718,18 +820,12 @@ export default function RoomsScreen() {
                   </View>
                 </View>
                 <Text style={s.successTitle}>Code Sent</Text>
-                <Text style={s.successSubtitle}>Access code successfully delivered.</Text>
+                <Text style={s.successSubtitle}>Access code successfully delivered to tenant email.</Text>
               </View>
 
-              <View style={s.codeContainer}>
-                <Text style={s.codeContainerLabel}>TENANT ACCESS CODE</Text>
-                <View style={s.codeBox}>
-                  <Text style={s.codeText}>{successCodeData.code}</Text>
-                </View>
-                <View style={s.roomBadge}>
-                  <Ionicons name="business" size={14} color={COLORS.primary} />
-                  <Text style={s.roomBadgeText}>{successCodeData.room}</Text>
-                </View>
+              <View style={[s.codeContainer, { paddingVertical: 20 }]}>
+                 <Ionicons name="business" size={24} color={COLORS.primary} style={{marginBottom: 8}}/>
+                 <Text style={[s.modalDesc, { color: COLORS.textPrimary, fontWeight: 'bold', marginBottom: 0 }]}>{successCodeData.room}</Text>
               </View>
 
               <View style={s.successDetails}>
@@ -738,8 +834,8 @@ export default function RoomsScreen() {
                   <Text style={s.detailText}>Code expires in <Text style={{fontWeight:'700', color: COLORS.textPrimary}}>5 minutes</Text>.</Text>
                 </View>
                 <View style={s.detailRow}>
-                  <Ionicons name="people-outline" size={18} color={COLORS.primary} />
-                  <Text style={s.detailText}>The tenant can now use this code to sign up.</Text>
+                  <Ionicons name="shield-checkmark-outline" size={18} color={COLORS.danger} />
+                  <Text style={s.detailText}>For security reasons, access codes are only accessible via email.</Text>
                 </View>
               </View>
             </ScrollView>
@@ -782,6 +878,12 @@ export default function RoomsScreen() {
           </View>
         </View>
       </Modal>
+      {/* Room History Modal */}
+      <RoomHistoryModal 
+        visible={historyModalVisible} 
+        onClose={() => { setHistoryModalVisible(false); setHistoryRoomId(null); }} 
+        roomId={historyRoomId} 
+      />
     </View>
   );
 }

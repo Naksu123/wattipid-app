@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { GRADIENTS } from '../../../styles/theme';
+import { GRADIENTS, COLORS } from '../../../styles/theme';
 import s from './styles';
 
 /**
@@ -22,14 +22,28 @@ export default function Logo({
   variant = 'vertical' 
 }) {
   const isHorizontal = variant === 'horizontal';
-  const logoSource = require('../../../assets/images/Wattipid 2.0.png');
+  const logoSource = require('../../../assets/images/Wattipid-icon.png');
 
   if (useImage) {
     return (
-      <View style={s.container}>
+      <View style={[s.container, {
+        shadowColor: COLORS.primary,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.3,
+        shadowRadius: 15,
+        elevation: 10,
+      }]}>
         <Image 
           source={logoSource} 
-          style={[s.logoImage, { width: size, height: size * 0.8 }]} 
+          style={[
+            s.logoImage, 
+            { 
+              width: size * 2.0, 
+              height: size * 0.65, 
+              borderRadius: size * 0.15,
+              backgroundColor: '#0F172A'
+            }
+          ]} 
         />
       </View>
     );

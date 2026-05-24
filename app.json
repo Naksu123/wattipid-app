@@ -4,7 +4,7 @@
     "slug": "wattipid",
     "version": "1.0.1",
     "orientation": "portrait",
-    "icon": "./frontend/assets/images/icon.png",
+    "icon": "./frontend/assets/images/Wattipid-icon.png",
     "scheme": "wattipid",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
@@ -18,7 +18,7 @@
       "usesCleartextTraffic": true,
       "adaptiveIcon": {
         "backgroundColor": "#0F172A",
-        "foregroundImage": "./frontend/assets/images/android-icon-foreground.png",
+        "foregroundImage": "./frontend/assets/images/Wattipid-icon.png",
         "backgroundImage": "./frontend/assets/images/android-icon-background.png",
         "monochromeImage": "./frontend/assets/images/android-icon-monochrome.png"
       },
@@ -30,7 +30,7 @@
     },
     "web": {
       "output": "static",
-      "favicon": "./frontend/assets/images/favicon.png"
+      "favicon": "./frontend/assets/images/Wattipid-icon.png"
     },
     "plugins": [
       "expo-router",

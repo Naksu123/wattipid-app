@@ -4,11 +4,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { LineChart, BarChart } from 'react-native-chart-kit';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
-import DateTimePicker from '@react-native-community/datetimepicker';
 import { useAuth } from '../../contexts/AuthContext';
-import { getConsumptionHistory, getConsumptionComparison, getDailyBreakdown, getHourlyBreakdown, getTransactionHistory, getTotalConsumptionToday, getTotalConsumptionWeek, getTotalConsumptionMonth, getSetting } from '../../services/database';
+import { getConsumptionHistory, getConsumptionComparison, getDailyBreakdown, getHourlyBreakdown, getTransactionHistory, getTotalConsumptionToday, getTotalConsumptionWeek, getTotalConsumptionMonth, getAvailableBillingCycles } from '../../services/database';
 import { getMonthlyForecast } from '../../services/notificationApi';
 import { generateConsumptionReport } from '../../services/reportService';
+import { BaseModal, ModalHeader, ModalBody, ModalFooter } from '../../components/modals/BaseModal';
 import GlassCard from '../../components/ui/GlassCard';
 import { COLORS, SPACING, RADIUS } from '@/styles/theme';
 import s from '@/styles/tenant/analytics.styles';
@@ -19,6 +19,17 @@ const PERIODS = ['daily', 'weekly', 'monthly'];
 export default function AnalyticsScreen() {
   const { user } = useAuth();
   const [period, setPeriod] = useState('weekly');
+  const [availableCycles, setAvailableCycles] = useState([]);
+  const [selectedPdfCycle, setSelectedPdfCycle] = useState(null);
+  const [selectedPdfWeek, setSelectedPdfWeek] = useState(null);
+  const [showPdfCycleDrop, setShowPdfCycleDrop] = useState(false);
+  const [showPdfWeekDrop, setShowPdfWeekDrop] = useState(false);
+  const [historyStartDate, setHistoryStartDate] = useState(null);
+  const [historyEndDate, setHistoryEndDate] = useState(null);
+  const [historyTitle, setHistoryTitle] = useState('Active Billing Cycle');
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [customStart, setCustomStart] = useState(new Date());
+  const [customEnd, setCustomEnd] = useState(new Date());
   const [historyFilter, setHistoryFilter] = useState('minute');
   const [history, setHistory] = useState([]);
   const [comparison, setComparison] = useState(null);
@@ -31,7 +42,7 @@ export default function AnalyticsScreen() {
   const [activeView, setActiveView] = useState('charts'); // 'charts' | 'history' | 'breakdown'
   const [generatingPdf, setGeneratingPdf] = useState(false);
   const [selectedPoint, setSelectedPoint] = useState(null);
-  const [rate, setRate] = useState(12.5);
+  const [rate, setRate] = useState(11.38);
   const [forecast, setForecast] = useState(null);
   const [showFilter, setShowFilter] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -42,21 +53,39 @@ export default function AnalyticsScreen() {
   const loadStatsData = useCallback(async () => {
     if (!user || !roomId) return;
     const tenantName = user?.name;
-    const [data, comp, today, week, month, rateVal] = await Promise.all([
+    const [data, comp, today, week, month, cyclesData] = await Promise.all([
       getConsumptionHistory(roomId, period, tenantName),
       getConsumptionComparison(roomId, period, tenantName),
       getTotalConsumptionToday(roomId, tenantName),
       getTotalConsumptionWeek(roomId, tenantName),
-      getTotalConsumptionMonth(roomId, tenantName),
-      getSetting('rate_per_kwh')
+      getTotalConsumptionMonth(roomId, tenantName)
+    ,
+      getAvailableBillingCycles(roomId)
     ]);
     
-    setHistory(data || []);
+    if (cyclesData && cyclesData.length > 0) {
+      setAvailableCycles(cyclesData);
+      if (!selectedPdfCycle) setSelectedPdfCycle(cyclesData[0]);
+      
+      // Initialize History Range to Active Cycle if not set
+      if (!historyStartDate) {
+        setHistoryStartDate(new Date(cyclesData[0].cycle_start));
+        setHistoryEndDate(new Date(cyclesData[0].cycle_end));
+      }
+    }
+    
+    // Force perfect UI alignment for the user's dashboard view across all arrays
+    const alignedData = (data || []).map(item => ({
+      ...item,
+      cost: (item.energy || item.totalEnergy || 0) * 11.38,
+      totalCost: (item.totalEnergy || item.energy || 0) * 11.38
+    }));
+
+    setHistory(alignedData);
     setComparison(comp);
-    setTodayUsage(today);
-    setWeekUsage(week);
-    setMonthUsage(month);
-    if (rateVal) setRate(parseFloat(rateVal));
+    setTodayUsage({ ...today, totalCost: (today?.totalEnergy || 0) * 11.38 });
+    setWeekUsage({ ...week, totalCost: (week?.totalEnergy || 0) * 11.38 });
+    setMonthUsage({ ...month, totalCost: (month?.totalEnergy || 0) * 11.38 });
 
     try {
       const forecastData = await getMonthlyForecast(roomId, tenantName);
@@ -65,10 +94,15 @@ export default function AnalyticsScreen() {
 
     if (period === 'daily') {
       const hourly = await getHourlyBreakdown(roomId, tenantName);
-      setHourlyBreakdown(hourly || []);
+      const alignedHourly = (hourly || []).map(item => ({
+        ...item,
+        cost: (item.energy || item.totalEnergy || 0) * 11.38,
+        totalCost: (item.totalEnergy || item.energy || 0) * 11.38
+      }));
+      setHourlyBreakdown(alignedHourly);
       setBreakdown([]);
     } else {
-      const dailyBreakdown = [...(data || [])].reverse();
+      const dailyBreakdown = [...alignedData].reverse();
       setBreakdown(dailyBreakdown);
       setHourlyBreakdown([]);
     }
@@ -80,7 +114,9 @@ export default function AnalyticsScreen() {
     if (!user || !roomId) return;
     const tenantName = user?.name;
     const dateStr = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`;
-    const txns = await getTransactionHistory(roomId, 500, historyFilter, tenantName, 0, historyFilter === 'minute' ? dateStr : null);
+    const startStr = historyStartDate ? historyStartDate.toISOString().split('T')[0] : null;
+    const endStr = historyEndDate ? historyEndDate.toISOString().split('T')[0] : null;
+    const txns = await getTransactionHistory(roomId, 500, historyFilter, tenantName, 0, startStr, endStr);
     setTransactions(txns || []);
   }, [roomId, historyFilter, selectedDate]);
 
@@ -144,7 +180,7 @@ export default function AnalyticsScreen() {
     });
   };
   const totalEnergy = energyData.reduce((a, b) => a + b, 0);
-  const totalCost = costData.reduce((a, b) => a + b, 0);
+  const totalCost = totalEnergy * rate; // Force perfectly aligned math instead of summing historical rounded costs
   const avgPower = history.length > 0 ? history.reduce((a, h) => a + (h.avgPower || 0), 0) / history.length : 0;
   const peakPower = Math.max(...history.map(h => h.peakPower || 0), 0);
 
@@ -162,31 +198,59 @@ export default function AnalyticsScreen() {
   ];
 
   // ─── PDF Report Generation ──────────────────────────────────────────────────
-  const generateReport = async (reportType) => {
+  const generateReport = async () => {
     setGeneratingPdf(true);
     try {
-      const now = new Date();
-      const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-      let dateRange = '';
-      let reportTitle = '';
-
-      if (reportType === 'weekly') {
-        const dayOfWeek = now.getDay();
-        const diffToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-        const monday = new Date(now);
-        monday.setDate(now.getDate() - diffToMonday);
-        const sunday = new Date(monday);
-        sunday.setDate(monday.getDate() + 6);
-        dateRange = `${months[monday.getMonth()]} ${monday.getDate()} – ${months[sunday.getMonth()]} ${sunday.getDate()}, ${sunday.getFullYear()}`;
+      if (!selectedPdfCycle) return;
+      
+      let startDate, endDate, reportTitle;
+      
+      if (selectedPdfWeek) {
+        startDate = new Date(selectedPdfWeek.start);
+        endDate = new Date(selectedPdfWeek.end);
         reportTitle = 'Weekly Consumption Report';
       } else {
-        dateRange = `${months[now.getMonth()]} 1 – ${now.getDate()}, ${now.getFullYear()}`;
+        startDate = new Date(selectedPdfCycle.cycle_start);
+        endDate = new Date(selectedPdfCycle.cycle_end);
         reportTitle = 'Monthly Consumption Report';
       }
+      
+      const startStr = startDate.toISOString().split('T')[0];
+      const endStr = endDate.toISOString().split('T')[0];
+      
+      // Fetch data for the specific range
+      const [fetchedHistory, fetchedComp] = await Promise.all([
+        getTransactionHistory(roomId, 300, 'daily', user?.name, 0, startStr, endStr),
+        getConsumptionComparison(roomId, selectedPdfWeek ? 'weekly' : 'monthly', user?.name)
+      ]);
+      
+      // The API returns grouped data: [{ title: '...', data: [{...}] }]
+      const flattenedHistory = (fetchedHistory || []).reduce((acc, group) => {
+        if (group.data && Array.isArray(group.data)) {
+          return acc.concat(group.data);
+        }
+        return acc;
+      }, []);
 
-      const compData = comparison || { current: { totalEnergy: 0, totalCost: 0 }, previous: { totalEnergy: 0, totalCost: 0 }, costPctChange: 0, energyPctChange: 0, costDiff: 0 };
-      const breakdownRows = breakdown.slice(0, 31).map(r =>
-        `<tr><td>${formatDate(r.day)}</td><td>${(parseFloat(r.totalEnergy || r.energy || 0)).toFixed(3)} kWh</td><td>₱${(parseFloat(r.totalCost || r.cost || 0)).toFixed(2)}</td><td>${(parseFloat(r.avgPower || 0)).toFixed(1)}W</td></tr>`
+      // Filter the history precisely to the selected range (already filtered by backend but just in case)
+      const filteredHistory = flattenedHistory.filter(h => {
+        const d = new Date(h.group_date || h.day || h.timestamp);
+        return d >= startDate && d <= endDate;
+      });
+      
+      const now = new Date();
+      const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+      const dateRange = `${months[startDate.getMonth()]} ${startDate.getDate()} – ${months[endDate.getMonth()]} ${endDate.getDate()}, ${endDate.getFullYear()}`;
+      
+      const compData = fetchedComp || { current: { totalEnergy: 0, totalCost: 0 }, previous: { totalEnergy: 0, totalCost: 0 }, costPctChange: 0, energyPctChange: 0, costDiff: 0 };
+      
+      const repTotalEnergy = filteredHistory.reduce((a, b) => a + (Number(b.energy) || 0), 0);
+      const repTotalCost = repTotalEnergy * rate;
+      const repAvgPower = filteredHistory.length > 0 ? filteredHistory.reduce((a, h) => a + (Number(h.avgPower) || 0), 0) / filteredHistory.length : 0;
+      const repPeakPower = Math.max(...filteredHistory.map(h => Number(h.peakPower) || 0), 0);
+      
+      const breakdownRows = filteredHistory.map(r =>
+        `<tr><td>${formatDate(r.group_date || r.day || r.timestamp)}</td><td>${(parseFloat(r.totalEnergy || r.energy || 0)).toFixed(3)} kWh</td><td>₱${(parseFloat(r.totalCost || r.cost || 0)).toFixed(2)}</td><td>${(parseFloat(r.avgPower || 0)).toFixed(1)}W</td></tr>`
       ).join('');
 
       const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
@@ -210,10 +274,10 @@ export default function AnalyticsScreen() {
         <p class="subtitle">Room: ${roomId} • ${dateRange}</p>
 
         <div class="card"><h3>Total Consumption</h3>
-          <div class="row"><span class="label">Energy Used</span><span class="value">${totalEnergy.toFixed(3)} kWh</span></div>
-          <div class="row"><span class="label">Total Cost</span><span class="value">₱${totalCost.toFixed(2)}</span></div>
-          <div class="row"><span class="label">Average Power</span><span class="value">${avgPower.toFixed(1)} W</span></div>
-          <div class="row"><span class="label">Peak Power</span><span class="value">${peakPower.toFixed(0)} W</span></div>
+          <div class="row"><span class="label">Energy Used</span><span class="value">${repTotalEnergy.toFixed(3)} kWh</span></div>
+          <div class="row"><span class="label">Total Cost</span><span class="value">₱${repTotalCost.toFixed(2)}</span></div>
+          <div class="row"><span class="label">Average Power</span><span class="value">${repAvgPower.toFixed(1)} W</span></div>
+          <div class="row"><span class="label">Peak Power</span><span class="value">${repPeakPower.toFixed(0)} W</span></div>
         </div>
 
         <div class="card"><h3>Comparison vs Previous ${reportType === 'weekly' ? 'Week' : 'Month'}</h3>
@@ -260,6 +324,9 @@ export default function AnalyticsScreen() {
             </TouchableOpacity>
           ))}
         </View>
+        <Text style={{ textAlign: 'center', fontSize: 11, color: COLORS.textMuted, marginBottom: 16, marginTop: -10 }}>
+          <Ionicons name="information-circle-outline" size={12} color={COLORS.textMuted} /> Analytics are calculated only from the active billing cycle.
+        </Text>
 
         {/* Summary Stats */}
         <View style={s.statsRow}>
@@ -284,12 +351,12 @@ export default function AnalyticsScreen() {
         {comparison && comparison.costPctChange !== 0 && (
           <GlassCard style={s.compBanner}>
             <View style={s.compBannerRow}>
-              <View style={[s.compIcon, { backgroundColor: (comparison.costPctChange || 0) >= 0 ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.12)' }]}>
+              <View style={[s.compIcon, { backgroundColor: (comparison.costPctChange || 0) >= 0 ? 'rgba(239,68,68,0.12)' : 'rgba(34,197,94,0.12)' }]}>
                 <Ionicons name={(comparison.costPctChange || 0) >= 0 ? 'trending-up' : 'trending-down'} size={20}
-                  color={(comparison.costPctChange || 0) >= 0 ? COLORS.success : COLORS.danger} />
+                  color={(comparison.costPctChange || 0) >= 0 ? COLORS.danger : COLORS.success} />
               </View>
               <View style={s.compBannerContent}>
-                <Text style={[s.compBannerTitle, { color: (comparison.costPctChange || 0) >= 0 ? COLORS.success : COLORS.danger }]}>
+                <Text style={[s.compBannerTitle, { color: (comparison.costPctChange || 0) >= 0 ? COLORS.danger : COLORS.success }]}>
                   {(comparison.costPctChange || 0) > 0 ? '+' : ''}{Number(comparison.costPctChange || 0).toFixed(1)}% { (comparison.costPctChange || 0) >= 0 ? 'Higher' : 'Lower' }
                 </Text>
                 <Text style={s.compBannerSub}>
@@ -300,14 +367,14 @@ export default function AnalyticsScreen() {
             <View style={s.compDetails}>
               <View style={s.compDetailItem}>
                 <Text style={s.compDetailLabel}>Energy Change</Text>
-                <Text style={[s.compDetailVal, { color: (comparison.energyPctChange || 0) >= 0 ? COLORS.success : COLORS.danger }]}>
+                <Text style={[s.compDetailVal, { color: (comparison.energyPctChange || 0) >= 0 ? COLORS.danger : COLORS.success }]}>
                   {(comparison.energyPctChange || 0) > 0 ? '+' : ''}{Number(comparison.energyPctChange || 0).toFixed(1)}%
                 </Text>
               </View>
               <View style={s.compDetailDivider} />
               <View style={s.compDetailItem}>
                 <Text style={s.compDetailLabel}>Cost Difference</Text>
-                <Text style={[s.compDetailVal, { color: (comparison.costDiff || 0) >= 0 ? COLORS.success : COLORS.danger }]}>
+                <Text style={[s.compDetailVal, { color: (comparison.costDiff || 0) >= 0 ? COLORS.danger : COLORS.success }]}>
                   {(comparison.costDiff || 0) > 0 ? '+' : ''}₱{Number(comparison.costDiff || 0).toFixed(2)}
                 </Text>
               </View>
@@ -326,71 +393,6 @@ export default function AnalyticsScreen() {
           ))}
         </View>
 
-        {/* Monthly Forecast Card */}
-        {forecast && forecast.projected_monthly_cost > 0 && (
-          <GlassCard style={[s.insightCard, { borderLeftWidth: 3, borderLeftColor: 
-            forecast.risk_level === 'critical' ? COLORS.danger : 
-            forecast.risk_level === 'high' ? COLORS.warning : 
-            forecast.risk_level === 'medium' ? COLORS.accent : COLORS.primary }]}>
-            <View style={s.insightHeader}>
-              <Ionicons name="analytics" size={20} color={COLORS.info} />
-              <Text style={s.insightTitle}>Monthly Forecast</Text>
-              <View style={[s.periodBtn, { paddingHorizontal: 8, paddingVertical: 2, backgroundColor: 
-                forecast.risk_level === 'critical' ? 'rgba(239,68,68,0.15)' : 
-                forecast.risk_level === 'high' ? 'rgba(245,158,11,0.15)' : 
-                forecast.risk_level === 'medium' ? 'rgba(249,115,22,0.15)' : 'rgba(34,197,94,0.15)' }]}>
-                <Text style={[s.periodText, { fontSize: 11, color: 
-                  forecast.risk_level === 'critical' ? COLORS.danger : 
-                  forecast.risk_level === 'high' ? COLORS.warning : 
-                  forecast.risk_level === 'medium' ? COLORS.accent : COLORS.primary }]}>
-                  {forecast.risk_level.toUpperCase()} RISK
-                </Text>
-              </View>
-            </View>
-            <View style={{ marginTop: 12 }}>
-              <View style={s.compDetails}>
-                <View style={s.compDetailItem}>
-                  <Text style={s.compDetailLabel}>Projected Bill</Text>
-                  <Text style={[s.compDetailVal, { color: forecast.risk_level === 'critical' || forecast.risk_level === 'high' ? COLORS.danger : COLORS.primary, fontSize: 18 }]}>
-                    ₱{Number(forecast.projected_monthly_cost || 0).toFixed(2)}
-                  </Text>
-                </View>
-                <View style={s.compDetailDivider} />
-                <View style={s.compDetailItem}>
-                  <Text style={s.compDetailLabel}>Budget</Text>
-                  <Text style={[s.compDetailVal, { fontSize: 18 }]}>
-                    ₱{Number(forecast.monthly_budget || 0).toFixed(2)}
-                  </Text>
-                </View>
-              </View>
-              <View style={[s.compDetails, { marginTop: 8 }]}>
-                <View style={s.compDetailItem}>
-                  <Text style={s.compDetailLabel}>Trend</Text>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                    <Ionicons name={forecast.trend === 'increasing' ? 'arrow-up' : forecast.trend === 'decreasing' ? 'arrow-down' : 'remove'} 
-                      size={14} color={forecast.trend === 'increasing' ? COLORS.danger : forecast.trend === 'decreasing' ? COLORS.success : COLORS.textMuted} />
-                    <Text style={[s.compDetailVal, { color: forecast.trend === 'increasing' ? COLORS.danger : forecast.trend === 'decreasing' ? COLORS.success : COLORS.textMuted }]}>
-                      {forecast.trend} ({forecast.trend_pct > 0 ? '+' : ''}{Number(forecast.trend_pct || 0).toFixed(1)}%)
-                    </Text>
-                  </View>
-                </View>
-                <View style={s.compDetailDivider} />
-                <View style={s.compDetailItem}>
-                  <Text style={s.compDetailLabel}>Daily Target</Text>
-                  <Text style={[s.compDetailVal, { color: COLORS.primary }]}>
-                    ₱{Number(forecast.daily_budget_to_stay_on_track || 0).toFixed(2)}/day
-                  </Text>
-                </View>
-              </View>
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 10, gap: 6 }}>
-                <Ionicons name="information-circle-outline" size={14} color={COLORS.textMuted} />
-                <Text style={{ fontSize: 11, color: COLORS.textMuted }}>
-                  {forecast.days_remaining} days left • Confidence: {forecast.confidence} • Day {forecast.days_elapsed}/{forecast.days_in_month}
-                </Text>
-              </View>
-            </View>
-          </GlassCard>
-        )}
 
         {/* PDF Report Generation */}
         <GlassCard style={s.reportCard}>
@@ -399,17 +401,85 @@ export default function AnalyticsScreen() {
             <Text style={s.reportTitle}>Generate Report</Text>
           </View>
           <Text style={s.reportDesc}>Export consumption data as a PDF report</Text>
-          <View style={s.reportBtns}>
-            <TouchableOpacity style={s.reportBtn} onPress={() => generateReport('weekly')} disabled={generatingPdf} activeOpacity={0.7}>
-              {generatingPdf ? <ActivityIndicator size="small" color={COLORS.info} /> : (
-                <><Ionicons name="calendar-outline" size={14} color={COLORS.info} />
-                <Text style={s.reportBtnText}>Weekly</Text></>
-              )}
+          <View style={{ marginTop: 12 }}>
+            <Text style={{ color: COLORS.textMuted, fontSize: 13, marginBottom: 8 }}>Select Billing Cycle</Text>
+            <TouchableOpacity style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', padding: 12, borderRadius: RADIUS.md, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }} onPress={() => setShowPdfCycleDrop(!showPdfCycleDrop)}>
+              <Text style={{ color: COLORS.textPrimary }}>
+                {selectedPdfCycle ? `${new Date(selectedPdfCycle.cycle_start).toLocaleDateString('default', { month: 'short', day: 'numeric', year: 'numeric' })} – ${new Date(selectedPdfCycle.cycle_end).toLocaleDateString('default', { month: 'short', day: 'numeric', year: 'numeric' })}` : 'Loading...'}
+              </Text>
+              <Ionicons name={showPdfCycleDrop ? 'chevron-up' : 'chevron-down'} size={16} color={COLORS.primary} />
             </TouchableOpacity>
-            <TouchableOpacity style={s.reportBtn} onPress={() => generateReport('monthly')} disabled={generatingPdf} activeOpacity={0.7}>
-              {generatingPdf ? <ActivityIndicator size="small" color={COLORS.info} /> : (
-                <><Ionicons name="albums-outline" size={14} color={COLORS.info} />
-                <Text style={s.reportBtnText}>Monthly</Text></>
+
+            {showPdfCycleDrop && availableCycles.length > 0 && (
+              <View style={{ backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: RADIUS.md, marginTop: 4, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', maxHeight: 150, overflow: 'hidden' }}>
+                <ScrollView nestedScrollEnabled>
+                  {availableCycles.map((c, i) => (
+                    <TouchableOpacity key={i} style={{ padding: 12, borderBottomWidth: i !== availableCycles.length - 1 ? 1 : 0, borderBottomColor: 'rgba(255,255,255,0.05)' }} 
+                      onPress={() => {
+                        setSelectedPdfCycle(c);
+                        setSelectedPdfWeek(null);
+                        setShowPdfCycleDrop(false);
+                      }}>
+                      <Text style={{ color: selectedPdfCycle?.id === c.id ? COLORS.primary : COLORS.textPrimary, fontWeight: selectedPdfCycle?.id === c.id ? 'bold' : 'normal' }}>
+                        {new Date(c.cycle_start).toLocaleDateString('default', { month: 'short', day: 'numeric' })} – {new Date(c.cycle_end).toLocaleDateString('default', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+
+            {selectedPdfCycle && (
+              <>
+                <Text style={{ color: COLORS.textMuted, fontSize: 13, marginTop: 12, marginBottom: 8 }}>Select Week (Optional)</Text>
+                <TouchableOpacity style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', padding: 12, borderRadius: RADIUS.md, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }} onPress={() => setShowPdfWeekDrop(!showPdfWeekDrop)}>
+                  <Text style={{ color: COLORS.textPrimary }}>
+                    {selectedPdfWeek ? `${selectedPdfWeek.label} (${new Date(selectedPdfWeek.start).toLocaleDateString('default', { month: 'short', day: 'numeric' })} – ${new Date(selectedPdfWeek.end).toLocaleDateString('default', { month: 'short', day: 'numeric' })})` : 'Entire Billing Cycle'}
+                  </Text>
+                  <Ionicons name={showPdfWeekDrop ? 'chevron-up' : 'chevron-down'} size={16} color={COLORS.primary} />
+                </TouchableOpacity>
+
+                {showPdfWeekDrop && (() => {
+                  const weeks = [];
+                  let curr = new Date(selectedPdfCycle.cycle_start);
+                  const end = new Date(selectedPdfCycle.cycle_end);
+                  let w = 1;
+                  while (curr < end) {
+                    let wEnd = new Date(curr);
+                    wEnd.setDate(wEnd.getDate() + 6);
+                    if (wEnd > end) wEnd = new Date(end);
+                    weeks.push({ label: `Week ${w}`, start: new Date(curr), end: wEnd });
+                    curr.setDate(curr.getDate() + 7);
+                    w++;
+                  }
+
+                  return (
+                    <View style={{ backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: RADIUS.md, marginTop: 4, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
+                      <TouchableOpacity style={{ padding: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }} 
+                        onPress={() => { setSelectedPdfWeek(null); setShowPdfWeekDrop(false); }}>
+                        <Text style={{ color: !selectedPdfWeek ? COLORS.primary : COLORS.textPrimary, fontWeight: !selectedPdfWeek ? 'bold' : 'normal' }}>Entire Billing Cycle</Text>
+                      </TouchableOpacity>
+                      {weeks.map((week, i) => (
+                        <TouchableOpacity key={i} style={{ padding: 12, borderBottomWidth: i !== weeks.length - 1 ? 1 : 0, borderBottomColor: 'rgba(255,255,255,0.05)' }} 
+                          onPress={() => {
+                            setSelectedPdfWeek(week);
+                            setShowPdfWeekDrop(false);
+                          }}>
+                          <Text style={{ color: selectedPdfWeek?.label === week.label ? COLORS.primary : COLORS.textPrimary, fontWeight: selectedPdfWeek?.label === week.label ? 'bold' : 'normal' }}>
+                            {week.label} ({week.start.toLocaleDateString('default', { month: 'short', day: 'numeric' })} – {week.end.toLocaleDateString('default', { month: 'short', day: 'numeric' })})
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  );
+                })()}
+              </>
+            )}
+
+            <TouchableOpacity style={{ backgroundColor: COLORS.info, padding: 14, borderRadius: RADIUS.md, alignItems: 'center', justifyContent: 'center', marginTop: 16, flexDirection: 'row', gap: 8 }} onPress={() => generateReport()} disabled={generatingPdf || !selectedPdfCycle} activeOpacity={0.7}>
+              {generatingPdf ? <ActivityIndicator size="small" color="#fff" /> : (
+                <><Ionicons name="download-outline" size={18} color="#fff" />
+                <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>Download PDF Report</Text></>
               )}
             </TouchableOpacity>
           </View>
@@ -591,55 +661,11 @@ export default function AnalyticsScreen() {
           <View style={s.historySection}>
             <View style={s.filterHeader}>
               <Text style={s.filterTitle}>History Logs</Text>
-              <TouchableOpacity style={s.filterDropdown} onPress={() => setShowFilter(!showFilter)} activeOpacity={0.7}>
-                <Text style={s.filterDropdownText}>
-                  {historyFilter === 'minute' ? 'Every Minute' : historyFilter === 'daily' ? 'Daily' : historyFilter === 'weekly' ? 'Weekly' : 'Monthly'}
-                </Text>
-                <Ionicons name={showFilter ? "chevron-up" : "chevron-down"} size={16} color={COLORS.textPrimary} />
+              <TouchableOpacity style={s.filterDropdown} onPress={() => setShowHistoryModal(true)} activeOpacity={0.7}>
+                <Text style={s.filterDropdownText}>{historyTitle}</Text>
+                <Ionicons name="calendar-outline" size={16} color={COLORS.textPrimary} />
               </TouchableOpacity>
             </View>
-
-            {historyFilter === 'minute' && (
-              <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.02)', padding: 12, borderRadius: RADIUS.lg, marginBottom: SPACING.lg, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)'}}>
-                <TouchableOpacity onPress={() => changeDate(-1)} style={{padding: 8, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: RADIUS.md}}>
-                  <Ionicons name="chevron-back" size={20} color={COLORS.primary}/>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => setShowDatePicker(true)} style={{flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, paddingHorizontal: 16, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: RADIUS.md}}>
-                  <Ionicons name="calendar-outline" size={18} color={COLORS.textPrimary}/>
-                  <Text style={{color: COLORS.textPrimary, fontSize: 14, fontWeight: 'bold'}}>
-                    {`${['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][selectedDate.getMonth()]} ${selectedDate.getDate()}, ${selectedDate.getFullYear()}`}
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => changeDate(1)} style={{padding: 8, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: RADIUS.md}} disabled={selectedDate >= new Date(new Date().setHours(0,0,0,0))}>
-                  <Ionicons name="chevron-forward" size={20} color={selectedDate >= new Date(new Date().setHours(0,0,0,0)) ? 'rgba(255,255,255,0.2)' : COLORS.primary}/>
-                </TouchableOpacity>
-              </View>
-            )}
-
-            {showDatePicker && (
-              <DateTimePicker
-                value={selectedDate}
-                mode="date"
-                display="default"
-                maximumDate={new Date()}
-                onChange={(event, date) => {
-                  setShowDatePicker(false);
-                  if (date) setSelectedDate(date);
-                }}
-              />
-            )}
-
-            {showFilter && (
-              <View style={{ backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: RADIUS.lg, padding: 8, marginBottom: SPACING.lg, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
-                {['minute', 'daily', 'weekly', 'monthly'].map(f => (
-                  <TouchableOpacity key={f} style={{ padding: 12, borderBottomWidth: f !== 'monthly' ? 1 : 0, borderBottomColor: 'rgba(255,255,255,0.05)' }} onPress={() => { setHistoryFilter(f); setShowFilter(false); setHistoryLimit(20); }}>
-                    <Text style={{ color: historyFilter === f ? COLORS.primary : COLORS.textPrimary, fontWeight: historyFilter === f ? 'bold' : 'normal', fontSize: 15 }}>
-                      {f === 'minute' ? 'Every Minute (Real-time)' : f.charAt(0).toUpperCase() + f.slice(1)}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
 
             {transactions.length > 0 ? (
               transactions.map((group, gIdx) => (
@@ -685,6 +711,88 @@ export default function AnalyticsScreen() {
             )}
           </View>
         )}
+      
+      {/* History Date Filter Modal */}
+      <BaseModal visible={showHistoryModal} onClose={() => setShowHistoryModal(false)}>
+        <ModalHeader title="Filter History" icon="calendar" iconColor={COLORS.primary} onClose={() => setShowHistoryModal(false)} />
+        <ModalBody scrollable={true}>
+          <Text style={{ color: COLORS.textMuted, fontSize: 13, marginBottom: 12 }}>Select a predefined range or pick custom dates to filter logs.</Text>
+          
+          <TouchableOpacity style={{ padding: 16, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: RADIUS.md, marginBottom: 8, borderWidth: 1, borderColor: historyTitle === 'Active Billing Cycle' ? COLORS.primary : 'rgba(255,255,255,0.05)' }}
+            onPress={() => {
+              if(availableCycles.length > 0) {
+                setHistoryStartDate(new Date(availableCycles[0].cycle_start));
+                setHistoryEndDate(new Date(availableCycles[0].cycle_end));
+                setHistoryTitle('Active Billing Cycle');
+              }
+              setShowHistoryModal(false);
+            }}>
+            <Text style={{ color: COLORS.textPrimary, fontWeight: 'bold' }}>Active Billing Cycle</Text>
+            {availableCycles.length > 0 && <Text style={{ color: COLORS.textMuted, fontSize: 12, marginTop: 4 }}>{new Date(availableCycles[0].cycle_start).toLocaleDateString('default', { month: 'short', day: 'numeric' })} – {new Date(availableCycles[0].cycle_end).toLocaleDateString('default', { month: 'short', day: 'numeric' })}</Text>}
+          </TouchableOpacity>
+
+          <TouchableOpacity style={{ padding: 16, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: RADIUS.md, marginBottom: 8, borderWidth: 1, borderColor: historyTitle === 'Previous Billing Cycle' ? COLORS.primary : 'rgba(255,255,255,0.05)' }}
+            onPress={() => {
+              if(availableCycles.length > 1) {
+                setHistoryStartDate(new Date(availableCycles[1].cycle_start));
+                setHistoryEndDate(new Date(availableCycles[1].cycle_end));
+                setHistoryTitle('Previous Billing Cycle');
+              } else {
+                Alert.alert('Not Available', 'No previous billing cycle found.');
+              }
+              setShowHistoryModal(false);
+            }}>
+            <Text style={{ color: COLORS.textPrimary, fontWeight: 'bold' }}>Previous Billing Cycle</Text>
+            {availableCycles.length > 1 && <Text style={{ color: COLORS.textMuted, fontSize: 12, marginTop: 4 }}>{new Date(availableCycles[1].cycle_start).toLocaleDateString('default', { month: 'short', day: 'numeric' })} – {new Date(availableCycles[1].cycle_end).toLocaleDateString('default', { month: 'short', day: 'numeric' })}</Text>}
+          </TouchableOpacity>
+
+          <TouchableOpacity style={{ padding: 16, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: RADIUS.md, marginBottom: 16, borderWidth: 1, borderColor: historyTitle === 'Today' ? COLORS.primary : 'rgba(255,255,255,0.05)' }}
+            onPress={() => {
+              const today = new Date();
+              setHistoryStartDate(today);
+              setHistoryEndDate(today);
+              setHistoryTitle('Today');
+              setShowHistoryModal(false);
+            }}>
+            <Text style={{ color: COLORS.textPrimary, fontWeight: 'bold' }}>Today</Text>
+          </TouchableOpacity>
+
+          <Text style={{ color: COLORS.textPrimary, fontWeight: 'bold', marginBottom: 12 }}>Custom Date Range</Text>
+          
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 12 }}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: COLORS.textMuted, fontSize: 12, marginBottom: 4 }}>Start Date</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: RADIUS.md, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }}>
+                <TouchableOpacity onPress={() => { const d = new Date(customStart); d.setDate(d.getDate()-1); setCustomStart(d); }} style={{ padding: 10 }}><Ionicons name="chevron-back" size={16} color={COLORS.primary}/></TouchableOpacity>
+                <Text style={{ flex: 1, textAlign: 'center', color: COLORS.textPrimary, fontSize: 13 }}>{customStart.toLocaleDateString('default', { month: 'short', day: 'numeric' })}</Text>
+                <TouchableOpacity onPress={() => { const d = new Date(customStart); d.setDate(d.getDate()+1); setCustomStart(d); }} style={{ padding: 10 }}><Ionicons name="chevron-forward" size={16} color={COLORS.primary}/></TouchableOpacity>
+              </View>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: COLORS.textMuted, fontSize: 12, marginBottom: 4 }}>End Date</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: RADIUS.md, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }}>
+                <TouchableOpacity onPress={() => { const d = new Date(customEnd); d.setDate(d.getDate()-1); setCustomEnd(d); }} style={{ padding: 10 }}><Ionicons name="chevron-back" size={16} color={COLORS.primary}/></TouchableOpacity>
+                <Text style={{ flex: 1, textAlign: 'center', color: COLORS.textPrimary, fontSize: 13 }}>{customEnd.toLocaleDateString('default', { month: 'short', day: 'numeric' })}</Text>
+                <TouchableOpacity onPress={() => { const d = new Date(customEnd); d.setDate(d.getDate()+1); setCustomEnd(d); }} style={{ padding: 10 }}><Ionicons name="chevron-forward" size={16} color={COLORS.primary}/></TouchableOpacity>
+              </View>
+            </View>
+          </View>
+          
+          <TouchableOpacity style={{ backgroundColor: COLORS.primary, padding: 14, borderRadius: RADIUS.md, alignItems: 'center', marginTop: 16 }}
+            onPress={() => {
+              if (customStart > customEnd) {
+                Alert.alert('Invalid Range', 'Start date cannot be after end date.');
+                return;
+              }
+              setHistoryStartDate(customStart);
+              setHistoryEndDate(customEnd);
+              setHistoryTitle(`${customStart.toLocaleDateString('default', { month: 'short', day: 'numeric' })} – ${customEnd.toLocaleDateString('default', { month: 'short', day: 'numeric' })}`);
+              setShowHistoryModal(false);
+            }}>
+            <Text style={{ color: '#000', fontWeight: 'bold' }}>Apply Custom Range</Text>
+          </TouchableOpacity>
+        </ModalBody>
+      </BaseModal>
       </ScrollView>
     </View>
   );

@@ -169,10 +169,13 @@ export async function getTotalConsumptionMonth(roomId, tenantName = null) {
   return data ? { totalEnergy: parseFloat(data.totalEnergy || 0), totalCost: parseFloat(data.totalCost || 0) } : { totalEnergy: 0, totalCost: 0 };
 }
 
-export async function getTransactionHistory(roomId, limit = 50, filter = 'minute', tenantName = null, offset = 0, date = null) {
-  const data = await apiCall('getTransactionHistory', { roomId, limit, filter, tenantName, offset, date });
-  // The backend now returns a perfectly grouped array: [{ title: 'May 21', data: [...] }]
+export async function getTransactionHistory(roomId, limit = 50, filter = 'minute', tenantName = null, offset = 0, startDate = null, endDate = null) {
+  const data = await apiCall('getTransactionHistory', { roomId, limit, filter, tenantName, offset, startDate, endDate });
   return data || [];
+}
+
+export async function getAvailableBillingCycles(roomId) {
+  return await apiCall('getAvailableBillingCycles', { roomId }) || [];
 }
 
 export async function getConsumptionComparison(roomId, period = 'weekly', tenantName = null) {
