@@ -1,154 +1,138 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, RefreshControl, SafeAreaView, StatusBar, TouchableOpacity, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, RefreshControl, ActivityIndicator, SafeAreaView, StatusBar, TouchableOpacity, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { useAuth } from '@/contexts/AuthContext';
-import { getBuildingSummary, getSetting } from '../../services/database';
-import GlassCard from '../../components/ui/GlassCard';
-import StatusBadge from '../../components/ui/StatusBadge';
-import { COLORS, GRADIENTS, SPACING, RADIUS, FONT_SIZE, FONT_WEIGHT, SHADOWS } from '@/styles/theme';
+import { useAuth } from '../../contexts/AuthContext';
+import { getLiveOverview } from '../../services/database';
+import { COLORS, SPACING, FONT_WEIGHT, RADIUS } from '@/styles/theme';
+
+// Phase 2 Dashboard Components
+import StatCard from '../../components/landlord/Overview/StatCard';
+import LiveConsumptionWidget from '../../components/landlord/Overview/LiveConsumptionWidget';
+import PaymentStatusWidget from '../../components/landlord/Overview/PaymentStatusWidget';
+import PendingPaymentsWidget from '../../components/landlord/Overview/PendingPaymentsWidget';
+import ActivityTimelineWidget from '../../components/landlord/Overview/ActivityTimelineWidget';
 
 export default function OverviewScreen() {
-  const { user } = useAuth();
   const router = useRouter();
-  const [rooms, setRooms] = useState([]);
-  const [stats, setStats] = useState({ totalRooms: 0, occupiedRooms: 0, onProcessRooms: 0, offlineMeters: 0 });
-  const [totals, setTotals] = useState({ totalEnergy: 0, totalCost: 0 });
-  const [rate, setRate] = useState(12.5);
+  const { user } = useAuth();
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => { loadData(); }, []);
+  // Initial Load
+  useEffect(() => {
+    loadLiveOverview();
+  }, []);
 
-  const loadData = async () => {
+  // Smart Sync: 5-Second Short Polling for Real-Time Dashboard
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      try {
+        const result = await getLiveOverview();
+        if (result) {
+          setData(result);
+        }
+      } catch (err) {
+        // Suppress network errors on background poll
+      }
+    }, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const loadLiveOverview = async () => {
     try {
-      const [summary, rateVal] = await Promise.all([
-        getBuildingSummary(),
-        getSetting('rate_per_kwh')
-      ]);
-      
-      const currentRate = rateVal ? parseFloat(rateVal) : 12.50;
-      setRate(currentRate);
-
-      if (summary) {
-        setRooms(summary.rooms || []);
-        setStats(summary.stats || { totalRooms: 0, occupiedRooms: 0, onProcessRooms: 0, offlineMeters: 0 });
-        setTotals({
-          totalEnergy: summary.totals?.totalEnergy || 0,
-          totalCost: (summary.totals?.totalEnergy || 0) * currentRate
-        });
+      const result = await getLiveOverview();
+      if (result) {
+        setData(result);
       }
     } catch (err) {
-      console.warn("Error loading overview data:", err);
+      console.error('[loadLiveOverview] Error:', err);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const onRefresh = async () => { setRefreshing(true); await loadData(); setRefreshing(false); };
-
-  const isOffline = (lastSeen) => {
-    if (!lastSeen) return true;
-    const last = new Date(lastSeen).getTime();
-    const now = new Date().getTime();
-    return (now - last) > 60000; // Standardized to 1 minute
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await loadLiveOverview();
+    setRefreshing(false);
   };
 
-  const SummaryCard = ({ icon, label, value, color, gradient: g }) => (
-    <LinearGradient colors={g || ['rgba(255,255,255,0.05)', 'rgba(255,255,255,0.02)']} style={styles.summaryCard}>
-      <View style={[styles.summaryIcon, { backgroundColor: `${color}15` }]}>
-        <Ionicons name={icon} size={20} color={color} />
+  if (loading) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={COLORS.primary} />
+        <Text style={{ color: COLORS.textMuted, marginTop: 12 }}>Syncing Live Dashboard...</Text>
       </View>
-      <Text style={styles.summaryValue}>{value}</Text>
-      <Text style={styles.summaryLabel}>{label}</Text>
-    </LinearGradient>
-  );
+    );
+  }
+
+  const statistics = data?.statistics || {};
+  const liveElectricity = data?.liveElectricity || { todayEnergyKwh: 0, livePeakPowerW: 0 };
+  const recentActivities = data?.recentActivities || [];
+  const paymentSummary = data?.paymentSummary || null;
+  const pendingPayments = data?.pendingPayments || [];
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" />
+      
+      {/* Premium Header */}
+      <View style={styles.header}>
+        <View style={styles.headerLeft}>
+          <Text style={styles.greeting}>Hello, {user?.name?.split(' ')[0] || 'Admin'} 👋</Text>
+          <Text style={styles.subtitle}>Real-Time Command Center</Text>
+        </View>
+        <TouchableOpacity style={styles.profileBtn} onPress={() => router.push('/(landlord)/settings')}>
+          <View style={styles.profileIconWrapper}>
+            <Ionicons name="person-circle-outline" size={32} color={COLORS.primary} />
+          </View>
+        </TouchableOpacity>
+      </View>
+
       <ScrollView 
         contentContainerStyle={styles.scroll} 
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={COLORS.primary} />}
       >
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.greeting}>Hello, {user?.name?.split(' ')[0] || 'Admin'} 👋</Text>
-            <Text style={styles.subtitle}>Facility Management Overview</Text>
-          </View>
-          <TouchableOpacity style={styles.profileBtn} onPress={() => router.push('/(landlord)/settings')}>
-            <Ionicons name="person-circle-outline" size={36} color={COLORS.primary} />
-          </TouchableOpacity>
+        {/* Live Consumption Monitor */}
+        <LiveConsumptionWidget 
+          todayEnergyKwh={liveElectricity.todayEnergyKwh} 
+          livePeakPowerW={liveElectricity.livePeakPowerW} 
+        />
+
+        {/* Business Metrics Section */}
+        <Text style={styles.sectionTitle}>Business Metrics</Text>
+        <View style={styles.gridRow}>
+          <StatCard title="Total Tenants" value={statistics.totalTenants || 0} icon="person-outline" color="#8b5cf6" />
+          <StatCard title="Total Collection" value={statistics.monthlyRevenue?.toFixed(2) || '0.00'} prefix="₱" icon="checkmark-circle-outline" color="#22c55e" />
+        </View>
+        <View style={styles.gridRow}>
+          <StatCard title="Outstanding Balance" value={statistics.outstandingRevenue?.toFixed(2) || '0.00'} prefix="₱" icon="time-outline" color="#f97316" />
+          <StatCard title="Total Revenue" value={statistics.totalBilled?.toFixed(2) || '0.00'} prefix="₱" icon="cash-outline" color={COLORS.primary} />
         </View>
 
-        {/* Summary Grid */}
-        <View style={styles.grid}>
-          <SummaryCard icon="home" label="Total Rooms" value={stats.totalRooms} color={COLORS.primary} />
-          <SummaryCard icon="flash" label="Occupied" value={stats.occupiedRooms} color={COLORS.success} />
-          <SummaryCard icon="time" label="On Process" value={stats.onProcessRooms || 0} color={COLORS.warning} />
-          <SummaryCard icon="cloud-offline" label="Offline" value={stats.offlineMeters} color={COLORS.danger} />
+        {/* Room Status Section */}
+        <Text style={[styles.sectionTitle, { marginTop: 12 }]}>Room Status</Text>
+        <View style={styles.gridRow}>
+          <StatCard title="Occupied Rooms" value={statistics.occupiedRooms || 0} icon="people-outline" color="#22c55e" />
+          <StatCard title="Vacant Rooms" value={statistics.vacantRooms || 0} icon="key-outline" color="#eab308" />
+        </View>
+        <View style={styles.gridRow}>
+          <StatCard title="Under Maintenance" value={statistics.maintenanceRooms || 0} icon="construct-outline" color="#f97316" />
+          <StatCard title="Not Available" value={statistics.notAvailableRooms || 0} icon="close-circle-outline" color="#ef4444" />
         </View>
 
-        {/* Facility Stats */}
-        <GlassCard gradient style={styles.facilityCard}>
-          <View style={styles.facilityHeader}>
-            <Ionicons name="analytics" size={20} color={COLORS.primary} />
-            <Text style={styles.facilityTitle}>Monthly Facility Performance</Text>
-          </View>
-          <View style={styles.facilityRow}>
-            <View style={styles.facilityStat}>
-              <Text style={styles.facilityLabel}>TOTAL ENERGY</Text>
-              <Text style={styles.facilityValue}>{Number(totals.totalEnergy || 0).toFixed(2)} <Text style={styles.unit}>kWh</Text></Text>
-            </View>
-            <View style={styles.divider} />
-            <View style={styles.facilityStat}>
-              <Text style={styles.facilityLabel}>TOTAL REVENUE</Text>
-              <Text style={styles.facilityValue}>₱{Number(totals.totalCost || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</Text>
-            </View>
-          </View>
-        </GlassCard>
+        {/* Payment Tracking */}
+        <PaymentStatusWidget summary={paymentSummary} />
 
-        {/* Room List Section */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Room Status & Usage</Text>
-          <TouchableOpacity onPress={onRefresh}>
-            <Text style={styles.refreshText}>Refresh</Text>
-          </TouchableOpacity>
-        </View>
+        {/* Pending Verification Approvals */}
+        <PendingPaymentsWidget payments={pendingPayments} onRefresh={loadLiveOverview} />
 
-        {rooms.length > 0 ? (
-          rooms.map(room => {
-            const offline = isOffline(room.last_seen);
-            return (
-              <GlassCard key={room.room_id} style={[styles.roomItem, offline && styles.offlineItem]}>
-                <View style={styles.roomLeft}>
-                  <View style={[styles.statusDot, { backgroundColor: offline ? COLORS.danger : COLORS.success }]} />
-                  <View style={{ flex: 1, paddingRight: 8 }}>
-                    <Text style={styles.roomName}>{room.room_id}</Text>
-                    <Text style={styles.tenantName} numberOfLines={1}>
-                      {room.tenant_name || (
-                        room.status === 'on_process' ? 'Pending Tenant' : 
-                        room.status === 'under_maintenance' ? 'Maintenance in progress' :
-                        room.status === 'not_available' ? 'Currently unavailable' :
-                        'Vacant Room'
-                      )}
-                    </Text>
-                  </View>
-                </View>
-                
-                <View style={styles.roomRight}>
-                  <Text style={styles.energyVal}>{Number(room.currEnergy || 0).toFixed(1)} kWh</Text>
-                  <StatusBadge status={room.status} size="sm" style={{ width: 95, alignSelf: 'flex-end' }} />
-                </View>
-              </GlassCard>
-            );
-          })
-        ) : (
-          <View style={styles.emptyState}>
-            <Ionicons name="home-outline" size={48} color={COLORS.textMuted} />
-            <Text style={styles.emptyText}>No rooms found</Text>
-          </View>
-        )}
-        
+        {/* Live Activity Feed */}
+        <ActivityTimelineWidget activities={recentActivities} />
+
         <View style={{ height: 40 }} />
       </ScrollView>
     </SafeAreaView>
@@ -156,66 +140,92 @@ export default function OverviewScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  scroll: { padding: SPACING.lg },
-  header: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: SPACING.xl,
-    paddingTop: Platform.OS === 'android' ? 10 : 0
+    paddingHorizontal: SPACING.lg,
+    paddingTop: Platform.OS === 'android' ? 20 : SPACING.lg,
+    paddingBottom: SPACING.lg,
+    backgroundColor: COLORS.background,
   },
-  greeting: { fontSize: 24, fontWeight: FONT_WEIGHT.bold, color: COLORS.textPrimary },
-  subtitle: { fontSize: 14, color: COLORS.textMuted, marginTop: 2 },
-  profileBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: SPACING.xl },
-  summaryCard: { 
-    width: '48%', 
-    padding: 16, 
-    borderRadius: RADIUS.xl, 
-    borderWidth: 1, 
-    borderColor: COLORS.border,
-    ...SHADOWS.small
+  headerLeft: {
+    flex: 1,
   },
-  summaryIcon: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
-  summaryValue: { fontSize: 20, fontWeight: FONT_WEIGHT.bold, color: COLORS.textPrimary },
-  summaryLabel: { fontSize: 11, color: COLORS.textMuted, marginTop: 2, fontWeight: FONT_WEIGHT.medium },
-
-  facilityCard: { padding: 20, marginBottom: SPACING.xl, borderRadius: RADIUS.xxl },
-  facilityHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 },
-  facilityTitle: { fontSize: 13, color: COLORS.textMuted, fontWeight: FONT_WEIGHT.heavy, letterSpacing: 0.5, textTransform: 'uppercase' },
-  facilityRow: { flexDirection: 'row', alignItems: 'center' },
-  facilityStat: { flex: 1, alignItems: 'center' },
-  facilityLabel: { fontSize: 10, color: COLORS.textMuted, letterSpacing: 1, marginBottom: 6 },
-  facilityValue: { fontSize: 22, fontWeight: FONT_WEIGHT.heavy, color: COLORS.textPrimary },
-  unit: { fontSize: 12, color: COLORS.textMuted },
-  divider: { width: 1, height: 40, backgroundColor: 'rgba(255,255,255,0.1)', marginHorizontal: 10 },
-
-  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.md },
-  sectionTitle: { fontSize: 18, fontWeight: FONT_WEIGHT.bold, color: COLORS.textPrimary },
-  refreshText: { fontSize: 13, color: COLORS.primary, fontWeight: FONT_WEIGHT.semibold },
-
-  roomItem: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    alignItems: 'center', 
-    padding: 16, 
-    marginBottom: 10, 
-    borderRadius: RADIUS.lg,
+  greeting: {
+    fontSize: 24,
+    fontWeight: FONT_WEIGHT.heavy,
+    color: '#ffffff',
+    letterSpacing: -0.5,
+  },
+  subtitle: {
+    fontSize: 13,
+    color: COLORS.primary,
+    fontWeight: FONT_WEIGHT.bold,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginTop: 4,
+  },
+  profileBtn: {
+    marginLeft: 16,
+  },
+  profileIconWrapper: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(59, 130, 246, 0.1)', // Primary tint
+    alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)'
+    borderColor: 'rgba(59, 130, 246, 0.2)',
   },
-  offlineItem: { opacity: 0.7 },
-  roomLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
-  statusDot: { width: 8, height: 8, borderRadius: 4 },
-  roomName: { fontSize: 16, fontWeight: FONT_WEIGHT.bold, color: COLORS.textPrimary },
-  tenantName: { fontSize: 13, color: COLORS.textMuted, marginTop: 2 },
-  roomRight: { alignItems: 'flex-end' },
-  energyVal: { fontSize: 14, fontWeight: FONT_WEIGHT.semibold, color: COLORS.textSecondary, marginBottom: 4 },
-  badge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: RADIUS.sm },
-  badgeText: { fontSize: 9, fontWeight: FONT_WEIGHT.heavy, letterSpacing: 0.5 },
-  
-  emptyState: { alignItems: 'center', padding: 40 },
-  emptyText: { color: COLORS.textMuted, marginTop: 10 }
+  scroll: {
+    paddingHorizontal: SPACING.lg,
+    paddingTop: SPACING.sm,
+  },
+  gridRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  totalBanner: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: 'rgba(59, 130, 246, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(59, 130, 246, 0.15)',
+    borderRadius: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    marginBottom: 12,
+  },
+  totalLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  totalLabel: {
+    fontSize: 15,
+    fontWeight: FONT_WEIGHT.bold,
+    color: COLORS.textPrimary,
+  },
+  totalValue: {
+    fontSize: 28,
+    fontWeight: FONT_WEIGHT.heavy,
+    color: COLORS.primary,
+  },
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: FONT_WEIGHT.bold,
+    color: '#94a3b8',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 12,
+    marginLeft: 4,
+  }
 });

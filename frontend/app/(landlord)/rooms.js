@@ -9,6 +9,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { getAllRooms, generateNewTenantCode, updateRoomStatus, saveTenantInvitation, getMonthlyConsumptionFiltered, getSetting, revokeTenant, transferTenant, getVacantRooms, getBuildingSummary, getAvailableBillingCycles, addRoom, updateRoom, archiveRoom, restoreRoom } from '../../services/database';
 import { sendTenantAccessCode } from '../../services/emailService';
 import { generateMonthlyReport, generateCycleReport, shareReport } from '../../services/pdfService';
+import { submitOfflinePayment } from '../../services/paymentService';
 import RoomCard from '../../components/ui/RoomCard';
 import RoomHistoryModal from '../../components/landlord/RoomHistoryModal';
 import ArchiveModal from '../../components/RoomManagement/ArchiveModal';
@@ -59,6 +60,14 @@ export default function RoomsScreen() {
   const [regenSuccessVisible, setRegenSuccessVisible] = useState(false);
   const [regenSuccessMsg, setRegenSuccessMsg] = useState('');
 
+  // Cash Payment Modal
+  const [cashModalVisible, setCashModalVisible] = useState(false);
+  const [cashRoom, setCashRoom] = useState(null);
+  const [cashCycles, setCashCycles] = useState([]);
+  const [selectedCashCycle, setSelectedCashCycle] = useState(null);
+  const [showCashCycleDrop, setShowCashCycleDrop] = useState(false);
+  const [processingCash, setProcessingCash] = useState(false);
+
   // Code Success Modal
   const [codeSuccessVisible, setCodeSuccessVisible] = useState(false);
   const [successCodeData, setSuccessCodeData] = useState({ code: '', room: '', email: '' });
@@ -93,41 +102,45 @@ export default function RoomsScreen() {
   useEffect(() => { loadRooms(); }, []);
 
   const loadRooms = async () => {
-    const summary = await getBuildingSummary();
-    const rateVal = await getSetting('rate_per_kwh');
-    const currentRate = rateVal ? parseFloat(rateVal) : 12.50;
-    setRate(currentRate);
+    try {
+      const summary = await getBuildingSummary();
+      const rateVal = await getSetting('rate_per_kwh');
+      const currentRate = rateVal ? parseFloat(rateVal) : 12.50;
+      setRate(currentRate);
 
-    if (summary) {
-      const { rooms: roomData, totals } = summary;
-      
-      // Map rooms with their specific consumption data
-      const mappedRooms = (roomData || []).map(r => ({
-        ...r,
-        consumption: {
-          energy: r.currEnergy || 0,
-          cost: (r.currEnergy || 0) * currentRate
-        },
-        prevConsumption: {
-          energy: r.prevEnergy || 0,
-          cost: (r.prevEnergy || 0) * currentRate
-        }
-      }));
-      
-      setRooms(mappedRooms);
-      
-      // Update consumption cache for reports/details
-      const cData = {};
-      mappedRooms.forEach(r => {
-        if (r.status === 'occupied') {
-          cData[r.room_id] = { 
-            current: { totalEnergy: r.consumption.energy, totalCost: r.consumption.cost },
-            previous: { totalEnergy: r.prevConsumption.energy, totalCost: r.prevConsumption.cost },
-            diff: r.consumption.energy - r.prevConsumption.energy
-          };
-        }
-      });
-      setConsumptionData(cData);
+      if (summary) {
+        const { rooms: roomData, totals } = summary;
+        
+        // Map rooms with their specific consumption data
+        const mappedRooms = (roomData || []).map(r => ({
+          ...r,
+          consumption: {
+            energy: r.currEnergy || 0,
+            cost: (r.currEnergy || 0) * currentRate
+          },
+          prevConsumption: {
+            energy: r.prevEnergy || 0,
+            cost: (r.prevEnergy || 0) * currentRate
+          }
+        }));
+        
+        setRooms(mappedRooms);
+        
+        // Update consumption cache for reports/details
+        const cData = {};
+        mappedRooms.forEach(r => {
+          if (r.status === 'occupied') {
+            cData[r.room_id] = { 
+              current: { totalEnergy: r.consumption.energy, totalCost: r.consumption.cost },
+              previous: { totalEnergy: r.prevConsumption.energy, totalCost: r.prevConsumption.cost },
+              diff: r.consumption.energy - r.prevConsumption.energy
+            };
+          }
+        });
+        setConsumptionData(cData);
+      }
+    } catch (error) {
+      console.error('[loadRooms] Error:', error);
     }
   };
 
@@ -258,6 +271,8 @@ export default function RoomsScreen() {
         endDate,
         reportTitle,
         isWeekly: !!selectedPdfWeek,
+        room: reportRoom,
+        billingCycle: selectedPdfCycle,
       });
       
       setReportModalVisible(false);
@@ -323,6 +338,26 @@ export default function RoomsScreen() {
       Alert.alert('Error', e.message);
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  const handleCashPayment = async () => {
+    if (!cashRoom || !selectedCashCycle) return;
+    const amount = Number(selectedCashCycle.total_amount) || 0;
+    
+    setProcessingCash(true);
+    try {
+      const res = await submitOfflinePayment(selectedCashCycle.id, cashRoom.room_id, amount);
+      setCashModalVisible(false);
+      setCashRoom(null);
+      setCashCycles([]);
+      setSelectedCashCycle(null);
+      Alert.alert('Payment Recorded', `Successfully marked ${cashRoom.room_id} cycle as paid in cash.`, [{ text: 'OK', onPress: () => loadRooms() }]);
+    } catch (err) {
+      const errorMsg = typeof err === 'string' ? err : (err?.message || JSON.stringify(err));
+      Alert.alert('Payment Error', errorMsg);
+    } finally {
+      setProcessingCash(false);
     }
   };
 
@@ -460,17 +495,17 @@ export default function RoomsScreen() {
               {room.status === 'occupied' && consumptionData[room.room_id] && (
                 <>
                   <View style={s.consumptionRow}>
-                    <View style={s.consumptionItem}>
+                    <View style={[s.consumptionItem, { alignItems: 'flex-start' }]}>
                       <Text style={s.consumptionLabel}>Consumption</Text>
-                      <Text style={s.consumptionValue}>{Number(consumptionData[room.room_id].current.totalEnergy || 0).toFixed(2)} kWh</Text>
+                      <Text style={s.consumptionValue} adjustsFontSizeToFit numberOfLines={1}>{Number(consumptionData[room.room_id].current.totalEnergy || 0).toFixed(2)} kWh</Text>
                     </View>
-                    <View style={s.consumptionItem}>
+                    <View style={[s.consumptionItem, { alignItems: 'center' }]}>
                       <Text style={s.consumptionLabel}>Cost</Text>
-                      <Text style={[s.consumptionValue, { color: COLORS.warning }]}>₱{(Number(consumptionData[room.room_id].current.totalEnergy || 0) * rate).toFixed(2)}</Text>
+                      <Text style={[s.consumptionValue, { color: COLORS.warning }]} adjustsFontSizeToFit numberOfLines={1}>₱{(Number(consumptionData[room.room_id].current.totalEnergy || 0) * rate).toFixed(2)}</Text>
                     </View>
-                    <View style={s.consumptionItem}>
+                    <View style={[s.consumptionItem, { alignItems: 'flex-end' }]}>
                       <Text style={s.consumptionLabel}>vs Last Mo.</Text>
-                      <Text style={[s.consumptionValue, { color: consumptionData[room.room_id].diff > 0 ? COLORS.danger : COLORS.primary }]}>
+                      <Text style={[s.consumptionValue, { color: consumptionData[room.room_id].diff > 0 ? COLORS.danger : COLORS.primary }]} adjustsFontSizeToFit numberOfLines={1}>
                         {consumptionData[room.room_id].diff > 0 ? '+' : ''}{Number(consumptionData[room.room_id].diff || 0).toFixed(2)}
                       </Text>
                     </View>
@@ -505,6 +540,25 @@ export default function RoomsScreen() {
                     >
                       <Ionicons name="time-outline" size={16} color={COLORS.primary} />
                       <Text style={[s.actionBtnText, { color: COLORS.primary }]}>History</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={s.actionBtn}
+                      activeOpacity={0.7}
+                      onPress={(e) => {
+                        e.stopPropagation && e.stopPropagation();
+                        setCashRoom(room);
+                        setCashModalVisible(true);
+                        getAvailableBillingCycles(room.room_id).then(res => {
+                          const unpaid = (res || []).filter(c => c.payment_status === 'unpaid' || c.payment_status === 'overdue');
+                          setCashCycles(unpaid);
+                          if (unpaid.length > 0) setSelectedCashCycle(unpaid[0]);
+                          else setSelectedCashCycle(null);
+                        }).catch(err => console.error("Failed to fetch billing cycles for cash", err));
+                      }}
+                    >
+                      <Ionicons name="cash-outline" size={16} color={COLORS.success} />
+                      <Text style={[s.actionBtnText, { color: COLORS.success }]}>Cash</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
@@ -1185,6 +1239,71 @@ export default function RoomsScreen() {
         isLoading={actionLoading}
         isRestore={isRestoreMode}
       />
+
+      {/* Cash Payment Modal */}
+      <Modal visible={cashModalVisible} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setCashModalVisible(false)}>
+        <View style={s.overlay}>
+          <View style={s.modal}>
+            <View style={[s.modalIcon, { backgroundColor: 'rgba(16,185,129,0.12)' }]}>
+              <Ionicons name="cash" size={32} color={COLORS.success} />
+            </View>
+            <Text style={s.modalTitle}>Receive Cash Payment</Text>
+            <Text style={s.modalDesc}>
+              Mark an unpaid billing cycle for <Text style={s.modalRoom}>{cashRoom?.room_id}</Text> as Paid (Cash).
+            </Text>
+
+            {cashRoom && cashCycles && (
+              <View style={{ width: '100%', marginTop: 12, marginBottom: 20 }}>
+                {cashCycles.length === 0 ? (
+                  <Text style={{ color: COLORS.textMuted, fontSize: 13, textAlign: 'center', marginTop: 10 }}>No unpaid billing cycles found.</Text>
+                ) : (
+                  <>
+                    <Text style={{ color: COLORS.textMuted, fontSize: 13, marginBottom: 8, textAlign: 'left' }}>Select Unpaid Cycle</Text>
+                    <TouchableOpacity style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', padding: 14, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }} onPress={() => setShowCashCycleDrop(!showCashCycleDrop)}>
+                      <Text style={{ color: COLORS.textPrimary }}>
+                        {selectedCashCycle ? `${new Date(selectedCashCycle.cycle_start).toLocaleDateString('default', { month: 'short', day: 'numeric', year: 'numeric' })} – ${new Date(selectedCashCycle.cycle_end).toLocaleDateString('default', { month: 'short', day: 'numeric', year: 'numeric' })} (₱${Number(selectedCashCycle.total_amount).toFixed(2)})` : 'Select a cycle...'}
+                      </Text>
+                      <Ionicons name={showCashCycleDrop ? 'chevron-up' : 'chevron-down'} size={18} color={COLORS.success} />
+                    </TouchableOpacity>
+
+                    {showCashCycleDrop && (
+                      <View style={{ backgroundColor: 'rgba(30,41,59,0.95)', borderRadius: 8, marginTop: 4, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', maxHeight: 150, overflow: 'hidden' }}>
+                        <ScrollView nestedScrollEnabled>
+                          {cashCycles.map((c, i) => (
+                            <TouchableOpacity key={i} style={{ padding: 14, borderBottomWidth: i !== cashCycles.length - 1 ? 1 : 0, borderBottomColor: 'rgba(255,255,255,0.05)' }} 
+                              onPress={() => {
+                                setSelectedCashCycle(c);
+                                setShowCashCycleDrop(false);
+                              }}>
+                              <Text style={{ color: selectedCashCycle?.id === c.id ? COLORS.success : COLORS.textPrimary, fontWeight: selectedCashCycle?.id === c.id ? 'bold' : 'normal' }}>
+                                {new Date(c.cycle_start).toLocaleDateString('default', { month: 'short', day: 'numeric' })} – {new Date(c.cycle_end).toLocaleDateString('default', { month: 'short', day: 'numeric', year: 'numeric' })} <Text style={{color: COLORS.textMuted}}>| ₱{Number(c.total_amount).toFixed(2)}</Text>
+                              </Text>
+                            </TouchableOpacity>
+                          ))}
+                        </ScrollView>
+                      </View>
+                    )}
+                  </>
+                )}
+              </View>
+            )}
+
+            <View style={s.modalActions}>
+              <TouchableOpacity style={s.cancelBtn} onPress={() => { setCashModalVisible(false); setCashCycles([]); setSelectedCashCycle(null); }} activeOpacity={0.7}>
+                <Text style={s.cancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={s.sendBtnWrap} onPress={handleCashPayment} disabled={processingCash || !selectedCashCycle} activeOpacity={0.8}>
+                <LinearGradient colors={['#10B981', '#059669']} style={s.sendBtn}>
+                  {processingCash
+                    ? <ActivityIndicator color="#fff" size="small" />
+                    : <><Ionicons name="checkmark-circle-outline" size={16} color="#fff" /><Text style={s.sendText}>Confirm Paid</Text></>
+                  }
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
     </View>
   );

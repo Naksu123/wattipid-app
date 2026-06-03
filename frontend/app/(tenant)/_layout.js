@@ -75,6 +75,8 @@ export default function TenantLayout() {
           tabBarIcon: ({ color, size }) => <Ionicons name="bulb-outline" size={size} color={color} /> }} />
         <Tabs.Screen name="budget" options={{ title: 'Budget',
           tabBarIcon: ({ color, size }) => <Ionicons name="wallet-outline" size={size} color={color} /> }} />
+        <Tabs.Screen name="payment" options={{ title: 'Payment',
+          tabBarIcon: ({ color, size }) => <Ionicons name="card-outline" size={size} color={color} /> }} />
         <Tabs.Screen name="settings" options={{ title: 'Settings',
           tabBarIcon: ({ color, size }) => <Ionicons name="settings-outline" size={size} color={color} /> }} />
         

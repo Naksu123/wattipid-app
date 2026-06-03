@@ -89,6 +89,10 @@ export async function getBuildingSummary() {
   return await apiCall('getBuildingSummary');
 }
 
+export async function getLiveOverview() {
+  return await apiCall('getLiveOverview');
+}
+
 export async function updateRoomStatus(roomId, status, tenantName = null, startDate = null) {
   return await apiCall('updateRoomStatus', { roomId, status, tenantName, startDate });
 }
