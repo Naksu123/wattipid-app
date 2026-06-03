@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../contexts/AuthContext';
 import { getSetting, setSetting } from '../../services/database';
+import { updatePenaltySettings, getPenaltySettings } from '../../services/penaltyService';
 import { setESP32BaseUrl, getConnectionStatus } from '../../services/esp32Api';
 import GlassCard from '../../components/ui/GlassCard';
 import { BaseModal, ModalHeader, ModalBody, ModalFooter } from '../../components/modals/BaseModal';
@@ -41,6 +42,11 @@ export default function LandlordSettings() {
   const [rateSuccessVisible, setRateSuccessVisible] = useState(false);
   const [rateSuccessMsg, setRateSuccessMsg] = useState('');
 
+  // Penalty Config Modal
+  const [penaltyVisible, setPenaltyVisible] = useState(false);
+  const [penaltyGrace, setPenaltyGrace] = useState('3');
+  const [penaltyRate, setPenaltyRate] = useState('2.00');
+
   // Confirmation Modals
   const [rateConfirmVisible, setRateConfirmVisible] = useState(false);
   const [logoutConfirmVisible, setLogoutConfirmVisible] = useState(false);
@@ -69,6 +75,14 @@ export default function LandlordSettings() {
 
     const status = getConnectionStatus();
     setIsMockMode(status.isMock);
+
+    try {
+      const pen = await getPenaltySettings();
+      if (pen.penalty_grace_period_days) setPenaltyGrace(pen.penalty_grace_period_days);
+      if (pen.penalty_rate) setPenaltyRate(pen.penalty_rate);
+    } catch (e) {
+      console.warn("Failed to load penalty config:", e);
+    }
   };
 
   const handleSaveRate = () => {
@@ -121,6 +135,19 @@ export default function LandlordSettings() {
     ]);
     setNotifVisible(false);
     Alert.alert('Saved', 'Notification preferences updated.');
+  };
+
+  const handleSavePenalty = async () => {
+    try {
+      await updatePenaltySettings({
+        penalty_grace_period_days: penaltyGrace,
+        penalty_rate: penaltyRate
+      });
+      setPenaltyVisible(false);
+      Alert.alert('Saved', 'Penalty configuration updated successfully.');
+    } catch (e) {
+      Alert.alert('Error', e.message || 'Failed to update penalty config');
+    }
   };
 
   const MenuItem = ({ icon, label, value, onPress, danger, highlighted }) => (
@@ -208,14 +235,17 @@ export default function LandlordSettings() {
 
         <Text style={styles.groupTitle}>FACILITY TOOLS</Text>
         <GlassCard style={styles.menuCard}>
+          <MenuItem icon="shield-checkmark-outline" label="System Audit Logs" value="Immutable compliance records" onPress={() => router.push('/(landlord)/audit')} />
+          <MenuItem icon="warning-outline" label="Penalty Configuration" value="Grace period & late fees" onPress={() => setPenaltyVisible(true)} />
           <MenuItem icon="bulb" label="Manage Electricity Tips" value="Curate tips for student saving habits" highlighted={true} onPress={() => router.push('/(landlord)/manage-tips')} />
           <MenuItem icon="notifications-outline" label="Notification Alerts" value="Configure system triggers" onPress={() => setNotifVisible(true)} />
         </GlassCard>
 
         <Text style={styles.groupTitle}>SYSTEM CONFIG</Text>
         <GlassCard style={styles.menuCard}>
+          <MenuItem icon="book-outline" label="Installation & User Manual" value="System documentation & wiring" onPress={() => router.push('/(landlord)/manual')} />
           <MenuItem icon="wifi-outline" label="Hardware Connection" value={isMockMode ? 'Mocking active' : `Gateway: ${esp32Ip}`} onPress={() => { setEsp32IpError(''); setEsp32Visible(true); }} />
-          <MenuItem icon="information-circle-outline" label="About System" value="Wattipid v1.1.0" onPress={() => setAboutVisible(true)} />
+          <MenuItem icon="information-circle-outline" label="About System" value="Wattipid v2.1.0-prod" onPress={() => setAboutVisible(true)} />
         </GlassCard>
 
         <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.7}>
@@ -294,13 +324,43 @@ export default function LandlordSettings() {
         </View>
       </Modal>
 
+      <Modal visible={penaltyVisible} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setPenaltyVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={[styles.modalIconBox, { backgroundColor: 'rgba(239,68,68,0.1)' }]}><Ionicons name="warning" size={32} color={COLORS.danger} /></View>
+            <Text style={styles.modalTitle}>Penalty Settings</Text>
+            <Text style={styles.modalDesc}>Configure automated late fees.</Text>
+            
+            <View style={[styles.form, { marginTop: 10 }]}>
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>GRACE PERIOD (DAYS)</Text>
+                <TextInput style={styles.input} value={penaltyGrace} onChangeText={setPenaltyGrace} keyboardType="numeric" placeholder="3" placeholderTextColor={COLORS.textMuted} />
+              </View>
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>PENALTY RATE (% OF TOTAL BILL)</Text>
+                <TextInput style={styles.input} value={penaltyRate} onChangeText={setPenaltyRate} keyboardType="numeric" placeholder="2.00" placeholderTextColor={COLORS.textMuted} />
+              </View>
+            </View>
+
+            <View style={styles.modalFooter}>
+              <TouchableOpacity onPress={() => setPenaltyVisible(false)} style={styles.modalCancel}><Text style={styles.modalCancelText}>Cancel</Text></TouchableOpacity>
+              <TouchableOpacity onPress={handleSavePenalty} style={styles.modalSave}><Text style={styles.modalSaveText}>Save</Text></TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       <Modal visible={aboutVisible} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setAboutVisible(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalIconBox}><Ionicons name="flash" size={36} color={COLORS.primary} /></View>
-            <Text style={styles.modalTitle}>Wattipid</Text>
-            <Text style={styles.modalDesc}>v1.1.0 • Built for Filipino Dorms</Text>
-            <View style={styles.aboutBox}><Text style={styles.aboutText}>Wattipid is an IoT-based electricity monitoring system designed for student rental dormitories. Track consumption, manage budgets, and save energy with smart insights.</Text></View>
+            <Text style={styles.modalTitle}>Wattipid Smart System</Text>
+            <Text style={styles.modalDesc}>v2.1.0-prod • Cloud-Native Architecture</Text>
+            <View style={styles.aboutBox}>
+              <Text style={styles.aboutText}>
+                Wattipid is an enterprise-grade IoT electricity monitoring platform designed for modern rental facilities. It utilizes ESP32 microcontrollers, purely Cloud-Based synchronization, and real-time analytics to help landlords and tenants track consumption securely and efficiently without physical LAN restrictions.
+              </Text>
+            </View>
             <TouchableOpacity onPress={() => setAboutVisible(false)} style={[styles.modalSave, { width: '100%', marginTop: 24, flex: 0 }]}><Text style={styles.modalSaveText}>Done</Text></TouchableOpacity>
           </View>
         </View>

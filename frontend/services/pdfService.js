@@ -259,8 +259,9 @@ export async function generateCycleReport({ roomId, tenantName, startDate, endDa
   const totalDue = electricityCharge + penaltyFee;
 
   // Estimate penalty if paid after due date (just for text display on the invoice)
-  const estimatedPenalty = totalDue * 0.02;
-  const totalAfterDueDate = totalDue + estimatedPenalty;
+  // Assuming a 2% rate based on the new Phase 5 configuration
+  const estimatedPenalty = electricityCharge * 0.02;
+  const totalAfterDueDate = electricityCharge + estimatedPenalty;
   
   const dueDateStr = billingCycle && billingCycle.due_date 
     ? new Date(billingCycle.due_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).replace(/ /g, '-')
@@ -535,6 +536,7 @@ export async function generateCycleReport({ roomId, tenantName, startDate, endDa
       <div class="amount-row"><span>Zero Rated Sales</span><span>0.00</span></div>
       <div class="amount-row"><span>VAT Amount</span><span>${sub3.toFixed(2)}</span></div>
       <div class="amount-row"><span>Electricity Subtotal</span><span>${electricitySubtotal.toFixed(2)}</span></div>
+      ${penaltyFee > 0 ? `<div class="amount-row" style="color:red;"><span>Overdue Penalty Applied</span><span>${penaltyFee.toFixed(2)}</span></div>` : ''}
       <div class="amount-row"><span>Amount Due</span><span>${totalDue.toFixed(2)}</span></div>
     </div>
 
@@ -550,8 +552,11 @@ export async function generateCycleReport({ roomId, tenantName, startDate, endDa
     </div>
 
     <div class="overdue-box">
-      <div class="overdue-row"><span>Penalty if paid after Due Date (2%)</span><span>${penaltyFee.toFixed(2)}</span></div>
-      <div class="overdue-row total"><span>Amount Due After ${dueDateStr}</span><span>${totalAfterDueDate.toFixed(2)}</span></div>
+      ${penaltyFee > 0 
+        ? `<div class="overdue-row total" style="color:red;"><span>ACCOUNT IS PAST DUE</span></div>`
+        : `<div class="overdue-row"><span>Penalty if paid after Due Date (2%)</span><span>${estimatedPenalty.toFixed(2)}</span></div>
+           <div class="overdue-row total"><span>Amount Due After ${dueDateStr}</span><span>${totalAfterDueDate.toFixed(2)}</span></div>`
+      }
     </div>
   </div>
 </body>

@@ -32,13 +32,13 @@ export default function PaymentStatusWidget({ summary }) {
             <View style={styles.legendItem}>
               <View style={[styles.dot, { backgroundColor: COLORS.success }]} />
               <Text style={styles.legendVal}>{verified}</Text>
-              <Text style={styles.legendLabel}>Completed</Text>
+              <Text style={styles.legendLabel}>Paid</Text>
               <Text style={styles.legendAmount}>₱{collectedAmt.toFixed(2)}</Text>
             </View>
             <View style={styles.legendItem}>
               <View style={[styles.dot, { backgroundColor: COLORS.warning }]} />
               <Text style={styles.legendVal}>{pending}</Text>
-              <Text style={styles.legendLabel}>Active</Text>
+              <Text style={styles.legendLabel}>Unpaid</Text>
               <Text style={styles.legendAmount}>₱{outstandingAmt.toFixed(2)}</Text>
             </View>
           </View>

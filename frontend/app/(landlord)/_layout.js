@@ -18,9 +18,16 @@ export default function LandlordLayout() {
         tabBarIcon: ({ color, size }) => <Ionicons name="grid" size={size} color={color} /> }} />
       <Tabs.Screen name="rooms" options={{ title: 'Rooms',
         tabBarIcon: ({ color, size }) => <Ionicons name="home" size={size} color={color} /> }} />
+      <Tabs.Screen name="payments" options={{ title: 'Payments',
+        tabBarIcon: ({ color, size }) => <Ionicons name="wallet" size={size} color={color} /> }} />
+      <Tabs.Screen name="penalties" options={{ title: 'Penalties',
+        tabBarIcon: ({ color, size }) => <Ionicons name="warning" size={size} color={color} /> }} />
       <Tabs.Screen name="settings" options={{ title: 'Settings',
         tabBarIcon: ({ color, size }) => <Ionicons name="settings-outline" size={size} color={color} /> }} />
       <Tabs.Screen name="manage-tips" options={{ href: null }} />
+      <Tabs.Screen name="audit" options={{ href: null }} />
+      <Tabs.Screen name="notifications" options={{ href: null }} />
+      <Tabs.Screen name="manual" options={{ href: null }} />
     </Tabs>
   );
 }

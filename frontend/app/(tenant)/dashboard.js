@@ -12,6 +12,7 @@ import AlertModal from '../../components/modals/AlertModal';
 import { COLORS } from '@/styles/theme';
 import ms from '@/styles/tenant/dashboard.styles';
 import { getDashboardSummary, getForecast } from '../../services/consumptionService';
+import apiClient from '../../services/apiClient';
 import { getBillingCycle } from '../../services/database';
 import { tipsService } from '../../services/tipsService';
 
@@ -42,6 +43,7 @@ export default function DashboardScreen() {
   const roomId = user?.room_id || 'Room 1';
 
   const [billingCycle, setBillingCycle] = useState(null);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const fetchStaticData = useCallback(async () => {
     try {
@@ -75,6 +77,12 @@ export default function DashboardScreen() {
       const tipResult = await tipsService.getSmartRecommendation();
       if (tipResult && tipResult.success && tipResult.data) {
         setRandomTip(tipResult.data);
+      }
+
+      // Fetch unread notifications
+      const unreadRes = await apiClient.post('/api.php', { action: 'getUnreadCount', userId: user?.id });
+      if (unreadRes.data.success) {
+        setUnreadCount(unreadRes.data.data);
       }
 
       return result;
@@ -240,7 +248,17 @@ export default function DashboardScreen() {
               </Text>
             </View>
           </View>
-          <StatusBadge status={offline ? 'offline' : (relayOn ? 'active' : 'idle')} />
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <TouchableOpacity style={{ position: 'relative', padding: 4 }} onPress={() => router.push('/(tenant)/notifications')}>
+              <Ionicons name="notifications-outline" size={24} color={COLORS.textPrimary} />
+              {unreadCount > 0 && (
+                <View style={{ position: 'absolute', top: 0, right: 0, backgroundColor: COLORS.danger, borderRadius: 10, minWidth: 16, height: 16, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 4 }}>
+                  <Text style={{ color: '#fff', fontSize: 9, fontWeight: 'bold' }}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+            <StatusBadge status={offline ? 'offline' : (relayOn ? 'active' : 'idle')} />
+          </View>
         </View>
 
         {/* GHOST FIX: Only show budget warning banner when device is ONLINE and real data exists */}

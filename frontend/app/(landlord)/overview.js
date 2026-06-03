@@ -4,13 +4,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
 import { getLiveOverview } from '../../services/database';
+import apiClient from '../../services/apiClient';
 import { COLORS, SPACING, FONT_WEIGHT, RADIUS } from '@/styles/theme';
 
-// Phase 2 Dashboard Components
 import StatCard from '../../components/landlord/Overview/StatCard';
 import LiveConsumptionWidget from '../../components/landlord/Overview/LiveConsumptionWidget';
-import PaymentStatusWidget from '../../components/landlord/Overview/PaymentStatusWidget';
-import PendingPaymentsWidget from '../../components/landlord/Overview/PendingPaymentsWidget';
 import ActivityTimelineWidget from '../../components/landlord/Overview/ActivityTimelineWidget';
 
 export default function OverviewScreen() {
@@ -19,6 +17,7 @@ export default function OverviewScreen() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   // Initial Load
   useEffect(() => {
@@ -33,6 +32,12 @@ export default function OverviewScreen() {
         if (result) {
           setData(result);
         }
+        
+        // Also fetch unread count
+        const unreadRes = await apiClient.post('/api.php', { action: 'getUnreadCount' });
+        if (unreadRes.data.success) {
+          setUnreadCount(unreadRes.data.data);
+        }
       } catch (err) {
         // Suppress network errors on background poll
       }
@@ -45,6 +50,19 @@ export default function OverviewScreen() {
       const result = await getLiveOverview();
       if (result) {
         setData(result);
+      }
+      
+      try {
+        const unreadRes = await apiClient.post('/api.php', { 
+          action: 'getUnreadNotificationCount', 
+          userId: user?.id,
+          role: user?.role
+        });
+        if (unreadRes.data.success) {
+          setUnreadCount(unreadRes.data.data);
+        }
+      } catch (unreadErr) {
+        console.warn('Failed to load unread count:', unreadErr.message);
       }
     } catch (err) {
       console.error('[loadLiveOverview] Error:', err);
@@ -71,8 +89,6 @@ export default function OverviewScreen() {
   const statistics = data?.statistics || {};
   const liveElectricity = data?.liveElectricity || { todayEnergyKwh: 0, livePeakPowerW: 0 };
   const recentActivities = data?.recentActivities || [];
-  const paymentSummary = data?.paymentSummary || null;
-  const pendingPayments = data?.pendingPayments || [];
 
   return (
     <SafeAreaView style={styles.container}>
@@ -84,11 +100,21 @@ export default function OverviewScreen() {
           <Text style={styles.greeting}>Hello, {user?.name?.split(' ')[0] || 'Admin'} 👋</Text>
           <Text style={styles.subtitle}>Real-Time Command Center</Text>
         </View>
-        <TouchableOpacity style={styles.profileBtn} onPress={() => router.push('/(landlord)/settings')}>
-          <View style={styles.profileIconWrapper}>
-            <Ionicons name="person-circle-outline" size={32} color={COLORS.primary} />
-          </View>
-        </TouchableOpacity>
+        <View style={styles.headerRight}>
+          <TouchableOpacity style={styles.iconBtn} onPress={() => router.push('/(landlord)/notifications')}>
+            <Ionicons name="notifications-outline" size={26} color={COLORS.textPrimary} />
+            {unreadCount > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.profileBtn} onPress={() => router.push('/(landlord)/settings')}>
+            <View style={styles.profileIconWrapper}>
+              <Ionicons name="person-circle-outline" size={32} color={COLORS.primary} />
+            </View>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView 
@@ -102,8 +128,8 @@ export default function OverviewScreen() {
           livePeakPowerW={liveElectricity.livePeakPowerW} 
         />
 
-        {/* Business Metrics Section */}
-        <Text style={styles.sectionTitle}>Business Metrics</Text>
+        {/* System Analytics Section */}
+        <Text style={styles.sectionTitle}>System Analytics</Text>
         <View style={styles.gridRow}>
           <StatCard title="Total Tenants" value={statistics.totalTenants || 0} icon="person-outline" color="#8b5cf6" />
           <StatCard title="Total Collection" value={statistics.monthlyRevenue?.toFixed(2) || '0.00'} prefix="₱" icon="checkmark-circle-outline" color="#22c55e" />
@@ -113,22 +139,7 @@ export default function OverviewScreen() {
           <StatCard title="Total Revenue" value={statistics.totalBilled?.toFixed(2) || '0.00'} prefix="₱" icon="cash-outline" color={COLORS.primary} />
         </View>
 
-        {/* Room Status Section */}
-        <Text style={[styles.sectionTitle, { marginTop: 12 }]}>Room Status</Text>
-        <View style={styles.gridRow}>
-          <StatCard title="Occupied Rooms" value={statistics.occupiedRooms || 0} icon="people-outline" color="#22c55e" />
-          <StatCard title="Vacant Rooms" value={statistics.vacantRooms || 0} icon="key-outline" color="#eab308" />
-        </View>
-        <View style={styles.gridRow}>
-          <StatCard title="Under Maintenance" value={statistics.maintenanceRooms || 0} icon="construct-outline" color="#f97316" />
-          <StatCard title="Not Available" value={statistics.notAvailableRooms || 0} icon="close-circle-outline" color="#ef4444" />
-        </View>
-
-        {/* Payment Tracking */}
-        <PaymentStatusWidget summary={paymentSummary} />
-
-        {/* Pending Verification Approvals */}
-        <PendingPaymentsWidget payments={pendingPayments} onRefresh={loadLiveOverview} />
+        <View style={{ height: 24 }} />
 
         {/* Live Activity Feed */}
         <ActivityTimelineWidget activities={recentActivities} />
@@ -173,6 +184,34 @@ const styles = StyleSheet.create({
   profileBtn: {
     marginLeft: 16,
   },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  iconBtn: {
+    position: 'relative',
+    padding: 4,
+  },
+  badge: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    backgroundColor: COLORS.danger,
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+    borderWidth: 1.5,
+    borderColor: COLORS.background,
+  },
+  badgeText: {
+    color: '#fff',
+    fontSize: 9,
+    fontWeight: 'bold',
+  },
   profileIconWrapper: {
     width: 44,
     height: 44,
@@ -191,6 +230,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     gap: 12,
+    marginBottom: 12,
   },
   totalBanner: {
     flexDirection: 'row',

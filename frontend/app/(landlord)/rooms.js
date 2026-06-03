@@ -82,7 +82,7 @@ export default function RoomsScreen() {
 
   // New features integration
   const [filterActive, setFilterActive] = useState('All');
-  
+
   // Room Form Modal
   const [roomModalVisible, setRoomModalVisible] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -110,7 +110,7 @@ export default function RoomsScreen() {
 
       if (summary) {
         const { rooms: roomData, totals } = summary;
-        
+
         // Map rooms with their specific consumption data
         const mappedRooms = (roomData || []).map(r => ({
           ...r,
@@ -123,14 +123,14 @@ export default function RoomsScreen() {
             cost: (r.prevEnergy || 0) * currentRate
           }
         }));
-        
+
         setRooms(mappedRooms);
-        
+
         // Update consumption cache for reports/details
         const cData = {};
         mappedRooms.forEach(r => {
           if (r.status === 'occupied') {
-            cData[r.room_id] = { 
+            cData[r.room_id] = {
               current: { totalEnergy: r.consumption.energy, totalCost: r.consumption.cost },
               previous: { totalEnergy: r.prevConsumption.energy, totalCost: r.prevConsumption.cost },
               diff: r.consumption.energy - r.prevConsumption.energy
@@ -207,7 +207,7 @@ export default function RoomsScreen() {
     setSending(true);
     try {
       let codeToSend = selectedRoom.tenant_code;
-      
+
       if (!codeToSend) {
         const generateRes = await generateNewTenantCode(selectedRoom.room_id);
         if (generateRes && generateRes.success) {
@@ -221,11 +221,11 @@ export default function RoomsScreen() {
 
       const saveRes = await saveTenantInvitation(tenantEmail.trim(), selectedRoom.room_id, codeToSend);
       if (saveRes && !saveRes.success) {
-         Alert.alert('Error', saveRes.message || 'Failed to save invitation');
-         setSending(false);
-         return;
+        Alert.alert('Error', saveRes.message || 'Failed to save invitation');
+        setSending(false);
+        return;
       }
-      
+
       const result = await sendTenantAccessCode(tenantEmail.trim(), selectedRoom.room_id, codeToSend);
       setSendModalVisible(false);
       setTenantEmail('');
@@ -253,7 +253,7 @@ export default function RoomsScreen() {
     setGeneratingPdf(true);
     try {
       let startDate, endDate, reportTitle;
-      
+
       if (selectedPdfWeek) {
         startDate = new Date(selectedPdfWeek.start);
         endDate = new Date(selectedPdfWeek.end);
@@ -274,7 +274,7 @@ export default function RoomsScreen() {
         room: reportRoom,
         billingCycle: selectedPdfCycle,
       });
-      
+
       setReportModalVisible(false);
       await shareReport(result.uri);
     } catch (err) {
@@ -344,7 +344,7 @@ export default function RoomsScreen() {
   const handleCashPayment = async () => {
     if (!cashRoom || !selectedCashCycle) return;
     const amount = Number(selectedCashCycle.total_amount) || 0;
-    
+
     setProcessingCash(true);
     try {
       const res = await submitOfflinePayment(selectedCashCycle.id, cashRoom.room_id, amount);
@@ -380,13 +380,13 @@ export default function RoomsScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
       >
-        <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8}}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
           <View style={{ flexShrink: 1, paddingRight: 16 }}>
             <Text style={s.title}>Room Management</Text>
             <Text style={s.subtitle} numberOfLines={2}>Manage tenant access and room assignments</Text>
           </View>
-          <TouchableOpacity 
-            style={{backgroundColor: COLORS.primary, width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center'}}
+          <TouchableOpacity
+            style={{ backgroundColor: COLORS.primary, width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center' }}
             onPress={() => {
               setIsEditMode(false);
               setRoomFormData({ room_id: '', room_name: '', room_type: 'Standard', monthly_rent: '', utility_rate: '', description: '', max_occupancy: '1', status: 'vacant' });
@@ -412,7 +412,7 @@ export default function RoomsScreen() {
             <Text style={s.statNum}>{vacantCount}</Text>
             <Text style={s.statLabel}>Vacant</Text>
           </GlassCard>
-          
+
           {/* Row 2 */}
           <GlassCard style={[s.statCard, { borderColor: COLORS.warning }]}>
             <Text style={[s.statNum, { color: COLORS.warning }]}>{onProcessCount}</Text>
@@ -437,10 +437,10 @@ export default function RoomsScreen() {
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
           {['All', 'Vacant', 'Occupied', 'Under Maintenance', 'Archived'].map(f => (
-            <TouchableOpacity 
-              key={f} 
+            <TouchableOpacity
+              key={f}
               style={{
-                paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, 
+                paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20,
                 backgroundColor: filterActive === f ? COLORS.primary : 'rgba(255,255,255,0.05)',
                 marginRight: 8, borderWidth: 1, borderColor: filterActive === f ? COLORS.primary : 'rgba(255,255,255,0.1)'
               }}
@@ -455,253 +455,255 @@ export default function RoomsScreen() {
           {filteredRooms.map(room => (
             <View key={room.room_id} style={{ width: isLargeScreen ? '48%' : '100%' }}>
               <GlassCard style={[s.roomCard, room.status === 'occupied' && { borderColor: COLORS.primary }]}>
-              <View style={s.roomHeader}>
-                <View style={s.roomInfo}>
-                  <View style={[s.roomIcon, { 
-                    backgroundColor: room.status === 'occupied' ? 'rgba(34,197,94,0.15)' : 
-                                     room.status === 'on_process' ? 'rgba(245,158,11,0.15)' : 
-                                     room.status === 'not_available' ? 'rgba(239,68,68,0.15)' :
-                                     room.status === 'under_maintenance' ? 'rgba(245,158,11,0.15)' :
-                                     'rgba(100,116,139,0.15)' 
-                  }]}>
-                    <Ionicons 
-                      name={room.status === 'occupied' ? 'flash' : 
-                            room.status === 'on_process' ? 'time' : 
+                <View style={s.roomHeader}>
+                  <View style={s.roomInfo}>
+                    <View style={[s.roomIcon, {
+                      backgroundColor: room.status === 'occupied' ? 'rgba(34,197,94,0.15)' :
+                        room.status === 'on_process' ? 'rgba(245,158,11,0.15)' :
+                          room.status === 'not_available' ? 'rgba(239,68,68,0.15)' :
+                            room.status === 'under_maintenance' ? 'rgba(245,158,11,0.15)' :
+                              'rgba(100,116,139,0.15)'
+                    }]}>
+                      <Ionicons
+                        name={room.status === 'occupied' ? 'flash' :
+                          room.status === 'on_process' ? 'time' :
                             room.status === 'not_available' ? 'ban' :
-                            room.status === 'under_maintenance' ? 'construct' :
-                            'flash-outline'} 
-                      size={22} 
-                      color={room.status === 'occupied' ? COLORS.primary : 
-                             room.status === 'on_process' || room.status === 'under_maintenance' ? COLORS.warning : 
-                             room.status === 'not_available' ? COLORS.danger :
-                             COLORS.textMuted} 
-                    />
+                              room.status === 'under_maintenance' ? 'construct' :
+                                'flash-outline'}
+                        size={22}
+                        color={room.status === 'occupied' ? COLORS.primary :
+                          room.status === 'on_process' || room.status === 'under_maintenance' ? COLORS.warning :
+                            room.status === 'not_available' ? COLORS.danger :
+                              COLORS.textMuted}
+                      />
+                    </View>
+                    <View>
+                      <Text style={s.roomId}>{room.room_id} {room.room_name ? `- ${room.room_name}` : ''}</Text>
+                      <Text style={s.tenantName}>{room.tenant_name || 'No tenant assigned'}</Text>
+                    </View>
                   </View>
-                  <View>
-                    <Text style={s.roomId}>{room.room_id} {room.room_name ? `- ${room.room_name}` : ''}</Text>
-                    <Text style={s.tenantName}>{room.tenant_name || 'No tenant assigned'}</Text>
-                  </View>
+                  <StatusBadge status={room.status} size="sm" style={{ width: 95 }} />
                 </View>
-                <StatusBadge status={room.status} size="sm" style={{ width: 95 }} />
-              </View>
 
-              {room.status === 'occupied' && room.tenant_start_date && (
-                <View style={s.moveInRow}>
-                  <Ionicons name="calendar-outline" size={14} color={COLORS.textMuted} />
-                  <Text style={s.moveInText}>Move-in: {room.tenant_start_date}{room.move_out_date ? `  •  Move-out: ${room.move_out_date}` : ''}</Text>
-                </View>
-              )}
-
-              {room.status === 'occupied' && consumptionData[room.room_id] && (
-                <>
-                  <View style={s.consumptionRow}>
-                    <View style={[s.consumptionItem, { alignItems: 'flex-start' }]}>
-                      <Text style={s.consumptionLabel}>Consumption</Text>
-                      <Text style={s.consumptionValue} adjustsFontSizeToFit numberOfLines={1}>{Number(consumptionData[room.room_id].current.totalEnergy || 0).toFixed(2)} kWh</Text>
-                    </View>
-                    <View style={[s.consumptionItem, { alignItems: 'center' }]}>
-                      <Text style={s.consumptionLabel}>Cost</Text>
-                      <Text style={[s.consumptionValue, { color: COLORS.warning }]} adjustsFontSizeToFit numberOfLines={1}>₱{(Number(consumptionData[room.room_id].current.totalEnergy || 0) * rate).toFixed(2)}</Text>
-                    </View>
-                    <View style={[s.consumptionItem, { alignItems: 'flex-end' }]}>
-                      <Text style={s.consumptionLabel}>vs Last Mo.</Text>
-                      <Text style={[s.consumptionValue, { color: consumptionData[room.room_id].diff > 0 ? COLORS.danger : COLORS.primary }]} adjustsFontSizeToFit numberOfLines={1}>
-                        {consumptionData[room.room_id].diff > 0 ? '+' : ''}{Number(consumptionData[room.room_id].diff || 0).toFixed(2)}
-                      </Text>
-                    </View>
+                {room.status === 'occupied' && room.tenant_start_date && (
+                  <View style={s.moveInRow}>
+                    <Ionicons name="calendar-outline" size={14} color={COLORS.textMuted} />
+                    <Text style={s.moveInText}>Move-in: {room.tenant_start_date}{room.move_out_date ? `  •  Move-out: ${room.move_out_date}` : ''}</Text>
                   </View>
+                )}
 
-                  <View style={s.cardActions}>
-                    <TouchableOpacity
-                      style={s.actionBtn}
-                      activeOpacity={0.7}
-                      onPress={(e) => { e.stopPropagation && e.stopPropagation(); setReportRoom(room); setReportModalVisible(true);
-                        getAvailableBillingCycles(room.room_id).then(res => {
-                          if (res && res.length > 0) {
-                            setAvailableCycles(res);
-                            setSelectedPdfCycle(res[0]);
-                          } else {
-                            setAvailableCycles([]);
-                            setSelectedPdfCycle(null);
+                {room.status === 'occupied' && consumptionData[room.room_id] && (
+                  <>
+                    <View style={s.consumptionRow}>
+                      <View style={[s.consumptionItem, { alignItems: 'flex-start' }]}>
+                        <Text style={s.consumptionLabel}>Consumption</Text>
+                        <Text style={s.consumptionValue} adjustsFontSizeToFit numberOfLines={1}>{Number(consumptionData[room.room_id].current.totalEnergy || 0).toFixed(2)} kWh</Text>
+                      </View>
+                      <View style={[s.consumptionItem, { alignItems: 'center' }]}>
+                        <Text style={s.consumptionLabel}>Cost</Text>
+                        <Text style={[s.consumptionValue, { color: COLORS.warning }]} adjustsFontSizeToFit numberOfLines={1}>₱{(Number(consumptionData[room.room_id].current.totalEnergy || 0) * rate).toFixed(2)}</Text>
+                      </View>
+                      <View style={[s.consumptionItem, { alignItems: 'flex-end' }]}>
+                        <Text style={s.consumptionLabel}>vs Last Mo.</Text>
+                        <Text style={[s.consumptionValue, { color: consumptionData[room.room_id].diff > 0 ? COLORS.danger : COLORS.primary }]} adjustsFontSizeToFit numberOfLines={1}>
+                          {consumptionData[room.room_id].diff > 0 ? '+' : ''}{Number(consumptionData[room.room_id].diff || 0).toFixed(2)}
+                        </Text>
+                      </View>
+                    </View>
+
+                    <View style={s.cardActions}>
+                      <TouchableOpacity
+                        style={s.actionBtn}
+                        activeOpacity={0.7}
+                        onPress={(e) => {
+                          e.stopPropagation && e.stopPropagation(); setReportRoom(room); setReportModalVisible(true);
+                          getAvailableBillingCycles(room.room_id).then(res => {
+                            if (res && res.length > 0) {
+                              setAvailableCycles(res);
+                              setSelectedPdfCycle(res[0]);
+                            } else {
+                              setAvailableCycles([]);
+                              setSelectedPdfCycle(null);
+                            }
+                            setSelectedPdfWeek(null);
+                          }).catch(err => {
+                            console.error("Failed to fetch billing cycles", err);
+                          });
+                        }}
+                      >
+                        <Ionicons name="document-text-outline" size={16} color={COLORS.info} />
+                        <Text style={[s.actionBtnText, { color: COLORS.info }]}>Report</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={s.actionBtn}
+                        activeOpacity={0.7}
+                        onPress={(e) => { e.stopPropagation && e.stopPropagation(); setHistoryRoomId(room.room_id); setHistoryModalVisible(true); }}
+                      >
+                        <Ionicons name="time-outline" size={16} color={COLORS.primary} />
+                        <Text style={[s.actionBtnText, { color: COLORS.primary }]}>History</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={s.actionBtn}
+                        activeOpacity={0.7}
+                        onPress={(e) => {
+                          e.stopPropagation && e.stopPropagation();
+                          setCashRoom(room);
+                          setCashModalVisible(true);
+                          getAvailableBillingCycles(room.room_id).then(res => {
+                            const unpaid = (res || []).filter(c => c.payment_status === 'unpaid' || c.payment_status === 'overdue');
+                            setCashCycles(unpaid);
+                            if (unpaid.length > 0) setSelectedCashCycle(unpaid[0]);
+                            else setSelectedCashCycle(null);
+                          }).catch(err => console.error("Failed to fetch billing cycles for cash", err));
+                        }}
+                      >
+                        <Ionicons name="cash-outline" size={16} color={COLORS.success} />
+                        <Text style={[s.actionBtnText, { color: COLORS.success }]}>Cash</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={s.actionBtn}
+                        activeOpacity={0.7}
+                        onPress={async (e) => {
+                          e.stopPropagation && e.stopPropagation();
+                          try {
+                            const vacant = await getVacantRooms();
+                            if (vacant.length === 0) {
+                              Alert.alert('No Vacant Rooms', 'There are no vacant rooms available for transfer.');
+                              return;
+                            }
+                            setTransferFromRoom(room);
+                            setVacantRoomsList(vacant);
+                            setTransferModalVisible(true);
+                          } catch (err) {
+                            Alert.alert('Error', err.message || 'Failed to fetch vacant rooms');
                           }
-                          setSelectedPdfWeek(null);
-                        }).catch(err => {
-                          console.error("Failed to fetch billing cycles", err);
-                        }); }}
-                    >
-                      <Ionicons name="document-text-outline" size={16} color={COLORS.info} />
-                      <Text style={[s.actionBtnText, { color: COLORS.info }]}>Report</Text>
-                    </TouchableOpacity>
+                        }}
+                      >
+                        <Ionicons name="swap-horizontal" size={16} color={COLORS.warning} />
+                        <Text style={[s.actionBtnText, { color: COLORS.warning }]}>Transfer</Text>
+                      </TouchableOpacity>
 
-                    <TouchableOpacity
-                      style={s.actionBtn}
-                      activeOpacity={0.7}
-                      onPress={(e) => { e.stopPropagation && e.stopPropagation(); setHistoryRoomId(room.room_id); setHistoryModalVisible(true); }}
-                    >
-                      <Ionicons name="time-outline" size={16} color={COLORS.primary} />
-                      <Text style={[s.actionBtnText, { color: COLORS.primary }]}>History</Text>
-                    </TouchableOpacity>
+                      <TouchableOpacity
+                        style={s.actionBtn}
+                        activeOpacity={0.7}
+                        onPress={(e) => {
+                          e.stopPropagation && e.stopPropagation();
+                          setRevokeRoom(room);
+                          setRevokeModalVisible(true);
+                        }}
+                      >
+                        <Ionicons name="log-out-outline" size={16} color={COLORS.danger} />
+                        <Text style={[s.actionBtnText, { color: COLORS.danger }]}>Remove</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={s.actionBtn}
+                        activeOpacity={0.7}
+                        onPress={(e) => {
+                          e.stopPropagation && e.stopPropagation();
+                          setIsEditMode(true);
+                          setRoomFormData({ ...room, monthly_rent: room.monthly_rent?.toString() || '', utility_rate: room.utility_rate?.toString() || '', max_occupancy: room.max_occupancy?.toString() || '1' });
+                          setRoomFormErrors({});
+                          setRoomModalVisible(true);
+                        }}
+                      >
+                        <Ionicons name="create-outline" size={16} color={COLORS.textPrimary} />
+                        <Text style={[s.actionBtnText, { color: COLORS.textPrimary }]}>Edit</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </>
+                )}
 
-                    <TouchableOpacity
-                      style={s.actionBtn}
-                      activeOpacity={0.7}
-                      onPress={(e) => {
-                        e.stopPropagation && e.stopPropagation();
-                        setCashRoom(room);
-                        setCashModalVisible(true);
-                        getAvailableBillingCycles(room.room_id).then(res => {
-                          const unpaid = (res || []).filter(c => c.payment_status === 'unpaid' || c.payment_status === 'overdue');
-                          setCashCycles(unpaid);
-                          if (unpaid.length > 0) setSelectedCashCycle(unpaid[0]);
-                          else setSelectedCashCycle(null);
-                        }).catch(err => console.error("Failed to fetch billing cycles for cash", err));
-                      }}
-                    >
-                      <Ionicons name="cash-outline" size={16} color={COLORS.success} />
-                      <Text style={[s.actionBtnText, { color: COLORS.success }]}>Cash</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={s.actionBtn}
-                      activeOpacity={0.7}
-                      onPress={async (e) => {
-                        e.stopPropagation && e.stopPropagation();
-                        try {
-                          const vacant = await getVacantRooms();
-                          if (vacant.length === 0) {
-                            Alert.alert('No Vacant Rooms', 'There are no vacant rooms available for transfer.');
-                            return;
-                          }
-                          setTransferFromRoom(room);
-                          setVacantRoomsList(vacant);
-                          setTransferModalVisible(true);
-                        } catch (err) {
-                          Alert.alert('Error', err.message || 'Failed to fetch vacant rooms');
-                        }
-                      }}
-                    >
-                      <Ionicons name="swap-horizontal" size={16} color={COLORS.warning} />
-                      <Text style={[s.actionBtnText, { color: COLORS.warning }]}>Transfer</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={s.actionBtn}
-                      activeOpacity={0.7}
-                      onPress={(e) => {
-                        e.stopPropagation && e.stopPropagation();
-                        setRevokeRoom(room);
-                        setRevokeModalVisible(true);
-                      }}
-                    >
-                      <Ionicons name="log-out-outline" size={16} color={COLORS.danger} />
-                      <Text style={[s.actionBtnText, { color: COLORS.danger }]}>Remove</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={s.actionBtn}
-                      activeOpacity={0.7}
-                      onPress={(e) => {
-                        e.stopPropagation && e.stopPropagation();
-                        setIsEditMode(true);
-                        setRoomFormData({ ...room, monthly_rent: room.monthly_rent?.toString()||'', utility_rate: room.utility_rate?.toString()||'', max_occupancy: room.max_occupancy?.toString()||'1' });
-                        setRoomFormErrors({});
-                        setRoomModalVisible(true);
-                      }}
-                    >
-                      <Ionicons name="create-outline" size={16} color={COLORS.textPrimary} />
-                      <Text style={[s.actionBtnText, { color: COLORS.textPrimary }]}>Edit</Text>
-                    </TouchableOpacity>
-                  </View>
-                </>
-              )}
-
-              {room.status !== 'occupied' && (
-                <>
-                  <View style={s.codeFooter}>
-                    <Text style={s.codeLabel}>Access Code:</Text>
-                    <Text style={s.codeValue}>{room.tenant_code || '—'}</Text>
-                  </View>
-                  <View style={s.cardActions}>
-                    {(room.status === 'vacant' || room.status === 'on_process') && (
+                {room.status !== 'occupied' && (
+                  <>
+                    <View style={s.codeFooter}>
+                      <Text style={s.codeLabel}>Access Code:</Text>
+                      <Text style={s.codeValue}>{room.tenant_code || '—'}</Text>
+                    </View>
+                    <View style={s.cardActions}>
+                      {(room.status === 'vacant' || room.status === 'on_process') && (
+                        <TouchableOpacity
+                          style={s.actionBtn}
+                          activeOpacity={0.7}
+                          onPress={() => {
+                            setSelectedRoom(room);
+                            setTenantEmail('');
+                            setEmailError('');
+                            setStartDate(new Date().toISOString().split('T')[0]);
+                            setSendModalVisible(true);
+                          }}
+                        >
+                          <Ionicons name="mail-outline" size={16} color={COLORS.primary} />
+                          <Text style={[s.actionBtnText, { color: COLORS.primary }]}>Send Code</Text>
+                        </TouchableOpacity>
+                      )}
+                      {room.status === 'on_process' && (
+                        <TouchableOpacity
+                          style={s.actionBtn}
+                          activeOpacity={0.7}
+                          onPress={async () => {
+                            try {
+                              await updateRoomStatus(room.room_id, 'vacant', null, null);
+                              setGeneralSuccessData({
+                                title: 'Room Reset',
+                                message: `${room.room_id} is now officially vacant.`,
+                                icon: 'home-outline'
+                              });
+                              setGeneralSuccessVisible(true);
+                              loadRooms();
+                            } catch (err) {
+                              Alert.alert('Error', err.message || 'Failed to update room status');
+                            }
+                          }}
+                        >
+                          <Ionicons name="refresh-outline" size={16} color={COLORS.warning} />
+                          <Text style={[s.actionBtnText, { color: COLORS.warning }]}>Reset</Text>
+                        </TouchableOpacity>
+                      )}
                       <TouchableOpacity
                         style={s.actionBtn}
                         activeOpacity={0.7}
                         onPress={() => {
-                          setSelectedRoom(room);
-                          setTenantEmail('');
-                          setEmailError('');
-                          setStartDate(new Date().toISOString().split('T')[0]);
-                          setSendModalVisible(true);
+                          setRegenRoom(room);
+                          setRegenConfirmVisible(true);
                         }}
                       >
-                        <Ionicons name="mail-outline" size={16} color={COLORS.primary} />
-                        <Text style={[s.actionBtnText, { color: COLORS.primary }]}>Send Code</Text>
+                        <Ionicons name="key-outline" size={16} color={COLORS.info} />
+                        <Text style={[s.actionBtnText, { color: COLORS.info }]}>Regenerate</Text>
                       </TouchableOpacity>
-                    )}
-                    {room.status === 'on_process' && (
                       <TouchableOpacity
                         style={s.actionBtn}
                         activeOpacity={0.7}
-                        onPress={async () => {
-                          try {
-                            await updateRoomStatus(room.room_id, 'vacant', null, null);
-                            setGeneralSuccessData({
-                              title: 'Room Reset',
-                              message: `${room.room_id} is now officially vacant.`,
-                              icon: 'home-outline'
-                            });
-                            setGeneralSuccessVisible(true);
-                            loadRooms();
-                          } catch (err) {
-                            Alert.alert('Error', err.message || 'Failed to update room status');
-                          }
+                        onPress={() => {
+                          setIsEditMode(true);
+                          setRoomFormData({ ...room, monthly_rent: room.monthly_rent?.toString() || '', utility_rate: room.utility_rate?.toString() || '', max_occupancy: room.max_occupancy?.toString() || '1' });
+                          setRoomFormErrors({});
+                          setRoomModalVisible(true);
                         }}
                       >
-                        <Ionicons name="refresh-outline" size={16} color={COLORS.warning} />
-                        <Text style={[s.actionBtnText, { color: COLORS.warning }]}>Reset</Text>
+                        <Ionicons name="create-outline" size={16} color={COLORS.textPrimary} />
+                        <Text style={[s.actionBtnText, { color: COLORS.textPrimary }]}>Edit</Text>
                       </TouchableOpacity>
-                    )}
-                    <TouchableOpacity
-                      style={s.actionBtn}
-                      activeOpacity={0.7}
-                      onPress={() => {
-                        setRegenRoom(room);
-                        setRegenConfirmVisible(true);
-                      }}
-                    >
-                      <Ionicons name="key-outline" size={16} color={COLORS.info} />
-                      <Text style={[s.actionBtnText, { color: COLORS.info }]}>Regenerate</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={s.actionBtn}
-                      activeOpacity={0.7}
-                      onPress={() => {
-                        setIsEditMode(true);
-                        setRoomFormData({ ...room, monthly_rent: room.monthly_rent?.toString()||'', utility_rate: room.utility_rate?.toString()||'', max_occupancy: room.max_occupancy?.toString()||'1' });
-                        setRoomFormErrors({});
-                        setRoomModalVisible(true);
-                      }}
-                    >
-                      <Ionicons name="create-outline" size={16} color={COLORS.textPrimary} />
-                      <Text style={[s.actionBtnText, { color: COLORS.textPrimary }]}>Edit</Text>
-                    </TouchableOpacity>
 
-                    {room.status === 'archived' ? (
-                      <TouchableOpacity style={s.actionBtn} activeOpacity={0.7} onPress={() => openRestoreModal(room)}>
-                        <Ionicons name="refresh-outline" size={16} color={COLORS.success} />
-                        <Text style={[s.actionBtnText, { color: COLORS.success }]}>Restore</Text>
-                      </TouchableOpacity>
-                    ) : (
-                      <TouchableOpacity style={s.actionBtn} activeOpacity={0.7} onPress={() => openArchiveModal(room)}>
-                        <Ionicons name="archive-outline" size={16} color={COLORS.danger} />
-                        <Text style={[s.actionBtnText, { color: COLORS.danger }]}>Archive</Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                </>
-              )}
-            </GlassCard>
-          </View>
-        ))}
+                      {room.status === 'archived' ? (
+                        <TouchableOpacity style={s.actionBtn} activeOpacity={0.7} onPress={() => openRestoreModal(room)}>
+                          <Ionicons name="refresh-outline" size={16} color={COLORS.success} />
+                          <Text style={[s.actionBtnText, { color: COLORS.success }]}>Restore</Text>
+                        </TouchableOpacity>
+                      ) : (
+                        <TouchableOpacity style={s.actionBtn} activeOpacity={0.7} onPress={() => openArchiveModal(room)}>
+                          <Ionicons name="archive-outline" size={16} color={COLORS.danger} />
+                          <Text style={[s.actionBtnText, { color: COLORS.danger }]}>Archive</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  </>
+                )}
+              </GlassCard>
+            </View>
+          ))}
         </View>
       </ScrollView>
 
@@ -732,7 +734,7 @@ export default function RoomsScreen() {
                 <Ionicons name="time-outline" size={14} color={COLORS.warning} />
                 <Text style={s.timerNoteText}>Access code will expire 5 minutes after sending</Text>
               </View>
-              
+
               <View style={[s.timerNote, { backgroundColor: 'rgba(239, 68, 68, 0.1)', borderColor: 'rgba(239, 68, 68, 0.2)', marginTop: 8 }]}>
                 <Ionicons name="shield-checkmark-outline" size={14} color={COLORS.danger} />
                 <Text style={[s.timerNoteText, { color: COLORS.danger }]}>For security reasons, access codes are only visible in email and are not shown inside the app.</Text>
@@ -770,80 +772,80 @@ export default function RoomsScreen() {
 
             {reportRoom && consumptionData[reportRoom.room_id] && (
               <View style={{ width: '100%', marginTop: 12, marginBottom: 20 }}>
-              <Text style={{ color: COLORS.textMuted, fontSize: 13, marginBottom: 8, textAlign: 'left' }}>Select Billing Cycle</Text>
-              <TouchableOpacity style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', padding: 14, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }} onPress={() => setShowPdfCycleDrop(!showPdfCycleDrop)}>
-                <Text style={{ color: COLORS.textPrimary }}>
-                  {selectedPdfCycle ? `${new Date(selectedPdfCycle.cycle_start).toLocaleDateString('default', { month: 'short', day: 'numeric', year: 'numeric' })} – ${new Date(selectedPdfCycle.cycle_end).toLocaleDateString('default', { month: 'short', day: 'numeric', year: 'numeric' })}` : (availableCycles.length === 0 ? 'No data' : 'Loading...')}
-                </Text>
-                <Ionicons name={showPdfCycleDrop ? 'chevron-up' : 'chevron-down'} size={18} color={COLORS.primary} />
-              </TouchableOpacity>
+                <Text style={{ color: COLORS.textMuted, fontSize: 13, marginBottom: 8, textAlign: 'left' }}>Select Billing Cycle</Text>
+                <TouchableOpacity style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', padding: 14, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }} onPress={() => setShowPdfCycleDrop(!showPdfCycleDrop)}>
+                  <Text style={{ color: COLORS.textPrimary }}>
+                    {selectedPdfCycle ? `${new Date(selectedPdfCycle.cycle_start).toLocaleDateString('default', { month: 'short', day: 'numeric', year: 'numeric' })} – ${new Date(selectedPdfCycle.cycle_end).toLocaleDateString('default', { month: 'short', day: 'numeric', year: 'numeric' })}` : (availableCycles.length === 0 ? 'No data' : 'Loading...')}
+                  </Text>
+                  <Ionicons name={showPdfCycleDrop ? 'chevron-up' : 'chevron-down'} size={18} color={COLORS.primary} />
+                </TouchableOpacity>
 
-              {showPdfCycleDrop && availableCycles.length > 0 && (
-                <View style={{ backgroundColor: 'rgba(30,41,59,0.95)', borderRadius: 8, marginTop: 4, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', maxHeight: 150, overflow: 'hidden' }}>
-                  <ScrollView nestedScrollEnabled>
-                    {availableCycles.map((c, i) => (
-                      <TouchableOpacity key={i} style={{ padding: 14, borderBottomWidth: i !== availableCycles.length - 1 ? 1 : 0, borderBottomColor: 'rgba(255,255,255,0.05)' }} 
-                        onPress={() => {
-                          setSelectedPdfCycle(c);
-                          setSelectedPdfWeek(null);
-                          setShowPdfCycleDrop(false);
-                        }}>
-                        <Text style={{ color: selectedPdfCycle?.id === c.id ? COLORS.primary : COLORS.textPrimary, fontWeight: selectedPdfCycle?.id === c.id ? 'bold' : 'normal' }}>
-                          {new Date(c.cycle_start).toLocaleDateString('default', { month: 'short', day: 'numeric' })} – {new Date(c.cycle_end).toLocaleDateString('default', { month: 'short', day: 'numeric', year: 'numeric' })}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-                </View>
-              )}
-
-              {selectedPdfCycle && (
-                <>
-                  <Text style={{ color: COLORS.textMuted, fontSize: 13, marginTop: 16, marginBottom: 8, textAlign: 'left' }}>Select Week (Optional)</Text>
-                  <TouchableOpacity style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', padding: 14, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }} onPress={() => setShowPdfWeekDrop(!showPdfWeekDrop)}>
-                    <Text style={{ color: COLORS.textPrimary }}>
-                      {selectedPdfWeek ? `${selectedPdfWeek.label} (${new Date(selectedPdfWeek.start).toLocaleDateString('default', { month: 'short', day: 'numeric' })} – ${new Date(selectedPdfWeek.end).toLocaleDateString('default', { month: 'short', day: 'numeric' })})` : 'Entire Billing Cycle'}
-                    </Text>
-                    <Ionicons name={showPdfWeekDrop ? 'chevron-up' : 'chevron-down'} size={18} color={COLORS.primary} />
-                  </TouchableOpacity>
-
-                  {showPdfWeekDrop && (() => {
-                    const weeks = [];
-                    let curr = new Date(selectedPdfCycle.cycle_start);
-                    const end = new Date(selectedPdfCycle.cycle_end);
-                    let w = 1;
-                    while (curr < end) {
-                      let wEnd = new Date(curr);
-                      wEnd.setDate(wEnd.getDate() + 6);
-                      if (wEnd > end) wEnd = new Date(end);
-                      weeks.push({ label: `Week ${w}`, start: new Date(curr), end: wEnd });
-                      curr.setDate(curr.getDate() + 7);
-                      w++;
-                    }
-
-                    return (
-                      <View style={{ backgroundColor: 'rgba(30,41,59,0.95)', borderRadius: 8, marginTop: 4, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }}>
-                        <TouchableOpacity style={{ padding: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }} 
-                          onPress={() => { setSelectedPdfWeek(null); setShowPdfWeekDrop(false); }}>
-                          <Text style={{ color: !selectedPdfWeek ? COLORS.primary : COLORS.textPrimary, fontWeight: !selectedPdfWeek ? 'bold' : 'normal' }}>Entire Billing Cycle</Text>
+                {showPdfCycleDrop && availableCycles.length > 0 && (
+                  <View style={{ backgroundColor: 'rgba(30,41,59,0.95)', borderRadius: 8, marginTop: 4, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', maxHeight: 150, overflow: 'hidden' }}>
+                    <ScrollView nestedScrollEnabled>
+                      {availableCycles.map((c, i) => (
+                        <TouchableOpacity key={i} style={{ padding: 14, borderBottomWidth: i !== availableCycles.length - 1 ? 1 : 0, borderBottomColor: 'rgba(255,255,255,0.05)' }}
+                          onPress={() => {
+                            setSelectedPdfCycle(c);
+                            setSelectedPdfWeek(null);
+                            setShowPdfCycleDrop(false);
+                          }}>
+                          <Text style={{ color: selectedPdfCycle?.id === c.id ? COLORS.primary : COLORS.textPrimary, fontWeight: selectedPdfCycle?.id === c.id ? 'bold' : 'normal' }}>
+                            {new Date(c.cycle_start).toLocaleDateString('default', { month: 'short', day: 'numeric' })} – {new Date(c.cycle_end).toLocaleDateString('default', { month: 'short', day: 'numeric', year: 'numeric' })}
+                          </Text>
                         </TouchableOpacity>
-                        {weeks.map((week, i) => (
-                          <TouchableOpacity key={i} style={{ padding: 14, borderBottomWidth: i !== weeks.length - 1 ? 1 : 0, borderBottomColor: 'rgba(255,255,255,0.05)' }} 
-                            onPress={() => {
-                              setSelectedPdfWeek(week);
-                              setShowPdfWeekDrop(false);
-                            }}>
-                            <Text style={{ color: selectedPdfWeek?.label === week.label ? COLORS.primary : COLORS.textPrimary, fontWeight: selectedPdfWeek?.label === week.label ? 'bold' : 'normal' }}>
-                              {week.label} ({week.start.toLocaleDateString('default', { month: 'short', day: 'numeric' })} – {week.end.toLocaleDateString('default', { month: 'short', day: 'numeric' })})
-                            </Text>
+                      ))}
+                    </ScrollView>
+                  </View>
+                )}
+
+                {selectedPdfCycle && (
+                  <>
+                    <Text style={{ color: COLORS.textMuted, fontSize: 13, marginTop: 16, marginBottom: 8, textAlign: 'left' }}>Select Week (Optional)</Text>
+                    <TouchableOpacity style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', padding: 14, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }} onPress={() => setShowPdfWeekDrop(!showPdfWeekDrop)}>
+                      <Text style={{ color: COLORS.textPrimary }}>
+                        {selectedPdfWeek ? `${selectedPdfWeek.label} (${new Date(selectedPdfWeek.start).toLocaleDateString('default', { month: 'short', day: 'numeric' })} – ${new Date(selectedPdfWeek.end).toLocaleDateString('default', { month: 'short', day: 'numeric' })})` : 'Entire Billing Cycle'}
+                      </Text>
+                      <Ionicons name={showPdfWeekDrop ? 'chevron-up' : 'chevron-down'} size={18} color={COLORS.primary} />
+                    </TouchableOpacity>
+
+                    {showPdfWeekDrop && (() => {
+                      const weeks = [];
+                      let curr = new Date(selectedPdfCycle.cycle_start);
+                      const end = new Date(selectedPdfCycle.cycle_end);
+                      let w = 1;
+                      while (curr < end) {
+                        let wEnd = new Date(curr);
+                        wEnd.setDate(wEnd.getDate() + 6);
+                        if (wEnd > end) wEnd = new Date(end);
+                        weeks.push({ label: `Week ${w}`, start: new Date(curr), end: wEnd });
+                        curr.setDate(curr.getDate() + 7);
+                        w++;
+                      }
+
+                      return (
+                        <View style={{ backgroundColor: 'rgba(30,41,59,0.95)', borderRadius: 8, marginTop: 4, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }}>
+                          <TouchableOpacity style={{ padding: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }}
+                            onPress={() => { setSelectedPdfWeek(null); setShowPdfWeekDrop(false); }}>
+                            <Text style={{ color: !selectedPdfWeek ? COLORS.primary : COLORS.textPrimary, fontWeight: !selectedPdfWeek ? 'bold' : 'normal' }}>Entire Billing Cycle</Text>
                           </TouchableOpacity>
-                        ))}
-                      </View>
-                    );
-                  })()}
-                </>
-              )}
-            </View>
+                          {weeks.map((week, i) => (
+                            <TouchableOpacity key={i} style={{ padding: 14, borderBottomWidth: i !== weeks.length - 1 ? 1 : 0, borderBottomColor: 'rgba(255,255,255,0.05)' }}
+                              onPress={() => {
+                                setSelectedPdfWeek(week);
+                                setShowPdfWeekDrop(false);
+                              }}>
+                              <Text style={{ color: selectedPdfWeek?.label === week.label ? COLORS.primary : COLORS.textPrimary, fontWeight: selectedPdfWeek?.label === week.label ? 'bold' : 'normal' }}>
+                                {week.label} ({week.start.toLocaleDateString('default', { month: 'short', day: 'numeric' })} – {week.end.toLocaleDateString('default', { month: 'short', day: 'numeric' })})
+                              </Text>
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                      );
+                    })()}
+                  </>
+                )}
+              </View>
             )}
 
             <View style={s.modalActions}>
@@ -909,7 +911,7 @@ export default function RoomsScreen() {
             <TouchableOpacity style={s.closeModalBtn} onPress={() => setRevokeModalVisible(false)}>
               <Ionicons name="close" size={24} color={COLORS.textSecondary} />
             </TouchableOpacity>
-            
+
             <View style={[s.modalIcon, { backgroundColor: 'rgba(239,68,68,0.12)' }]}>
               <Ionicons name="trash-outline" size={28} color={COLORS.danger} />
             </View>
@@ -980,8 +982,8 @@ export default function RoomsScreen() {
       <Modal visible={regenConfirmVisible} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setRegenConfirmVisible(false)}>
         <View style={s.overlay}>
           <View style={s.successModal}>
-            <ScrollView 
-              style={s.successScroll} 
+            <ScrollView
+              style={s.successScroll}
               contentContainerStyle={s.successScrollContent}
               showsVerticalScrollIndicator={false}
             >
@@ -1029,8 +1031,8 @@ export default function RoomsScreen() {
       <Modal visible={regenSuccessVisible} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setRegenSuccessVisible(false)}>
         <View style={s.overlay}>
           <View style={s.successModal}>
-            <ScrollView 
-              style={s.successScroll} 
+            <ScrollView
+              style={s.successScroll}
               contentContainerStyle={s.successScrollContent}
               showsVerticalScrollIndicator={false}
             >
@@ -1080,8 +1082,8 @@ export default function RoomsScreen() {
       <Modal visible={codeSuccessVisible} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setCodeSuccessVisible(false)}>
         <View style={s.overlay}>
           <View style={s.successModal}>
-            <ScrollView 
-              style={s.successScroll} 
+            <ScrollView
+              style={s.successScroll}
               contentContainerStyle={s.successScrollContent}
               showsVerticalScrollIndicator={false}
             >
@@ -1096,14 +1098,14 @@ export default function RoomsScreen() {
               </View>
 
               <View style={[s.codeContainer, { paddingVertical: 20 }]}>
-                 <Ionicons name="business" size={24} color={COLORS.primary} style={{marginBottom: 8}}/>
-                 <Text style={[s.modalDesc, { color: COLORS.textPrimary, fontWeight: 'bold', marginBottom: 0 }]}>{successCodeData.room}</Text>
+                <Ionicons name="business" size={24} color={COLORS.primary} style={{ marginBottom: 8 }} />
+                <Text style={[s.modalDesc, { color: COLORS.textPrimary, fontWeight: 'bold', marginBottom: 0 }]}>{successCodeData.room}</Text>
               </View>
 
               <View style={s.successDetails}>
                 <View style={s.detailRow}>
                   <Ionicons name="time-outline" size={18} color={COLORS.warning} />
-                  <Text style={s.detailText}>Code expires in <Text style={{fontWeight:'700', color: COLORS.textPrimary}}>5 minutes</Text>.</Text>
+                  <Text style={s.detailText}>Code expires in <Text style={{ fontWeight: '700', color: COLORS.textPrimary }}>5 minutes</Text>.</Text>
                 </View>
                 <View style={s.detailRow}>
                   <Ionicons name="shield-checkmark-outline" size={18} color={COLORS.danger} />
@@ -1151,10 +1153,10 @@ export default function RoomsScreen() {
         </View>
       </Modal>
       {/* Room History Modal */}
-      <RoomHistoryModal 
-        visible={historyModalVisible} 
-        onClose={() => { setHistoryModalVisible(false); setHistoryRoomId(null); }} 
-        roomId={historyRoomId} 
+      <RoomHistoryModal
+        visible={historyModalVisible}
+        onClose={() => { setHistoryModalVisible(false); setHistoryRoomId(null); }}
+        roomId={historyRoomId}
       />
 
       {/* ── Room Add/Edit Modal ── */}
@@ -1171,27 +1173,27 @@ export default function RoomsScreen() {
               </TouchableOpacity>
             </View>
             <ScrollView style={{ padding: 20, maxHeight: 400 }} contentContainerStyle={{ paddingBottom: 20 }}>
-              
-              <Text style={{ fontSize: 12, fontWeight: '700', color: COLORS.textSecondary, textTransform: 'uppercase', marginBottom: 8, letterSpacing: 1 }}>Room Number <Text style={{color: COLORS.danger}}>*</Text></Text>
+
+              <Text style={{ fontSize: 12, fontWeight: '700', color: COLORS.textSecondary, textTransform: 'uppercase', marginBottom: 8, letterSpacing: 1 }}>Room Number <Text style={{ color: COLORS.danger }}>*</Text></Text>
               <View style={[s.emailWrap, roomFormErrors.room_id && s.emailWrapErr, { marginBottom: 4 }]}>
                 <Ionicons name="home-outline" size={18} color={COLORS.textMuted} />
-                <TextInput 
-                  style={[s.emailInput, { marginLeft: 8 }]} 
-                  placeholder="e.g. 101" 
+                <TextInput
+                  style={[s.emailInput, { marginLeft: 8 }]}
+                  placeholder="e.g. 101"
                   placeholderTextColor={COLORS.textMuted}
-                  value={roomFormData.room_id} 
-                  onChangeText={t => setRoomFormData({...roomFormData, room_id: t})} 
-                  editable={!isEditMode} 
+                  value={roomFormData.room_id}
+                  onChangeText={t => setRoomFormData({ ...roomFormData, room_id: t })}
+                  editable={!isEditMode}
                 />
               </View>
               <Text style={{ fontSize: 11, color: COLORS.textMuted, marginBottom: 20 }}>Enter a unique room number.</Text>
-              
+
               <Text style={{ fontSize: 12, fontWeight: '700', color: COLORS.textSecondary, textTransform: 'uppercase', marginBottom: 8, letterSpacing: 1 }}>Room Type</Text>
               <View style={{ flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 12, padding: 4, borderWidth: 1, borderColor: COLORS.border, marginBottom: 20 }}>
                 {['Standard', 'Shared Room'].map(type => (
-                  <TouchableOpacity key={type} 
+                  <TouchableOpacity key={type}
                     style={{ flex: 1, paddingVertical: 10, borderRadius: 8, backgroundColor: roomFormData.room_type === type ? COLORS.primary : 'transparent', alignItems: 'center' }}
-                    onPress={() => setRoomFormData({...roomFormData, room_type: type})}
+                    onPress={() => setRoomFormData({ ...roomFormData, room_type: type })}
                   >
                     <Text style={{ fontSize: 13, fontWeight: '600', color: roomFormData.room_type === type ? '#fff' : COLORS.textSecondary }}>{type}</Text>
                   </TouchableOpacity>
@@ -1203,9 +1205,9 @@ export default function RoomsScreen() {
                   <Text style={{ fontSize: 12, fontWeight: '700', color: COLORS.textSecondary, textTransform: 'uppercase', marginBottom: 8, letterSpacing: 1 }}>Room Status</Text>
                   <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
                     {['vacant', 'not_available', 'under_maintenance'].map(st => (
-                      <TouchableOpacity key={st} 
+                      <TouchableOpacity key={st}
                         style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: roomFormData.status === st ? COLORS.primary : COLORS.border, backgroundColor: roomFormData.status === st ? 'rgba(16,185,129,0.1)' : 'transparent', opacity: roomFormData.status === 'occupied' ? 0.5 : 1 }}
-                        onPress={() => { if(roomFormData.status !== 'occupied') setRoomFormData({...roomFormData, status: st}); else Alert.alert("Cannot change status of an occupied room."); }}
+                        onPress={() => { if (roomFormData.status !== 'occupied') setRoomFormData({ ...roomFormData, status: st }); else Alert.alert("Cannot change status of an occupied room."); }}
                         disabled={roomFormData.status === 'occupied'}
                       >
                         <Text style={{ fontSize: 12, fontWeight: '600', color: roomFormData.status === st ? COLORS.primary : COLORS.textSecondary }}>{st.replace('_', ' ').toUpperCase()}</Text>
@@ -1220,7 +1222,7 @@ export default function RoomsScreen() {
               <TouchableOpacity style={[s.cancelBtn, { flex: 1, backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 0 }]} onPress={() => setRoomModalVisible(false)} disabled={actionLoading}>
                 <Text style={[s.cancelText, { color: COLORS.textPrimary }]}>Cancel</Text>
               </TouchableOpacity>
-              
+
               <TouchableOpacity style={{ flex: 1 }} onPress={handleRoomSubmit} disabled={actionLoading}>
                 <LinearGradient colors={GRADIENTS.primary} style={{ paddingVertical: 14, borderRadius: 12, alignItems: 'center', opacity: actionLoading ? 0.7 : 1 }}>
                   {actionLoading ? <ActivityIndicator color="#fff" size="small" /> : <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600' }}>Save Room</Text>}
@@ -1231,7 +1233,7 @@ export default function RoomsScreen() {
         </View>
       </Modal>
 
-      <ArchiveModal 
+      <ArchiveModal
         visible={archiveModalVisible}
         onClose={() => setArchiveModalVisible(false)}
         onConfirm={handleArchiveAction}
@@ -1270,13 +1272,13 @@ export default function RoomsScreen() {
                       <View style={{ backgroundColor: 'rgba(30,41,59,0.95)', borderRadius: 8, marginTop: 4, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', maxHeight: 150, overflow: 'hidden' }}>
                         <ScrollView nestedScrollEnabled>
                           {cashCycles.map((c, i) => (
-                            <TouchableOpacity key={i} style={{ padding: 14, borderBottomWidth: i !== cashCycles.length - 1 ? 1 : 0, borderBottomColor: 'rgba(255,255,255,0.05)' }} 
+                            <TouchableOpacity key={i} style={{ padding: 14, borderBottomWidth: i !== cashCycles.length - 1 ? 1 : 0, borderBottomColor: 'rgba(255,255,255,0.05)' }}
                               onPress={() => {
                                 setSelectedCashCycle(c);
                                 setShowCashCycleDrop(false);
                               }}>
                               <Text style={{ color: selectedCashCycle?.id === c.id ? COLORS.success : COLORS.textPrimary, fontWeight: selectedCashCycle?.id === c.id ? 'bold' : 'normal' }}>
-                                {new Date(c.cycle_start).toLocaleDateString('default', { month: 'short', day: 'numeric' })} – {new Date(c.cycle_end).toLocaleDateString('default', { month: 'short', day: 'numeric', year: 'numeric' })} <Text style={{color: COLORS.textMuted}}>| ₱{Number(c.total_amount).toFixed(2)}</Text>
+                                {new Date(c.cycle_start).toLocaleDateString('default', { month: 'short', day: 'numeric' })} – {new Date(c.cycle_end).toLocaleDateString('default', { month: 'short', day: 'numeric', year: 'numeric' })} <Text style={{ color: COLORS.textMuted }}>| ₱{Number(c.total_amount).toFixed(2)}</Text>
                               </Text>
                             </TouchableOpacity>
                           ))}

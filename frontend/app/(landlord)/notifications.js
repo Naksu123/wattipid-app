@@ -5,7 +5,7 @@ import { COLORS, SPACING, RADIUS, FONT_WEIGHT, SHADOWS } from '@/styles/theme';
 import apiClient from '../../services/apiClient';
 import { router } from 'expo-router';
 
-export default function TenantNotificationCenter() {
+export default function NotificationCenter() {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -55,8 +55,8 @@ export default function TenantNotificationCenter() {
     switch (type) {
       case 'payment': return { name: 'cash-outline', color: COLORS.success };
       case 'penalty': return { name: 'warning-outline', color: COLORS.danger };
-      case 'billing': return { name: 'document-text-outline', color: COLORS.primary };
-      case 'system': return { name: 'information-circle-outline', color: COLORS.secondary };
+      case 'room': return { name: 'home-outline', color: COLORS.primary };
+      case 'system': return { name: 'server-outline', color: COLORS.secondary };
       default: return { name: 'notifications-outline', color: COLORS.primary };
     }
   };
@@ -115,7 +115,7 @@ export default function TenantNotificationCenter() {
         {notifications.length === 0 ? (
            <View style={styles.center}>
              <Ionicons name="notifications-off-outline" size={48} color={COLORS.border} />
-             <Text style={styles.emptyText}>You're all caught up!</Text>
+             <Text style={styles.emptyText}>No notifications yet.</Text>
            </View>
         ) : (
           notifications.map(renderItem)
