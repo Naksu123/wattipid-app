@@ -11,6 +11,11 @@ import { API_URL } from './config';
  * 3. Centralized Error Handling
  */
 
+// Global flag to suppress "Session Expired" alerts during intentional logout
+let isLoggingOut = false;
+export const getIsLoggingOut = () => isLoggingOut;
+export const setIsLoggingOut = (val) => { isLoggingOut = val; };
+
 const apiClient = axios.create({
   baseURL: API_URL,
   headers: {
@@ -24,6 +29,8 @@ const apiClient = axios.create({
 // Automatically injects the Access Token into every request
 apiClient.interceptors.request.use(
   async (config) => {
+    // Skip injecting tokens if we're logging out
+    if (isLoggingOut) return config;
     const token = await Storage.getItem('user_token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -47,6 +54,11 @@ apiClient.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
+    // If we're logging out, silently swallow all errors
+    if (isLoggingOut) {
+      return Promise.resolve({ data: { success: false, message: 'Logging out' } });
+    }
+
     // Handle JSON Parsing Errors / Malformed Responses
     if (error.message.includes('JSON') || !error.response) {
         console.error('[API Diagnostic] Malformed response or Network Error:', error.message);
@@ -65,7 +77,9 @@ apiClient.interceptors.response.use(
           await Storage.deleteItem('user_token');
           await Storage.deleteItem('refresh_token');
           await Storage.deleteItem('user_data');
-          Alert.alert('Session Expired', 'Your security token has expired. Please restart the app or go to Profile -> Logout, then log back in to see your data.');
+          if (!isLoggingOut) {
+            Alert.alert('Session Expired', 'Your security token has expired. Please restart the app or go to Profile -> Logout, then log back in to see your data.');
+          }
           return Promise.resolve({ data: { success: false, message: 'Session expired' } });
         }
 
@@ -91,7 +105,9 @@ apiClient.interceptors.response.use(
         await Storage.deleteItem('refresh_token');
         await Storage.deleteItem('user_data');
         
-        Alert.alert('Session Expired', 'Your security token has expired. Please restart the app or go to Profile -> Logout, then log back in to see your data.');
+        if (!isLoggingOut) {
+          Alert.alert('Session Expired', 'Your security token has expired. Please restart the app or go to Profile -> Logout, then log back in to see your data.');
+        }
         return Promise.resolve({ data: { success: false, message: 'Session expired' } });
       }
     }

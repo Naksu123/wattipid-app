@@ -127,7 +127,7 @@ export const tipsService = {
       }
       return response.data;
     } catch (error) {
-      console.error('Error fetching all tips:', error);
+      // Suppressed console.error to prevent console spam during 5-second polling if network drops
       return { success: false, message: error.message };
     }
   },

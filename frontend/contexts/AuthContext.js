@@ -1,6 +1,6 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import Storage from '../services/storage';
-import apiClient from '../services/apiClient';
+import apiClient, { setIsLoggingOut } from '../services/apiClient';
 
 const AuthContext = createContext({});
 
@@ -87,6 +87,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = async () => {
+    setIsLoggingOut(true);
     try {
       await apiClient.post('/api.php?action=logout');
     } catch (e) {
@@ -97,6 +98,8 @@ export const AuthProvider = ({ children }) => {
       await Storage.deleteItem('user_data');
       setUser(null);
       setIsAuthenticated(false);
+      // Reset flag after a short delay to let any in-flight requests resolve
+      setTimeout(() => setIsLoggingOut(false), 2000);
     }
   };
 
@@ -105,6 +108,16 @@ export const AuthProvider = ({ children }) => {
       const response = await apiClient.post('/api.php?action=verifyOTP', { 
         email, code, type: 'verification' 
       });
+      
+      if (response.data.success && response.data.data?.token) {
+        const { user: userData, token, refreshToken } = response.data.data;
+        await Storage.setItem('user_token', token);
+        await Storage.setItem('refresh_token', refreshToken);
+        await Storage.setObject('user_data', userData);
+        setUser(userData);
+        setIsAuthenticated(true);
+      }
+      
       return response.data;
     } catch (error) {
       return { success: false, message: 'Verification failed' };

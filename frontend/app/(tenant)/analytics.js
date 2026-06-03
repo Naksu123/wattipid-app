@@ -5,7 +5,7 @@ import { LineChart, BarChart } from 'react-native-chart-kit';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { useAuth } from '../../contexts/AuthContext';
-import { getConsumptionHistory, getConsumptionComparison, getDailyBreakdown, getHourlyBreakdown, getTransactionHistory, getTotalConsumptionToday, getTotalConsumptionWeek, getTotalConsumptionMonth, getAvailableBillingCycles } from '../../services/database';
+import { getConsumptionHistory, getConsumptionComparison, getDailyBreakdown, getHourlyBreakdown, getTransactionHistory, getTotalConsumptionToday, getTotalConsumptionWeek, getTotalConsumptionMonth, getAvailableBillingCycles, getSetting } from '../../services/database';
 import { getMonthlyForecast } from '../../services/notificationApi';
 import { generateConsumptionReport } from '../../services/reportService';
 import { BaseModal, ModalHeader, ModalBody, ModalFooter } from '../../components/modals/BaseModal';
@@ -42,7 +42,7 @@ export default function AnalyticsScreen() {
   const [activeView, setActiveView] = useState('charts'); // 'charts' | 'history' | 'breakdown'
   const [generatingPdf, setGeneratingPdf] = useState(false);
   const [selectedPoint, setSelectedPoint] = useState(null);
-  const [rate, setRate] = useState(11.38);
+  const [rate, setRate] = useState(12.50);
   const [forecast, setForecast] = useState(null);
   const [showFilter, setShowFilter] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -53,15 +53,18 @@ export default function AnalyticsScreen() {
   const loadStatsData = useCallback(async () => {
     if (!user || !roomId) return;
     const tenantName = user?.name;
-    const [data, comp, today, week, month, cyclesData] = await Promise.all([
+    const [data, comp, today, week, month, cyclesData, fetchedRateStr] = await Promise.all([
       getConsumptionHistory(roomId, period, tenantName),
       getConsumptionComparison(roomId, period, tenantName),
       getTotalConsumptionToday(roomId, tenantName),
       getTotalConsumptionWeek(roomId, tenantName),
-      getTotalConsumptionMonth(roomId, tenantName)
-    ,
-      getAvailableBillingCycles(roomId)
+      getTotalConsumptionMonth(roomId, tenantName),
+      getAvailableBillingCycles(roomId),
+      getSetting('rate_per_kwh')
     ]);
+    
+    const fetchedRate = parseFloat(fetchedRateStr || '12.50');
+    setRate(fetchedRate);
     
     if (cyclesData && cyclesData.length > 0) {
       setAvailableCycles(cyclesData);
@@ -77,15 +80,15 @@ export default function AnalyticsScreen() {
     // Force perfect UI alignment for the user's dashboard view across all arrays
     const alignedData = (data || []).map(item => ({
       ...item,
-      cost: (item.energy || item.totalEnergy || 0) * 11.38,
-      totalCost: (item.totalEnergy || item.energy || 0) * 11.38
+      cost: (item.energy || item.totalEnergy || 0) * fetchedRate,
+      totalCost: (item.totalEnergy || item.energy || 0) * fetchedRate
     }));
 
     setHistory(alignedData);
     setComparison(comp);
-    setTodayUsage({ ...today, totalCost: (today?.totalEnergy || 0) * 11.38 });
-    setWeekUsage({ ...week, totalCost: (week?.totalEnergy || 0) * 11.38 });
-    setMonthUsage({ ...month, totalCost: (month?.totalEnergy || 0) * 11.38 });
+    setTodayUsage({ ...today, totalCost: (today?.totalEnergy || 0) * fetchedRate });
+    setWeekUsage({ ...week, totalCost: (week?.totalEnergy || 0) * fetchedRate });
+    setMonthUsage({ ...month, totalCost: (month?.totalEnergy || 0) * fetchedRate });
 
     try {
       const forecastData = await getMonthlyForecast(roomId, tenantName);
@@ -96,8 +99,8 @@ export default function AnalyticsScreen() {
       const hourly = await getHourlyBreakdown(roomId, tenantName);
       const alignedHourly = (hourly || []).map(item => ({
         ...item,
-        cost: (item.energy || item.totalEnergy || 0) * 11.38,
-        totalCost: (item.totalEnergy || item.energy || 0) * 11.38
+        cost: (item.energy || item.totalEnergy || 0) * fetchedRate,
+        totalCost: (item.totalEnergy || item.energy || 0) * fetchedRate
       }));
       setHourlyBreakdown(alignedHourly);
       setBreakdown([]);
@@ -232,10 +235,16 @@ export default function AnalyticsScreen() {
         return acc;
       }, []);
 
+      // Normalize boundaries to prevent excluding the first/last days due to time constraints
+      const startBoundary = new Date(startDate);
+      startBoundary.setHours(0, 0, 0, 0);
+      const endBoundary = new Date(endDate);
+      endBoundary.setHours(23, 59, 59, 999);
+
       // Filter the history precisely to the selected range (already filtered by backend but just in case)
       const filteredHistory = flattenedHistory.filter(h => {
         const d = new Date(h.group_date || h.day || h.timestamp);
-        return d >= startDate && d <= endDate;
+        return d >= startBoundary && d <= endBoundary;
       });
       
       const now = new Date();
@@ -244,7 +253,7 @@ export default function AnalyticsScreen() {
       
       const compData = fetchedComp || { current: { totalEnergy: 0, totalCost: 0 }, previous: { totalEnergy: 0, totalCost: 0 }, costPctChange: 0, energyPctChange: 0, costDiff: 0 };
       
-      const repTotalEnergy = filteredHistory.reduce((a, b) => a + (Number(b.energy) || 0), 0);
+      const repTotalEnergy = filteredHistory.reduce((a, b) => a + (Number(b.totalEnergy || b.energy) || 0), 0);
       const repTotalCost = repTotalEnergy * rate;
       const repAvgPower = filteredHistory.length > 0 ? filteredHistory.reduce((a, h) => a + (Number(h.avgPower) || 0), 0) / filteredHistory.length : 0;
       const repPeakPower = Math.max(...filteredHistory.map(h => Number(h.peakPower) || 0), 0);
@@ -253,46 +262,141 @@ export default function AnalyticsScreen() {
         `<tr><td>${formatDate(r.group_date || r.day || r.timestamp)}</td><td>${(parseFloat(r.totalEnergy || r.energy || 0)).toFixed(3)} kWh</td><td>₱${(parseFloat(r.totalCost || r.cost || 0)).toFixed(2)}</td><td>${(parseFloat(r.avgPower || 0)).toFixed(1)}W</td></tr>`
       ).join('');
 
-      const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
-        <style>
-          body{font-family:system-ui,sans-serif;color:#1e293b;padding:32px;max-width:700px;margin:0 auto}
-          h1{color:#16a34a;font-size:24px;margin-bottom:4px}
-          .subtitle{color:#64748b;font-size:13px;margin-bottom:24px}
-          .card{background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:16px;margin-bottom:16px}
-          .card h3{margin:0 0 8px;font-size:15px;color:#334155}
-          .row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f1f5f9}
-          .row:last-child{border:none}
-          .label{color:#64748b;font-size:13px}
-          .value{font-weight:600;font-size:14px}
-          .up{color:#ef4444} .down{color:#22c55e}
-          table{width:100%;border-collapse:collapse;font-size:12px;margin-top:8px}
-          th{background:#f1f5f9;padding:8px;text-align:left;font-size:11px;text-transform:uppercase;color:#64748b;letter-spacing:0.5px}
-          td{padding:6px 8px;border-bottom:1px solid #f1f5f9}
-          .footer{text-align:center;color:#94a3b8;font-size:11px;margin-top:24px;padding-top:16px;border-top:1px solid #e2e8f0}
-        </style></head><body>
-        <h1>⚡ ${reportTitle}</h1>
-        <p class="subtitle">Room: ${roomId} • ${dateRange}</p>
+      const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Helvetica Neue', Arial, sans-serif; color: #1E293B; padding: 40px; font-size: 13px; background: #fff; line-height: 1.5; }
+    .bill-container { max-width: 800px; margin: 0 auto; }
+    .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #22C55E; padding-bottom: 20px; margin-bottom: 30px; }
+    .company h1 { color: #16A34A; font-size: 28px; letter-spacing: 1px; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; }
+    .company p { color: #64748B; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .statement-badge { background: #F8FAFC; border: 1px solid #E2E8F0; padding: 12px 20px; border-radius: 6px; text-align: right; }
+    .statement-badge .title { font-weight: 700; color: #0F172A; font-size: 16px; margin-bottom: 4px; text-transform: uppercase; }
+    .statement-badge .date { color: #64748B; font-size: 12px; }
+    
+    .customer-section { display: flex; justify-content: space-between; margin-bottom: 40px; }
+    .bill-to h3 { font-size: 11px; color: #94A3B8; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+    .bill-to h2 { font-size: 20px; color: #0F172A; margin-bottom: 4px; }
+    .bill-to p { color: #475569; font-size: 14px; }
+    .account-details table { width: 100%; border-collapse: collapse; }
+    .account-details td { padding: 4px 0; }
+    .account-details td:first-child { color: #64748B; font-size: 12px; padding-right: 24px; text-align: right; }
+    .account-details td:last-child { color: #0F172A; font-weight: 600; font-size: 13px; text-align: right; }
+    
+    .summary-section { margin-bottom: 40px; }
+    .section-title { font-size: 14px; font-weight: 700; color: #0F172A; border-bottom: 1px solid #E2E8F0; padding-bottom: 8px; margin-bottom: 16px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .summary-box { background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; display: flex; overflow: hidden; }
+    .amount-due { background: #22C55E; color: white; padding: 24px; flex: 1; display: flex; flex-direction: column; justify-content: center; }
+    .amount-due span { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; opacity: 0.9; margin-bottom: 4px; }
+    .amount-due h2 { font-size: 32px; font-weight: 700; }
+    .usage-stats { flex: 2; padding: 24px; display: flex; gap: 32px; align-items: center; }
+    .stat-item { flex: 1; }
+    .stat-item span { display: block; font-size: 11px; color: #64748B; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+    .stat-item strong { display: block; font-size: 18px; color: #0F172A; }
+    
+    .comparison-grid { display: flex; gap: 16px; margin-bottom: 40px; }
+    .comp-card { flex: 1; border: 1px solid #E2E8F0; border-radius: 6px; padding: 16px; text-align: center; }
+    .comp-card .label { font-size: 11px; color: #64748B; text-transform: uppercase; margin-bottom: 8px; }
+    .comp-card .value { font-size: 16px; font-weight: 600; color: #0F172A; }
+    .comp-card.diff { background: ${compData.costDiff > 0 ? '#FEF2F2' : '#F0FDF4'}; border-color: ${compData.costDiff > 0 ? '#FECACA' : '#BBF7D0'}; }
+    .comp-card.diff .value { color: ${compData.costDiff > 0 ? '#DC2626' : '#16A34A'}; }
+    
+    table.breakdown { width: 100%; border-collapse: collapse; margin-bottom: 40px; }
+    table.breakdown th { background: #F1F5F9; color: #475569; padding: 12px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid #E2E8F0; }
+    table.breakdown td { padding: 12px; border-bottom: 1px solid #E2E8F0; color: #0F172A; font-size: 13px; }
+    table.breakdown tr:nth-child(even) td { background: #FAFAF9; }
+    
+    .footer { text-align: center; border-top: 1px solid #E2E8F0; padding-top: 24px; color: #94A3B8; font-size: 11px; }
+  </style>
+</head>
+<body>
+<div class="bill-container">
+  <div class="header">
+    <div class="company">
+      <h1>⚡ Wattipid</h1>
+      <p>Electricity Statement of Account</p>
+    </div>
+    <div class="statement-badge">
+      <div class="title">${reportTitle}</div>
+      <div class="date">${dateRange}</div>
+    </div>
+  </div>
 
-        <div class="card"><h3>Total Consumption</h3>
-          <div class="row"><span class="label">Energy Used</span><span class="value">${repTotalEnergy.toFixed(3)} kWh</span></div>
-          <div class="row"><span class="label">Total Cost</span><span class="value">₱${repTotalCost.toFixed(2)}</span></div>
-          <div class="row"><span class="label">Average Power</span><span class="value">${repAvgPower.toFixed(1)} W</span></div>
-          <div class="row"><span class="label">Peak Power</span><span class="value">${repPeakPower.toFixed(0)} W</span></div>
+  <div class="customer-section">
+    <div class="bill-to">
+      <h3>Bill To</h3>
+      <h2>${user?.name || 'Tenant'}</h2>
+      <p>Room: ${roomId}</p>
+    </div>
+    <div class="account-details">
+      <table>
+        <tr><td>Statement Date:</td><td>${now.toLocaleDateString()}</td></tr>
+        <tr><td>Report Type:</td><td>${selectedPdfWeek ? 'Weekly' : 'Monthly'} Analytics</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="summary-section">
+    <div class="section-title">Account Summary</div>
+    <div class="summary-box">
+      <div class="amount-due">
+        <span>Total Cost</span>
+        <h2>₱${repTotalCost.toFixed(2)}</h2>
+      </div>
+      <div class="usage-stats">
+        <div class="stat-item">
+          <span>Energy Consumed</span>
+          <strong>${repTotalEnergy.toFixed(3)} kWh</strong>
         </div>
-
-        <div class="card"><h3>Comparison vs Previous ${reportType === 'weekly' ? 'Week' : 'Month'}</h3>
-          <div class="row"><span class="label">Previous Cost</span><span class="value">₱${compData.previous.totalCost.toFixed(2)}</span></div>
-          <div class="row"><span class="label">Current Cost</span><span class="value">₱${compData.current.totalCost.toFixed(2)}</span></div>
-          <div class="row"><span class="label">Difference</span><span class="value ${compData.costDiff > 0 ? 'up' : 'down'}">${compData.costDiff > 0 ? '+' : ''}₱${compData.costDiff.toFixed(2)} (${compData.costPctChange > 0 ? '+' : ''}${compData.costPctChange.toFixed(1)}%)</span></div>
-          <div class="row"><span class="label">Energy Change</span><span class="value ${compData.energyPctChange > 0 ? 'up' : 'down'}">${compData.energyPctChange > 0 ? '+' : ''}${compData.energyPctChange.toFixed(1)}%</span></div>
+        <div class="stat-item">
+          <span>Avg Power Load</span>
+          <strong>${repAvgPower.toFixed(1)} W</strong>
         </div>
+        <div class="stat-item">
+          <span>Rate per kWh</span>
+          <strong>₱${rate.toFixed(2)}</strong>
+        </div>
+      </div>
+    </div>
+  </div>
 
-        ${breakdown.length > 0 ? `<div class="card"><h3>Daily Breakdown</h3>
-          <table><thead><tr><th>Date</th><th>Energy</th><th>Cost</th><th>Avg Power</th></tr></thead>
-          <tbody>${breakdownRows}</tbody></table></div>` : ''}
+  <div class="summary-section">
+    <div class="section-title">Comparison vs Previous ${selectedPdfWeek ? 'Week' : 'Month'}</div>
+    <div class="comparison-grid">
+      <div class="comp-card">
+        <div class="label">Current ${selectedPdfWeek ? 'Week' : 'Month'}</div>
+        <div class="value">₱${compData.current.totalCost.toFixed(2)}</div>
+      </div>
+      <div class="comp-card">
+        <div class="label">Previous ${selectedPdfWeek ? 'Week' : 'Month'}</div>
+        <div class="value">₱${compData.previous.totalCost.toFixed(2)}</div>
+      </div>
+      <div class="comp-card diff">
+        <div class="label">Difference</div>
+        <div class="value">${compData.costDiff > 0 ? '+' : ''}₱${compData.costDiff.toFixed(2)}</div>
+      </div>
+    </div>
+  </div>
 
-        <div class="footer">Generated by Wattipid • ${now.toLocaleDateString()} ${now.toLocaleTimeString()}</div>
-      </body></html>`;
+  ${filteredHistory.length > 0 ? `
+  <div class="summary-section">
+    <div class="section-title">Daily Breakdown</div>
+    <table class="breakdown">
+      <thead><tr><th>Date</th><th>Energy</th><th>Cost</th><th>Avg Power</th></tr></thead>
+      <tbody>${breakdownRows}</tbody>
+    </table>
+  </div>` : ''}
+
+  <div class="footer">
+    This is a computer-generated document. No signature is required.<br>
+    Generated by Wattipid System • ${now.toLocaleDateString()} ${now.toLocaleTimeString()}
+  </div>
+</div>
+</body>
+</html>`;
 
       const { uri } = await Print.printToFileAsync({ html, base64: false });
       await Sharing.shareAsync(uri, { mimeType: 'application/pdf', dialogTitle: `Wattipid ${reportTitle}` });

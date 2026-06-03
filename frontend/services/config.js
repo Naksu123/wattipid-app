@@ -1,8 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const ENVIRONMENTS = {
-  local: 'http://172.20.10.12/wattipid_backend',
-  tunnel: 'https://graduate-ahead-lip-guidelines.trycloudflare.com/wattipid_backend', 
+  local: 'https://bright-seals-roll.loca.lt/wattipid_backend',
+  tunnel: 'https://graduate-ahead-lip-guidelines.trycloudflare.com/wattipid_backend',
   //hostinger: 'https://YOUR_DOMAIN/wattipid_backend', 
   //production: 'https://wattipid-backend.infinityfreeapp.com',
 };

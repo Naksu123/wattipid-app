@@ -48,20 +48,24 @@ export default function LandlordSettings() {
   useEffect(() => { loadSettings(); }, []);
 
   const loadSettings = async () => {
-    const r = await getSetting('rate_per_kwh');
-    if (r) setRate(r);
+    try {
+      const r = await getSetting('rate_per_kwh');
+      if (r) setRate(r);
 
-    const ip = await getSetting('esp32_ip');
-    if (ip) setEsp32Ip(ip);
+      const ip = await getSetting('esp32_ip');
+      if (ip) setEsp32Ip(ip);
 
-    const nb = await getSetting('landlord_notif_budget');
-    if (nb !== null) setNotifBudget(nb !== 'false');
-    const nhc = await getSetting('landlord_notif_high_cons');
-    if (nhc !== null) setNotifHighCons(nhc !== 'false');
-    const nnt = await getSetting('landlord_notif_new_tenant');
-    if (nnt !== null) setNotifNewTenant(nnt !== 'false');
-    const nr = await getSetting('landlord_notif_revoke');
-    if (nr !== null) setNotifRevoke(nr !== 'false');
+      const nb = await getSetting('landlord_notif_budget');
+      if (nb !== null) setNotifBudget(nb !== 'false');
+      const nhc = await getSetting('landlord_notif_high_cons');
+      if (nhc !== null) setNotifHighCons(nhc !== 'false');
+      const nnt = await getSetting('landlord_notif_new_tenant');
+      if (nnt !== null) setNotifNewTenant(nnt !== 'false');
+      const nr = await getSetting('landlord_notif_revoke');
+      if (nr !== null) setNotifRevoke(nr !== 'false');
+    } catch (err) {
+      console.warn("Failed to load settings:", err);
+    }
 
     const status = getConnectionStatus();
     setIsMockMode(status.isMock);

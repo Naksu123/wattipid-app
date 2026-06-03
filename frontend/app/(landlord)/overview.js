@@ -21,21 +21,25 @@ export default function OverviewScreen() {
   useEffect(() => { loadData(); }, []);
 
   const loadData = async () => {
-    const [summary, rateVal] = await Promise.all([
-      getBuildingSummary(),
-      getSetting('rate_per_kwh')
-    ]);
-    
-    const currentRate = rateVal ? parseFloat(rateVal) : 11.38;
-    setRate(currentRate);
+    try {
+      const [summary, rateVal] = await Promise.all([
+        getBuildingSummary(),
+        getSetting('rate_per_kwh')
+      ]);
+      
+      const currentRate = rateVal ? parseFloat(rateVal) : 12.50;
+      setRate(currentRate);
 
-    if (summary) {
-      setRooms(summary.rooms || []);
-      setStats(summary.stats || { totalRooms: 0, occupiedRooms: 0, onProcessRooms: 0, offlineMeters: 0 });
-      setTotals({
-        totalEnergy: summary.totals?.totalEnergy || 0,
-        totalCost: (summary.totals?.totalEnergy || 0) * currentRate
-      });
+      if (summary) {
+        setRooms(summary.rooms || []);
+        setStats(summary.stats || { totalRooms: 0, occupiedRooms: 0, onProcessRooms: 0, offlineMeters: 0 });
+        setTotals({
+          totalEnergy: summary.totals?.totalEnergy || 0,
+          totalCost: (summary.totals?.totalEnergy || 0) * currentRate
+        });
+      }
+    } catch (err) {
+      console.warn("Error loading overview data:", err);
     }
   };
 
@@ -118,21 +122,22 @@ export default function OverviewScreen() {
               <GlassCard key={room.room_id} style={[styles.roomItem, offline && styles.offlineItem]}>
                 <View style={styles.roomLeft}>
                   <View style={[styles.statusDot, { backgroundColor: offline ? COLORS.danger : COLORS.success }]} />
-                  <View>
+                  <View style={{ flex: 1, paddingRight: 8 }}>
                     <Text style={styles.roomName}>{room.room_id}</Text>
                     <Text style={styles.tenantName} numberOfLines={1}>
-                      {room.tenant_name || (room.status === 'on_process' ? 'Pending Tenant' : 'Vacant Room')}
+                      {room.tenant_name || (
+                        room.status === 'on_process' ? 'Pending Tenant' : 
+                        room.status === 'under_maintenance' ? 'Maintenance in progress' :
+                        room.status === 'not_available' ? 'Currently unavailable' :
+                        'Vacant Room'
+                      )}
                     </Text>
                   </View>
                 </View>
                 
                 <View style={styles.roomRight}>
                   <Text style={styles.energyVal}>{Number(room.currEnergy || 0).toFixed(1)} kWh</Text>
-                  <View style={[styles.badge, { backgroundColor: room.status === 'occupied' ? 'rgba(34,197,94,0.1)' : 'rgba(255,255,255,0.05)' }]}>
-                    <Text style={[styles.badgeText, { color: room.status === 'occupied' ? COLORS.success : COLORS.textMuted }]}>
-                      {room.status.toUpperCase()}
-                    </Text>
-                  </View>
+                  <StatusBadge status={room.status} size="sm" style={{ width: 95, alignSelf: 'flex-end' }} />
                 </View>
               </GlassCard>
             );

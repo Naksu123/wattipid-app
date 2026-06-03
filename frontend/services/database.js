@@ -1,4 +1,5 @@
 import { apiCall } from './api';
+import apiClient from './apiClient';
 
 // ============ MOCK DB INIT FOR APP LOAD ============
 export async function getDatabase() {
@@ -89,11 +90,53 @@ export async function getBuildingSummary() {
 }
 
 export async function updateRoomStatus(roomId, status, tenantName = null, startDate = null) {
-  await apiCall('updateRoomStatus', { roomId, status, tenantName, startDate });
+  return await apiCall('updateRoomStatus', { roomId, status, tenantName, startDate });
+}
+
+
+export async function addRoom(roomData) {
+  try {
+    const response = await apiClient.post('/api.php', { action: 'addRoom', ...roomData });
+    return response.data;
+  } catch (error) {
+    return { success: false, message: error.response?.data?.message || error.message };
+  }
+}
+
+export async function updateRoom(roomId, roomData) {
+  try {
+    const response = await apiClient.post('/api.php', { action: 'updateRoom', room_id: roomId, ...roomData });
+    return response.data;
+  } catch (error) {
+    return { success: false, message: error.response?.data?.message || error.message };
+  }
+}
+
+export async function archiveRoom(roomId) {
+  try {
+    const response = await apiClient.post('/api.php', { action: 'archiveRoom', room_id: roomId });
+    return response.data;
+  } catch (error) {
+    return { success: false, message: error.response?.data?.message || error.message };
+  }
+}
+
+export async function restoreRoom(roomId) {
+  try {
+    const response = await apiClient.post('/api.php', { action: 'restoreRoom', room_id: roomId });
+    return response.data;
+  } catch (error) {
+    return { success: false, message: error.response?.data?.message || error.message };
+  }
 }
 
 export async function generateNewTenantCode(roomId) {
-  return await apiCall('generateNewTenantCode', { roomId });
+  try {
+    const response = await apiClient.post('/api.php', { action: 'generateNewTenantCode', roomId });
+    return response.data;
+  } catch (error) {
+    return { success: false, message: error.response?.data?.message || error.message };
+  }
 }
 
 export async function revokeTenant(roomId) {
@@ -116,7 +159,12 @@ export async function getVacantRooms() {
 
 // ============ INVITATION OPERATIONS ============
 export async function saveTenantInvitation(email, roomId, tenantCode) {
-  await apiCall('saveTenantInvitation', { email, roomId, tenantCode });
+  try {
+    const response = await apiClient.post('/api.php', { action: 'saveTenantInvitation', email, roomId, tenantCode });
+    return response.data;
+  } catch (error) {
+    return { success: false, message: error.response?.data?.message || error.message };
+  }
 }
 
 export async function getTenantInvitationByEmail(email) {

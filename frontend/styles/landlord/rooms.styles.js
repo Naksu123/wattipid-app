@@ -23,13 +23,15 @@ export default StyleSheet.create({
   },
   statsRow: { 
     flexDirection: 'row', 
-    gap: SPACING.xs, 
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
     marginBottom: SPACING.lg 
   },
   statCard: { 
-    flex: 1, 
+    width: '32%',
     alignItems: 'center', 
-    padding: SPACING.sm 
+    padding: SPACING.sm,
+    marginBottom: 8
   },
   statNum: { 
     fontSize: FONT_SIZE.xl, 
@@ -66,9 +68,11 @@ export default StyleSheet.create({
     marginBottom: SPACING.sm 
   },
   roomInfo: { 
+    flex: 1,
     flexDirection: 'row', 
     alignItems: 'center', 
-    gap: SPACING.md 
+    gap: SPACING.md,
+    marginRight: SPACING.sm
   },
   roomIcon: { 
     width: 44, 

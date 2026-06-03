@@ -38,7 +38,7 @@ export default function DashboardScreen() {
   // GHOST FIX: Track whether we have REAL device data
   const [deviceOnline, setDeviceOnline] = useState(false);
   const lastNotifyTime = useRef(0);
-  
+
   const roomId = user?.room_id || 'Room 1';
 
   const [billingCycle, setBillingCycle] = useState(null);
@@ -48,35 +48,35 @@ export default function DashboardScreen() {
       setLoading(true);
       const result = await getDashboardSummary(roomId);
       const cycle = await getBillingCycle(roomId);
-      
+
       if (result.success) {
         setTodayUsage(result.data.today);
         setWeekUsage(result.data.week);
         setComparison(result.data.week.comparison);
-        
+
         // GHOST FIX: Pull dynamic billing cycle info from the backend's monthly response
         if (result.data.month) {
-            setMonthUsage({
-                totalEnergy: result.data.month.totalEnergy || 0,
-                totalCost: result.data.month.totalCost || 0,
-                cycle_start: result.data.month.cycle_start || null,
-                cycle_end: result.data.month.cycle_end || null,
-                next_reset: result.data.month.next_reset || null,
-                tenant_start_date: result.data.month.tenant_start_date || null
-            });
+          setMonthUsage({
+            totalEnergy: result.data.month.totalEnergy || 0,
+            totalCost: result.data.month.totalCost || 0,
+            cycle_start: result.data.month.cycle_start || null,
+            cycle_end: result.data.month.cycle_end || null,
+            next_reset: result.data.month.next_reset || null,
+            tenant_start_date: result.data.month.tenant_start_date || null
+          });
         }
       }
-      
+
       if (cycle) {
         setBillingCycle(cycle);
         setBudgetData(cycle.budget || null);
       }
-      
+
       const tipResult = await tipsService.getSmartRecommendation();
       if (tipResult && tipResult.success && tipResult.data) {
         setRandomTip(tipResult.data);
       }
-      
+
       return result;
     } catch (err) {
       console.warn('Dashboard fetch error:', err);
@@ -104,7 +104,7 @@ export default function DashboardScreen() {
   const fetchRealtimeDataLoop = useCallback(async () => {
     try {
       const sensorData = await fetchRealtimeData(roomId);
-      
+
       // GHOST FIX: If sensorData is null, the ESP32 is unreachable.
       // Do NOT use mock data, do NOT trigger any alerts.
       if (!sensorData) {
@@ -118,21 +118,21 @@ export default function DashboardScreen() {
       // Use the 'online' and 'lastSeen' properties calculated by the backend
       setDeviceOnline(sensorData.online === true);
       setLastSeen(sensorData.lastSeen || new Date().toISOString());
-      
+
       // If the device is offline, zero out the real-time readings 
       // but keep the rest of the data intact (like energy)
       if (!sensorData.online) {
-        setData({ 
-          voltage: 0, 
-          current: 0, 
-          power: 0, 
-          energy: sensorData.energy || 0, 
-          powerFactor: 0 
+        setData({
+          voltage: 0,
+          current: 0,
+          power: 0,
+          energy: sensorData.energy || 0,
+          powerFactor: 0
         });
       } else {
         setData(sensorData);
       }
-      
+
       setRelayOn(sensorData.relayState !== false);
 
       // GHOST FIX: Only generate smart tips from REAL, validated data when online
@@ -153,13 +153,18 @@ export default function DashboardScreen() {
             setAlertData(alert);
             setAlertVisible(true);
             setLastAlertKey(alertKey);
-            
+
             // Cooldown: only send push every 5 minutes
             const now = Date.now();
             if (now - lastNotifyTime.current > 300000) {
               sendLocalNotification(alert.title, alert.message);
               lastNotifyTime.current = now;
             }
+          }
+        } else {
+          // Reset the alert state when power returns to normal, so it can trigger again later!
+          if (lastAlertKeyRef.current !== null) {
+            setLastAlertKey(null);
           }
         }
       }
@@ -176,7 +181,7 @@ export default function DashboardScreen() {
 
     // 2. Real-time loop (5 seconds)
     const realtimeInterval = setInterval(fetchRealtimeDataLoop, 5000);
-    
+
     // 3. Static data loop (60 seconds)
     const staticInterval = setInterval(fetchStaticData, 60000);
 
@@ -268,14 +273,14 @@ export default function DashboardScreen() {
         {/* Comparison Chip — only show if device has real data */}
         {!offline && comparison && comparison.costPctChange !== 0 && (
           <GlassCard style={ms.compChip}>
-            <Ionicons 
-              name={(comparison.costPctChange || 0) > 0 ? 'trending-up' : 'trending-down'} 
+            <Ionicons
+              name={(comparison.costPctChange || 0) > 0 ? 'trending-up' : 'trending-down'}
               size={16}
-              color={(comparison.costPctChange || 0) >= 0 ? COLORS.success : COLORS.danger} 
+              color={(comparison.costPctChange || 0) >= 0 ? COLORS.success : COLORS.danger}
             />
             <Text style={[ms.compText, { color: (comparison.costPctChange || 0) >= 0 ? COLORS.success : COLORS.danger }]}>
               {(comparison.costPctChange || 0) > 0 ? '+' : ''}
-              {Number(comparison.costPctChange || 0).toFixed(0)}% 
+              {Number(comparison.costPctChange || 0).toFixed(0)}%
               {(comparison.costPctChange || 0) >= 0 ? ' higher' : ' lower'} than yesterday
             </Text>
           </GlassCard>
@@ -292,7 +297,7 @@ export default function DashboardScreen() {
               <Text style={{ color: COLORS.textMuted, fontSize: 14, textAlign: 'center', marginTop: 8, paddingHorizontal: 40 }}>
                 Real-time monitoring is currently unavailable. Check your WiFi or submeter power.
               </Text>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={{ marginTop: 20, paddingVertical: 10, paddingHorizontal: 20, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}
                 onPress={() => {
                   setAlertData({
@@ -393,7 +398,7 @@ export default function DashboardScreen() {
             <Text style={[ms.rateText, { marginLeft: 8, fontWeight: 'bold', color: COLORS.textPrimary, flex: 1 }]}>Active Billing Cycle</Text>
             <Text style={{ fontSize: 12, color: COLORS.textMuted }}>Rate: ₱{Number(rate || 0).toFixed(2)}/kWh</Text>
           </View>
-          
+
           <View style={{ width: '100%', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 8, padding: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
               <Text style={{ fontSize: 12, color: COLORS.textMuted }}>Billing Period</Text>
@@ -461,7 +466,7 @@ function detectHighConsumption(currentPower, budget, todayUsage) {
     return null;
   }
 
-  if (currentPower > 350) {
+  if (currentPower >= 700) {
     return {
       type: 'danger',
       title: '⚠️ Critical Power Usage!',
@@ -470,7 +475,7 @@ function detectHighConsumption(currentPower, budget, todayUsage) {
     };
   }
 
-  if (currentPower > 300) {
+  if (currentPower >= 240) {
     return {
       type: 'warning',
       title: 'High Consumption Alert',
