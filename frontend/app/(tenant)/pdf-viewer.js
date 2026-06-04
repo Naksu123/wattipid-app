@@ -6,6 +6,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { getBillingDetails } from '../../services/database';
 import { generateCycleReport } from '../../services/pdfService';
 import { useAuth } from '../../contexts/AuthContext';
+import GlassCard from '../../components/ui/GlassCard';
+import { COLORS, FONT_SIZE, FONT_WEIGHT, SPACING, RADIUS } from '../../styles/theme';
 
 export default function PDFViewerScreen() {
     const { id } = useLocalSearchParams();
@@ -14,7 +16,6 @@ export default function PDFViewerScreen() {
     
     const [loading, setLoading] = useState(true);
     const [pdfUri, setPdfUri] = useState(null);
-    const [fileName, setFileName] = useState('');
 
     useEffect(() => {
         if (id) {
@@ -29,12 +30,11 @@ export default function PDFViewerScreen() {
     const loadAndGeneratePDF = async () => {
         try {
             // 1. Fetch exact backend records
-            const response = await getBillingDetails(null, id, user.room_id);
-            if (!response || !response.success || !response.data) {
+            const billingCycle = await getBillingDetails(null, id, user.room_id);
+            if (!billingCycle) {
                 throw new Error('Billing record not found');
             }
             
-            const billingCycle = response.data;
             const startDate = new Date(billingCycle.cycle_start);
             const endDate = new Date(billingCycle.cycle_end);
             
@@ -50,8 +50,6 @@ export default function PDFViewerScreen() {
             });
             
             setPdfUri(result.uri);
-            setPdfUri(result.uri);
-            // setFileName(result.fileName); // Not strictly needed but kept available
         } catch (error) {
             console.error('Failed to generate PDF:', error);
             Alert.alert('Generation Failed', 'Could not generate the PDF statement.');
@@ -83,9 +81,14 @@ export default function PDFViewerScreen() {
             <Stack.Screen 
                 options={{
                     headerTitle: 'Billing Statement PDF',
+                    headerStyle: {
+                        backgroundColor: COLORS.background,
+                    },
+                    headerTintColor: COLORS.textPrimary,
+                    headerShadowVisible: false,
                     headerRight: () => (
                         <TouchableOpacity onPress={handleShare} disabled={!pdfUri} style={{ marginRight: 15 }}>
-                            <Ionicons name="share-outline" size={24} color={pdfUri ? '#16A34A' : '#94A3B8'} />
+                            <Ionicons name="share-outline" size={24} color={pdfUri ? COLORS.primary : COLORS.textMuted} />
                         </TouchableOpacity>
                     )
                 }}
@@ -93,32 +96,40 @@ export default function PDFViewerScreen() {
 
             {loading ? (
                 <View style={styles.centerContainer}>
-                    <ActivityIndicator size="large" color="#16A34A" />
+                    <ActivityIndicator size="large" color={COLORS.primary} />
                     <Text style={styles.loadingText}>Generating secure PDF...</Text>
                 </View>
             ) : pdfUri ? (
                 <View style={styles.centerContainer}>
-                    <Ionicons name="document-text" size={80} color="#16A34A" />
-                    <Text style={[styles.loadingText, { color: '#0F172A', fontWeight: 'bold' }]}>PDF Statement Ready</Text>
-                    <Text style={{ textAlign: 'center', color: '#64748B', marginTop: 8, paddingHorizontal: 40 }}>
-                        Your billing statement has been generated successfully. Tap the button below to view, save, or share it.
-                    </Text>
+                    <GlassCard style={styles.successCard} premium>
+                        <View style={styles.iconCircle}>
+                            <Ionicons name="document-text" size={48} color={COLORS.primary} />
+                        </View>
+                        <Text style={styles.successTitle}>PDF Generated Successfully!</Text>
+                        <Text style={styles.successDesc}>Your statement of account has been generated. Use the buttons below to open or save the file.</Text>
+                        
+                        <TouchableOpacity 
+                            style={styles.primaryButton}
+                            onPress={handleShare}
+                        >
+                            <Ionicons name="share-outline" size={20} color={COLORS.white} />
+                            <Text style={styles.primaryButtonText}>Share / Save PDF</Text>
+                        </TouchableOpacity>
+                        
+                        <TouchableOpacity 
+                            style={styles.secondaryButton}
+                            onPress={() => router.back()}
+                        >
+                            <Text style={styles.secondaryButtonText}>Go Back</Text>
+                        </TouchableOpacity>
+                    </GlassCard>
                 </View>
             ) : (
                 <View style={styles.centerContainer}>
-                    <Ionicons name="document-text-outline" size={64} color="#CBD5E1" />
-                    <Text style={styles.errorText}>Failed to load PDF</Text>
-                    <TouchableOpacity style={styles.retryBtn} onPress={loadAndGeneratePDF}>
-                        <Text style={styles.retryBtnText}>Retry</Text>
-                    </TouchableOpacity>
-                </View>
-            )}
-            
-            {!loading && pdfUri && (
-                <View style={styles.footer}>
-                    <TouchableOpacity style={styles.downloadBtn} onPress={handleShare}>
-                        <Ionicons name="download-outline" size={20} color="#FFF" />
-                        <Text style={styles.downloadBtnText}>Save / Share PDF</Text>
+                    <Ionicons name="alert-circle-outline" size={64} color={COLORS.danger} />
+                    <Text style={styles.errorText}>Could not generate PDF</Text>
+                    <TouchableOpacity style={styles.secondaryButton} onPress={() => router.back()}>
+                        <Text style={styles.secondaryButtonText}>Go Back</Text>
                     </TouchableOpacity>
                 </View>
             )}
@@ -127,15 +138,20 @@ export default function PDFViewerScreen() {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#F8FAFC' },
-    centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    loadingText: { marginTop: 16, color: '#64748B', fontSize: 16 },
-    errorText: { marginTop: 16, color: '#64748B', fontSize: 16, marginBottom: 20 },
-    webview: { flex: 1, backgroundColor: 'transparent' },
-    retryBtn: { paddingVertical: 10, paddingHorizontal: 20, backgroundColor: '#1E293B', borderRadius: 8 },
-    retryBtnText: { color: '#FFF', fontWeight: '600' },
+    container: { flex: 1, backgroundColor: COLORS.background },
+    centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: SPACING.xl },
+    loadingText: { marginTop: SPACING.lg, fontSize: FONT_SIZE.md, color: COLORS.textMuted },
     
-    footer: { padding: 16, backgroundColor: '#FFF', borderTopWidth: 1, borderTopColor: '#E2E8F0' },
-    downloadBtn: { flexDirection: 'row', backgroundColor: '#16A34A', paddingVertical: 14, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
-    downloadBtnText: { marginLeft: 8, color: '#FFF', fontSize: 16, fontWeight: '700' }
+    successCard: { padding: SPACING.xxl, alignItems: 'center', width: '100%', maxWidth: 400 },
+    iconCircle: { width: 80, height: 80, borderRadius: 40, backgroundColor: 'rgba(16, 185, 129, 0.1)', justifyContent: 'center', alignItems: 'center', marginBottom: SPACING.xl },
+    successTitle: { fontSize: FONT_SIZE.xl, fontWeight: FONT_WEIGHT.heavy, color: COLORS.textPrimary, marginBottom: SPACING.sm, textAlign: 'center' },
+    successDesc: { fontSize: FONT_SIZE.sm, color: COLORS.textSecondary, textAlign: 'center', marginBottom: SPACING.xxl, lineHeight: 22 },
+    
+    primaryButton: { flexDirection: 'row', backgroundColor: COLORS.primary, borderRadius: RADIUS.md, paddingVertical: 14, paddingHorizontal: 24, width: '100%', justifyContent: 'center', alignItems: 'center', marginBottom: SPACING.md },
+    primaryButtonText: { color: COLORS.white, fontSize: FONT_SIZE.md, fontWeight: FONT_WEIGHT.bold, marginLeft: 8 },
+    
+    secondaryButton: { backgroundColor: 'transparent', borderRadius: RADIUS.md, paddingVertical: 14, paddingHorizontal: 24, width: '100%', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+    secondaryButtonText: { color: COLORS.textPrimary, fontSize: FONT_SIZE.md, fontWeight: FONT_WEIGHT.bold },
+    
+    errorText: { marginTop: SPACING.lg, fontSize: FONT_SIZE.lg, color: COLORS.danger, fontWeight: FONT_WEIGHT.bold, marginBottom: SPACING.xl }
 });
