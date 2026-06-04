@@ -10,6 +10,7 @@ import ErrorTracker from '../services/errorTracker';
 import { ThemeProvider, DarkTheme } from '@react-navigation/native';
 import { COLORS } from '@/styles/theme';
 import { SyncProvider } from '@/contexts/SyncContext';
+import GlobalToast from '@/components/ui/GlobalToast';
 
 // Custom dark theme to match Wattipid brand
 const WattipidTheme = {
@@ -79,7 +80,12 @@ function RootLayoutContent() {
     );
   }
 
-  return <Slot />;
+  return (
+    <>
+      <Slot />
+      <GlobalToast />
+    </>
+  );
 }
 
 export default function RootLayout() {

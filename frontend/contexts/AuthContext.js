@@ -46,7 +46,8 @@ export const AuthProvider = ({ children }) => {
         
         setUser(userData);
         setIsAuthenticated(true);
-        return { success: true, user: userData };
+        const requiresTerms = response.data.data.requires_terms_acceptance || false;
+        return { success: true, user: userData, requiresTerms };
       } else {
         return { success: false, message: response.data.message };
       }
@@ -60,11 +61,11 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const register = async (name, email, password, role = 'tenant', extraCode = null) => {
+  const register = async (name, email, password, role = 'tenant', extraCode = null, termsVersionId = null, ipAddress = null, deviceInfo = null) => {
     setLoading(true);
     try {
       const response = await apiClient.post('/api.php?action=register', { 
-        name, email, password, role, code: extraCode 
+        name, email, password, role, code: extraCode, terms_version_id: termsVersionId, ip_address: ipAddress, device_info: deviceInfo 
       });
       
       if (response.data.success) {

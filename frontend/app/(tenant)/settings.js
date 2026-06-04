@@ -17,6 +17,7 @@ export default function TenantSettings() {
   const { user, logout } = useAuth();
   const [logoutVisible, setLogoutVisible] = useState(false);
   const [clearDataVisible, setClearDataVisible] = useState(false);
+  const [markReadSuccessVisible, setMarkReadSuccessVisible] = useState(false);
 
   const [notifEnabled, setNotifEnabled] = useState(true);
   const [budgetAlerts, setBudgetAlerts] = useState(true);
@@ -99,7 +100,7 @@ export default function TenantSettings() {
     try {
       const { markAllNotificationsRead } = require('../../services/notificationApi');
       await markAllNotificationsRead();
-      Alert.alert('Success', 'All notifications have been marked as read.');
+      setMarkReadSuccessVisible(true);
     } catch (e) {
       Alert.alert('Error', 'Could not update notifications.');
     }
@@ -215,14 +216,15 @@ export default function TenantSettings() {
         <Text style={s.sectionLabel}>Support</Text>
         <GlassCard style={s.menuCard}>
           <MenuItem icon="help-circle-outline" label="Help & Support" onPress={() => setHelpVisible(true)} />
-          <MenuItem icon="information-circle-outline" label="About Wattipid" value="v1.0.0" onPress={() => setAboutVisible(true)} />
+          <MenuItem icon="document-text-outline" label="Terms and Conditions" onPress={() => router.push('/terms')} />
+          <MenuItem icon="information-circle-outline" label="About Wattipid" value="v2.0.0" onPress={() => setAboutVisible(true)} />
         </GlassCard>
 
         <GlassCard style={s.menuCard}>
           <MenuItem icon="log-out-outline" label="Sign out" onPress={() => setLogoutVisible(true)} danger />
         </GlassCard>
 
-        <Text style={s.version}>Wattipid v1.0.0 • IoT Energy Monitor</Text>
+        <Text style={s.version}>Wattipid v2.0.0 • IoT Energy Monitor</Text>
       </ScrollView>
 
       {/* MODALS */}
@@ -231,8 +233,14 @@ export default function TenantSettings() {
           <View style={s.modalBox}>
             <View style={s.aboutIcon}><Ionicons name="flash" size={36} color={COLORS.primary} /></View>
             <Text style={s.modalTitle}>Wattipid</Text>
-            <Text style={s.modalVer}>Version 1.0.0</Text>
-            <Text style={s.modalDesc}>An IoT-based electricity monitoring system designed for student rental dormitories.</Text>
+            <View style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12, marginTop: 4, marginBottom: 16 }}>
+              <Text style={{ color: COLORS.primary, fontSize: 12, fontWeight: '800', letterSpacing: 0.5 }}>VERSION 2.0.0</Text>
+            </View>
+            <Text style={s.modalDesc}>A comprehensive IoT-based Smart Electricity Monitoring System designed exclusively for student rental dormitories.</Text>
+            <Text style={[s.modalDesc, { marginTop: 12, fontSize: 12, color: COLORS.textMuted }]}>
+              Wattipid empowers tenants with real-time analytics, daily consumption breakdowns, and predictive billing to help manage energy efficiently.
+            </Text>
+            <Text style={[s.modalDesc, { marginTop: 16, fontSize: 11, fontWeight: 'bold' }]}>© 2026 Wattipid Technologies</Text>
             <TouchableOpacity style={s.modalCloseBtn} onPress={() => setAboutVisible(false)}><Text style={s.modalCloseBtnText}>Close</Text></TouchableOpacity>
           </View>
         </View>
@@ -243,7 +251,23 @@ export default function TenantSettings() {
           <View style={s.modalBox}>
             <View style={[s.aboutIcon, { backgroundColor: 'rgba(59,130,246,0.12)' }]}><Ionicons name="help-circle" size={36} color={COLORS.info} /></View>
             <Text style={s.modalTitle}>Help & Support</Text>
-            <Text style={s.modalDesc}>If you need assistance, please contact your landlord or email support@wattipid.com</Text>
+            <Text style={s.modalDesc}>Need assistance with your account, billing, or monitoring device?</Text>
+            
+            <View style={{ width: '100%', marginTop: 16, marginBottom: 8, gap: 12 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                <Ionicons name="mail" size={20} color={COLORS.textSecondary} />
+                <Text style={{ color: COLORS.textPrimary, fontSize: 13, flex: 1 }}>support@wattipid.com</Text>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                <Ionicons name="call" size={20} color={COLORS.textSecondary} />
+                <Text style={{ color: COLORS.textPrimary, fontSize: 13, flex: 1 }}>0917-123-4567 (Globe){'\n'}0998-123-4567 (Smart)</Text>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                <Ionicons name="business" size={20} color={COLORS.textSecondary} />
+                <Text style={{ color: COLORS.textPrimary, fontSize: 13, flex: 1 }}>Contact your Landlord directly for hardware issues or manual payments.</Text>
+              </View>
+            </View>
+
             <TouchableOpacity style={s.modalCloseBtn} onPress={() => setHelpVisible(false)}><Text style={s.modalCloseBtnText}>Close</Text></TouchableOpacity>
           </View>
         </View>
@@ -259,6 +283,14 @@ export default function TenantSettings() {
         <ModalHeader title="Clear History" icon="warning" iconColor={COLORS.danger} onClose={() => setClearDataVisible(false)} />
         <ModalBody scrollable={false}><Text style={s.modalMessage}>This will delete all your consumption history. This action cannot be undone.</Text></ModalBody>
         <ModalFooter primaryLabel="Clear History" onPrimaryPress={confirmClearData} primaryDanger={true} secondaryLabel="Cancel" onSecondaryPress={() => setClearDataVisible(false)} />
+      </BaseModal>
+
+      <BaseModal visible={markReadSuccessVisible} onClose={() => setMarkReadSuccessVisible(false)}>
+        <ModalHeader title="Success" icon="checkmark-circle" iconColor={COLORS.success} onClose={() => setMarkReadSuccessVisible(false)} />
+        <ModalBody scrollable={false}>
+          <Text style={s.modalMessage}>All notifications have been marked as read.</Text>
+        </ModalBody>
+        <ModalFooter primaryLabel="OK" onPrimaryPress={() => setMarkReadSuccessVisible(false)} />
       </BaseModal>
 
       <BaseModal visible={envVisible} onClose={() => setEnvVisible(false)}>

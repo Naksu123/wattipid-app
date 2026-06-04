@@ -131,7 +131,7 @@ export default function EditProfile() {
       }
 
       Alert.alert('Success', 'Your profile has been updated.', [
-        { text: 'OK', onPress: () => router.back() }
+        { text: 'OK', onPress: () => router.navigate('/(tenant)/settings') }
       ]);
     } catch (error) {
       Alert.alert('Update Failed', error.message);
@@ -147,7 +147,7 @@ export default function EditProfile() {
       <StatusBar barStyle="light-content" />
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <View style={s.header}>
-          <TouchableOpacity style={s.backBtn} onPress={() => router.back()}>
+          <TouchableOpacity style={s.backBtn} onPress={() => router.navigate('/(tenant)/settings')}>
             <Ionicons name="chevron-back" size={24} color={COLORS.textPrimary} />
           </TouchableOpacity>
           <Text style={s.headerTitle}>Edit Profile</Text>
@@ -155,6 +155,17 @@ export default function EditProfile() {
         </View>
 
         <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
+          {/* --- PROFILE AVATAR --- */}
+          <View style={{ alignItems: 'center', marginBottom: 24, marginTop: 10 }}>
+            <View style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: 'rgba(16, 185, 129, 0.15)', justifyContent: 'center', alignItems: 'center', marginBottom: 12, borderWidth: 1, borderColor: 'rgba(16, 185, 129, 0.3)' }}>
+              <Text style={{ fontSize: 32, fontWeight: '900', color: COLORS.primary }}>
+                {name ? name.charAt(0).toUpperCase() : 'T'}
+              </Text>
+            </View>
+            <Text style={{ fontSize: 18, fontWeight: '800', color: COLORS.textPrimary }}>{user?.name || 'Tenant'}</Text>
+            <Text style={{ fontSize: 13, color: COLORS.textSecondary, marginTop: 2 }}>Room {user?.room_id || 'N/A'}</Text>
+          </View>
+
           {/* --- PERSONAL INFO --- */}
           <View style={s.section}>
             <Text style={s.sectionTitle}>Personal Information</Text>
@@ -251,7 +262,7 @@ export default function EditProfile() {
               )}
             </TouchableOpacity>
             
-            <TouchableOpacity style={s.cancelBtn} onPress={() => router.back()}>
+            <TouchableOpacity style={s.cancelBtn} onPress={() => router.navigate('/(tenant)/settings')}>
               <Text style={s.cancelBtnText}>Discard Changes</Text>
             </TouchableOpacity>
           </View>

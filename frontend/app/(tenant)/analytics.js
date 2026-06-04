@@ -171,12 +171,19 @@ export default function AnalyticsScreen() {
       }
       return ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][i % 7];
     }
-    return `D${h.day || h.label || (i + 1)}`;
+    
+    if (h.day || h.timestamp || h.group_date) {
+      const d = new Date(h.day || h.timestamp || h.group_date);
+      if (!isNaN(d.getTime())) {
+        return `${d.getMonth() + 1}/${d.getDate()}`;
+      }
+    }
+    return `D${h.label || (i + 1)}`;
   }) : ['No Data'];
 
   const energyData = history.length > 0 ? history.map(h => h.energy || 0) : [0];
   const costData = history.length > 0 ? history.map(h => h.cost || 0) : [0];
-  const chartWidth = Math.max(screenWidth - SPACING.xl, labels.length * 45);
+  const chartWidth = Math.max(screenWidth - SPACING.xl, labels.length * 55);
 
   const handleDataPointClick = (data) => {
     const { index } = data;
@@ -205,8 +212,7 @@ export default function AnalyticsScreen() {
   const VIEW_TABS = [
     { key: 'charts', icon: 'bar-chart-outline', label: 'Charts' },
     { key: 'breakdown', icon: 'list-outline', label: 'Breakdown' },
-    { key: 'history', icon: 'receipt-outline', label: 'History' },
-    { key: 'payments', icon: 'wallet-outline', label: 'Payments' },
+    { key: 'history', icon: 'receipt-outline', label: 'History' }
   ];
 
   // ─── PDF Report Generation ──────────────────────────────────────────────────
@@ -215,16 +221,28 @@ export default function AnalyticsScreen() {
     try {
       if (!selectedPdfCycle) return;
       
-      let startDate, endDate, reportTitle;
+      let startDate, endDate, reportType;
       
-      if (selectedPdfWeek) {
-        startDate = new Date(selectedPdfWeek.start);
-        endDate = new Date(selectedPdfWeek.end);
-        reportTitle = 'Weekly Consumption Report';
+      if (period === 'daily') {
+        startDate = new Date(selectedDate);
+        endDate = new Date(selectedDate);
+        reportType = 'Daily Consumption Analytics Report';
+      } else if (period === 'weekly') {
+        startDate = new Date(selectedDate);
+        startDate.setDate(startDate.getDate() - startDate.getDay()); 
+        endDate = new Date(startDate);
+        endDate.setDate(endDate.getDate() + 6); 
+        reportType = 'Weekly Consumption Analytics Report';
       } else {
-        startDate = new Date(selectedPdfCycle.cycle_start);
-        endDate = new Date(selectedPdfCycle.cycle_end);
-        reportTitle = 'Monthly Consumption Report';
+        const activeCycle = availableCycles?.find(c => new Date(c.cycle_start) <= selectedDate && new Date(c.cycle_end) >= selectedDate) || availableCycles?.[0];
+        if (activeCycle) {
+          startDate = new Date(activeCycle.cycle_start);
+          endDate = new Date(activeCycle.cycle_end);
+        } else {
+          startDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
+          endDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0);
+        }
+        reportType = 'Monthly Consumption Analytics Report';
       }
       
       const startStr = startDate.toISOString().split('T')[0];
@@ -233,10 +251,9 @@ export default function AnalyticsScreen() {
       // Fetch data for the specific range
       const [fetchedHistory, fetchedComp] = await Promise.all([
         getTransactionHistory(roomId, 300, 'daily', user?.name, 0, startStr, endStr),
-        getConsumptionComparison(roomId, selectedPdfWeek ? 'weekly' : 'monthly', user?.name)
+        getConsumptionComparison(roomId, period, user?.name)
       ]);
       
-      // The API returns grouped data: [{ title: '...', data: [{...}] }]
       const flattenedHistory = (fetchedHistory || []).reduce((acc, group) => {
         if (group.data && Array.isArray(group.data)) {
           return acc.concat(group.data);
@@ -244,13 +261,11 @@ export default function AnalyticsScreen() {
         return acc;
       }, []);
 
-      // Normalize boundaries to prevent excluding the first/last days due to time constraints
       const startBoundary = new Date(startDate);
       startBoundary.setHours(0, 0, 0, 0);
       const endBoundary = new Date(endDate);
       endBoundary.setHours(23, 59, 59, 999);
 
-      // Filter the history precisely to the selected range (already filtered by backend but just in case)
       const filteredHistory = flattenedHistory.filter(h => {
         const d = new Date(h.group_date || h.day || h.timestamp);
         return d >= startBoundary && d <= endBoundary;
@@ -264,12 +279,67 @@ export default function AnalyticsScreen() {
       
       const repTotalEnergy = filteredHistory.reduce((a, b) => a + (Number(b.totalEnergy || b.energy) || 0), 0);
       const repTotalCost = repTotalEnergy * rate;
-      const repAvgPower = filteredHistory.length > 0 ? filteredHistory.reduce((a, h) => a + (Number(h.avgPower) || 0), 0) / filteredHistory.length : 0;
-      const repPeakPower = Math.max(...filteredHistory.map(h => Number(h.peakPower) || 0), 0);
+      const validPowerHistory = filteredHistory.filter(h => Number(h.avgPower) > 0);
+      const repAvgPower = validPowerHistory.length > 0 ? validPowerHistory.reduce((a, h) => a + Number(h.avgPower), 0) / validPowerHistory.length : 0;
       
-      const breakdownRows = filteredHistory.map(r =>
-        `<tr><td>${formatDate(r.group_date || r.day || r.timestamp)}</td><td>${(parseFloat(r.totalEnergy || r.energy || 0)).toFixed(3)} kWh</td><td>₱${(parseFloat(r.totalCost || r.cost || 0)).toFixed(2)}</td><td>${(parseFloat(r.avgPower || 0)).toFixed(1)}W</td></tr>`
-      ).join('');
+      // Determine peak and lowest days
+      let peakDay = null;
+      let lowestDay = null;
+      if (filteredHistory.length > 0) {
+        const sorted = [...filteredHistory].sort((a, b) => (Number(b.totalEnergy || b.energy) || 0) - (Number(a.totalEnergy || a.energy) || 0));
+        peakDay = sorted[0];
+        lowestDay = sorted[sorted.length - 1];
+      }
+
+      // Efficiency Score Logic
+      let efficiencyScore = 'Average';
+      let efficiencyPct = 50;
+      let effStatusColor = '#EAB308'; // Warning/Yellow
+      if (compData.energyPctChange <= -10) { efficiencyScore = 'Excellent'; efficiencyPct = 95; effStatusColor = '#22C55E'; }
+      else if (compData.energyPctChange < 0) { efficiencyScore = 'Good'; efficiencyPct = 80; effStatusColor = '#10B981'; }
+      else if (compData.energyPctChange <= 5) { efficiencyScore = 'Average'; efficiencyPct = 60; effStatusColor = '#3B82F6'; }
+      else if (compData.energyPctChange <= 15) { efficiencyScore = 'High Consumption'; efficiencyPct = 35; effStatusColor = '#F97316'; }
+      else { efficiencyScore = 'Critical Consumption'; efficiencyPct = 15; effStatusColor = '#EF4444'; }
+
+      // Smart Insights
+      const insights = [];
+      if (compData.energyPctChange > 0) insights.push(`Electricity consumption increased by ${compData.energyPctChange.toFixed(1)}% compared to the previous period.`);
+      else if (compData.energyPctChange < 0) insights.push(`Great job! Consumption reduced by ${Math.abs(compData.energyPctChange).toFixed(1)}% compared to the previous period.`);
+      else insights.push(`Consumption remains perfectly stable compared to the previous period.`);
+      
+      if (peakDay) {
+        insights.push(`Highest consumption was recorded on ${formatDate(peakDay.group_date || peakDay.day || peakDay.timestamp)} at ${(Number(peakDay.totalEnergy || peakDay.energy)).toFixed(2)} kWh.`);
+      }
+
+      // Recommendations
+      let recommendation = '';
+      if (efficiencyScore === 'Excellent' || efficiencyScore === 'Good') {
+        recommendation = "Your electricity consumption is highly efficient. Continue your current habits to maintain savings.";
+      } else if (efficiencyScore === 'Average') {
+        recommendation = "Your consumption is stable. Unplugging idle chargers and turning off unused lights could yield further savings.";
+      } else {
+        recommendation = "High consumption detected. Consider reviewing high-wattage appliance usage (e.g. air conditioning, heating) during peak hours.";
+      }
+
+      // Breakdown Rows
+      const breakdownRows = filteredHistory.map(r => {
+        const energy = Number(r.totalEnergy || r.energy || 0);
+        const cost = energy * rate;
+        const pwr = Number(r.avgPower || 0);
+        let status = 'Normal';
+        if (pwr > 1000) status = 'High';
+        if (pwr < 100) status = 'Low';
+        const pct = repTotalEnergy > 0 ? ((energy / repTotalEnergy) * 100).toFixed(1) : '0.0';
+        
+        return `<tr>
+          <td>${formatDate(r.group_date || r.day || r.timestamp)}</td>
+          <td>${energy.toFixed(3)} kWh</td>
+          <td>₱${cost.toFixed(2)}</td>
+          <td>${pwr.toFixed(1)}W</td>
+          <td><span class="status-badge ${status.toLowerCase()}">${status}</span></td>
+          <td>${pct}%</td>
+        </tr>`;
+      }).join('');
 
       const html = `<!DOCTYPE html>
 <html>
@@ -277,138 +347,196 @@ export default function AnalyticsScreen() {
   <meta charset="utf-8">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'Helvetica Neue', Arial, sans-serif; color: #1E293B; padding: 40px; font-size: 13px; background: #fff; line-height: 1.5; }
-    .bill-container { max-width: 800px; margin: 0 auto; }
-    .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #22C55E; padding-bottom: 20px; margin-bottom: 30px; }
-    .company h1 { color: #16A34A; font-size: 28px; letter-spacing: 1px; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; }
-    .company p { color: #64748B; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
-    .statement-badge { background: #F8FAFC; border: 1px solid #E2E8F0; padding: 12px 20px; border-radius: 6px; text-align: right; }
-    .statement-badge .title { font-weight: 700; color: #0F172A; font-size: 16px; margin-bottom: 4px; text-transform: uppercase; }
-    .statement-badge .date { color: #64748B; font-size: 12px; }
+    body { font-family: 'Helvetica Neue', Arial, sans-serif; color: #1E293B; padding: 30px; font-size: 11px; background: #fff; line-height: 1.4; }
+    .report-container { max-width: 800px; margin: 0 auto; }
+    .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #10B981; padding-bottom: 15px; margin-bottom: 20px; }
+    .company h1 { color: #10B981; font-size: 24px; letter-spacing: 1px; margin-bottom: 2px; }
+    .company p { color: #475569; font-size: 10px; font-weight: bold; letter-spacing: 0.5px; }
+    .report-title-box { text-align: right; }
+    .report-title-box h2 { font-size: 14px; color: #0F172A; text-transform: uppercase; margin-bottom: 4px; }
+    .report-title-box p { font-size: 10px; color: #64748B; }
     
-    .customer-section { display: flex; justify-content: space-between; margin-bottom: 40px; }
-    .bill-to h3 { font-size: 11px; color: #94A3B8; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
-    .bill-to h2 { font-size: 20px; color: #0F172A; margin-bottom: 4px; }
-    .bill-to p { color: #475569; font-size: 14px; }
-    .account-details table { width: 100%; border-collapse: collapse; }
-    .account-details td { padding: 4px 0; }
-    .account-details td:first-child { color: #64748B; font-size: 12px; padding-right: 24px; text-align: right; }
-    .account-details td:last-child { color: #0F172A; font-weight: 600; font-size: 13px; text-align: right; }
+    .tenant-info { display: flex; justify-content: space-between; background: #F8FAFC; padding: 12px; border-radius: 6px; margin-bottom: 20px; border: 1px solid #E2E8F0; }
+    .tenant-col { flex: 1; }
+    .tenant-col span { display: block; font-size: 9px; color: #64748B; text-transform: uppercase; margin-bottom: 2px; }
+    .tenant-col strong { display: block; font-size: 12px; color: #0F172A; }
     
-    .summary-section { margin-bottom: 40px; }
-    .section-title { font-size: 14px; font-weight: 700; color: #0F172A; border-bottom: 1px solid #E2E8F0; padding-bottom: 8px; margin-bottom: 16px; text-transform: uppercase; letter-spacing: 0.5px; }
-    .summary-box { background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; display: flex; overflow: hidden; }
-    .amount-due { background: #22C55E; color: white; padding: 24px; flex: 1; display: flex; flex-direction: column; justify-content: center; }
-    .amount-due span { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; opacity: 0.9; margin-bottom: 4px; }
-    .amount-due h2 { font-size: 32px; font-weight: 700; }
-    .usage-stats { flex: 2; padding: 24px; display: flex; gap: 32px; align-items: center; }
-    .stat-item { flex: 1; }
-    .stat-item span { display: block; font-size: 11px; color: #64748B; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
-    .stat-item strong { display: block; font-size: 18px; color: #0F172A; }
+    .section-title { font-size: 12px; font-weight: 700; color: #10B981; border-bottom: 1px solid #E2E8F0; padding-bottom: 6px; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
     
-    .comparison-grid { display: flex; gap: 16px; margin-bottom: 40px; }
-    .comp-card { flex: 1; border: 1px solid #E2E8F0; border-radius: 6px; padding: 16px; text-align: center; }
-    .comp-card .label { font-size: 11px; color: #64748B; text-transform: uppercase; margin-bottom: 8px; }
-    .comp-card .value { font-size: 16px; font-weight: 600; color: #0F172A; }
-    .comp-card.diff { background: ${compData.costDiff > 0 ? '#FEF2F2' : '#F0FDF4'}; border-color: ${compData.costDiff > 0 ? '#FECACA' : '#BBF7D0'}; }
-    .comp-card.diff .value { color: ${compData.costDiff > 0 ? '#DC2626' : '#16A34A'}; }
+    /* KPI Grid */
+    .kpi-grid { display: flex; gap: 10px; margin-bottom: 20px; }
+    .kpi-card { flex: 1; background: #F8FAFC; border: 1px solid #E2E8F0; padding: 12px; border-radius: 6px; text-align: center; }
+    .kpi-card span { display: block; font-size: 9px; color: #64748B; text-transform: uppercase; margin-bottom: 4px; }
+    .kpi-card strong { display: block; font-size: 16px; color: #0F172A; }
+    .kpi-card.highlight { background: #10B981; color: white; border-color: #10B981; }
+    .kpi-card.highlight span, .kpi-card.highlight strong { color: white; }
     
-    table.breakdown { width: 100%; border-collapse: collapse; margin-bottom: 40px; }
-    table.breakdown th { background: #F1F5F9; color: #475569; padding: 12px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid #E2E8F0; }
-    table.breakdown td { padding: 12px; border-bottom: 1px solid #E2E8F0; color: #0F172A; font-size: 13px; }
-    table.breakdown tr:nth-child(even) td { background: #FAFAF9; }
+    /* Split Layout */
+    .row { display: flex; gap: 20px; margin-bottom: 20px; }
+    .col { flex: 1; }
     
-    .footer { text-align: center; border-top: 1px solid #E2E8F0; padding-top: 24px; color: #94A3B8; font-size: 11px; }
+    /* Efficiency & Comparison */
+    .efficiency-box { border: 1px solid #E2E8F0; padding: 16px; border-radius: 6px; text-align: center; height: 100%; }
+    .eff-score { font-size: 28px; font-weight: bold; color: ${effStatusColor}; margin: 10px 0; }
+    .eff-bar-bg { background: #E2E8F0; height: 8px; border-radius: 4px; margin-top: 10px; overflow: hidden; }
+    .eff-bar-fill { background: ${effStatusColor}; height: 100%; width: ${efficiencyPct}%; }
+    
+    .comp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .comp-item { background: #F8FAFC; padding: 10px; border-radius: 4px; border: 1px solid #E2E8F0; }
+    .comp-item span { font-size: 9px; color: #64748B; display: block; }
+    .comp-item strong { font-size: 13px; color: #0F172A; display: block; margin-top: 2px; }
+    .comp-item.diff strong { color: ${compData.energyPctChange > 0 ? '#EF4444' : '#10B981'}; }
+    
+    /* Insights & Recommendations */
+    .insight-list { list-style: none; padding-left: 0; margin-bottom: 0; }
+    .insight-list li { background: #F0FDF4; border-left: 3px solid #10B981; padding: 8px 12px; margin-bottom: 8px; font-size: 11px; color: #0F172A; }
+    .rec-box { background: #FEF3C7; border: 1px solid #FCD34D; padding: 12px; border-radius: 6px; color: #92400E; font-size: 11px; font-weight: 500; }
+    
+    /* Table */
+    table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+    th { background: #F1F5F9; color: #475569; padding: 8px; text-align: left; font-size: 9px; text-transform: uppercase; border-bottom: 2px solid #E2E8F0; }
+    td { padding: 8px; border-bottom: 1px solid #E2E8F0; font-size: 11px; }
+    tr:nth-child(even) td { background: #FAFAF9; }
+    .status-badge { padding: 2px 6px; border-radius: 12px; font-size: 9px; font-weight: bold; text-transform: uppercase; }
+    .status-badge.normal { background: #E0F2FE; color: #0369A1; }
+    .status-badge.high { background: #FEE2E2; color: #B91C1C; }
+    .status-badge.low { background: #DCFCE7; color: #15803D; }
+    
+    .footer { text-align: center; border-top: 1px solid #E2E8F0; padding-top: 15px; color: #64748B; font-size: 9px; line-height: 1.5; }
+    .footer strong { color: #0F172A; display: block; margin-bottom: 4px; font-size: 10px; }
   </style>
 </head>
 <body>
-<div class="bill-container">
+<div class="report-container">
+  
   <div class="header">
     <div class="company">
-      <h1>⚡ Wattipid</h1>
-      <p>Electricity Statement of Account</p>
+      <h1>⚡ WATTIPID</h1>
+      <p>SMART ELECTRICITY MONITORING</p>
     </div>
-    <div class="statement-badge">
-      <div class="title">${reportTitle}</div>
-      <div class="date">${dateRange}</div>
-    </div>
-  </div>
-
-  <div class="customer-section">
-    <div class="bill-to">
-      <h3>Bill To</h3>
-      <h2>${user?.name || 'Tenant'}</h2>
-      <p>Room: ${roomId}</p>
-    </div>
-    <div class="account-details">
-      <table>
-        <tr><td>Statement Date:</td><td>${now.toLocaleDateString()}</td></tr>
-        <tr><td>Report Type:</td><td>${selectedPdfWeek ? 'Weekly' : 'Monthly'} Analytics</td></tr>
-      </table>
+    <div class="report-title-box">
+      <h2>${reportType}</h2>
+      <p>Generated: ${now.toLocaleDateString()} ${now.toLocaleTimeString()}</p>
     </div>
   </div>
 
-  <div class="summary-section">
-    <div class="section-title">Account Summary</div>
-    <div class="summary-box">
-      <div class="amount-due">
-        <span>Total Cost</span>
-        <h2>₱${repTotalCost.toFixed(2)}</h2>
+  <div class="tenant-info">
+    <div class="tenant-col">
+      <span>Tenant Name</span>
+      <strong>${user?.name || 'Tenant'}</strong>
+    </div>
+    <div class="tenant-col">
+      <span>Room Number</span>
+      <strong>${roomId}</strong>
+    </div>
+    <div class="tenant-col">
+      <span>Reporting Period</span>
+      <strong>${dateRange}</strong>
+    </div>
+    <div class="tenant-col" style="text-align: right;">
+      <span>Current Rate</span>
+      <strong>₱${rate.toFixed(2)} / kWh</strong>
+    </div>
+  </div>
+
+  <div class="section-title">Executive Summary</div>
+  <div class="kpi-grid">
+    <div class="kpi-card highlight">
+      <span>Total Energy Consumed</span>
+      <strong>${repTotalEnergy.toFixed(3)} kWh</strong>
+    </div>
+    <div class="kpi-card">
+      <span>Estimated Cost</span>
+      <strong>₱${repTotalCost.toFixed(2)}</strong>
+    </div>
+    <div class="kpi-card">
+      <span>Daily Average</span>
+      <strong>${(repTotalEnergy / Math.max(filteredHistory.length, 1)).toFixed(3)} kWh/day</strong>
+    </div>
+    <div class="kpi-card">
+      <span>Average Power Load</span>
+      <strong>${repAvgPower.toFixed(1)} W</strong>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col">
+      <div class="section-title">Energy Efficiency Score</div>
+      <div class="efficiency-box">
+        <div style="font-size: 10px; color: #64748B; text-transform: uppercase;">Consumption Rating</div>
+        <div class="eff-score">${efficiencyScore}</div>
+        <div style="font-size: 11px; color: #475569;">Performance relative to baseline</div>
+        <div class="eff-bar-bg"><div class="eff-bar-fill"></div></div>
       </div>
-      <div class="usage-stats">
-        <div class="stat-item">
-          <span>Energy Consumed</span>
-          <strong>${repTotalEnergy.toFixed(3)} kWh</strong>
+    </div>
+    <div class="col">
+      <div class="section-title">Historical Comparison</div>
+      <div class="comp-grid">
+        <div class="comp-item">
+          <span>Current Period</span>
+          <strong>${compData.current.totalEnergy.toFixed(3)} kWh</strong>
         </div>
-        <div class="stat-item">
-          <span>Avg Power Load</span>
-          <strong>${repAvgPower.toFixed(1)} W</strong>
+        <div class="comp-item">
+          <span>Previous Period</span>
+          <strong>${compData.previous.totalEnergy.toFixed(3)} kWh</strong>
         </div>
-        <div class="stat-item">
-          <span>Rate per kWh</span>
-          <strong>₱${rate.toFixed(2)}</strong>
+        <div class="comp-item diff">
+          <span>Difference</span>
+          <strong>${compData.energyPctChange > 0 ? '↑' : '↓'} ${Math.abs(compData.energyPctChange).toFixed(1)}%</strong>
+        </div>
+        <div class="comp-item">
+          <span>Cost Difference</span>
+          <strong>${compData.costDiff > 0 ? '+' : ''}₱${compData.costDiff.toFixed(2)}</strong>
         </div>
       </div>
     </div>
   </div>
 
-  <div class="summary-section">
-    <div class="section-title">Comparison vs Previous ${selectedPdfWeek ? 'Week' : 'Month'}</div>
-    <div class="comparison-grid">
-      <div class="comp-card">
-        <div class="label">Current ${selectedPdfWeek ? 'Week' : 'Month'}</div>
-        <div class="value">₱${compData.current.totalCost.toFixed(2)}</div>
-      </div>
-      <div class="comp-card">
-        <div class="label">Previous ${selectedPdfWeek ? 'Week' : 'Month'}</div>
-        <div class="value">₱${compData.previous.totalCost.toFixed(2)}</div>
-      </div>
-      <div class="comp-card diff">
-        <div class="label">Difference</div>
-        <div class="value">${compData.costDiff > 0 ? '+' : ''}₱${compData.costDiff.toFixed(2)}</div>
-      </div>
+  <div class="section-title">Wattipid Smart Insights</div>
+  <ul class="insight-list">
+    ${insights.map(i => `<li>${i}</li>`).join('')}
+  </ul>
+  
+  <div style="margin-top: 15px; margin-bottom: 20px;">
+    <div class="rec-box">
+      <strong>RECOMMENDATION:</strong> ${recommendation}
     </div>
   </div>
 
-  ${filteredHistory.length > 0 ? `
-  <div class="summary-section">
-    <div class="section-title">Daily Breakdown</div>
-    <table class="breakdown">
-      <thead><tr><th>Date</th><th>Energy</th><th>Cost</th><th>Avg Power</th></tr></thead>
-      <tbody>${breakdownRows}</tbody>
-    </table>
-  </div>` : ''}
+  <div class="section-title">Detailed Consumption Breakdown</div>
+  <table>
+    <thead>
+      <tr>
+        <th>Date</th>
+        <th>Energy (kWh)</th>
+        <th>Est. Cost</th>
+        <th>Avg Load</th>
+        <th>Status</th>
+        <th>Contribution</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${breakdownRows || '<tr><td colspan="6" style="text-align: center;">No data available for this period.</td></tr>'}
+    </tbody>
+  </table>
 
   <div class="footer">
-    This is a computer-generated document. No signature is required.<br>
-    Generated by Wattipid System • ${now.toLocaleDateString()} ${now.toLocaleTimeString()}
+    <strong>DISCLAIMER</strong>
+    This report is intended for electricity consumption monitoring and analytics purposes only. <br>
+    It is NOT an official billing statement, invoice, or statement of account. <br>
+    Actual billing information can be viewed separately within the Wattipid Billing Module.
+    <div style="margin-top: 10px; opacity: 0.7;">
+      This is a computer-generated report. No signature required. <br>
+      Generated by Wattipid Smart Electricity Monitoring System.
+    </div>
   </div>
+
 </div>
 </body>
 </html>`;
 
       const { uri } = await Print.printToFileAsync({ html, base64: false });
-      await Sharing.shareAsync(uri, { mimeType: 'application/pdf', dialogTitle: `Wattipid ${reportTitle}` });
+      await Sharing.shareAsync(uri, { mimeType: 'application/pdf', dialogTitle: reportType });
     } catch (err) {
       Alert.alert('Error', 'Failed to generate report: ' + err.message);
     } finally {
@@ -441,22 +569,24 @@ export default function AnalyticsScreen() {
           <Ionicons name="information-circle-outline" size={12} color={COLORS.textMuted} /> Analytics are calculated only from the active billing cycle.
         </Text>
 
+
+
         {/* Summary Stats */}
         <View style={s.statsRow}>
           <GlassCard style={s.statCard}>
             <Ionicons name="flash" size={18} color={COLORS.primary} />
-            <Text style={s.statValue}>{Number(totalEnergy || 0).toFixed(2)}</Text>
-            <Text style={s.statLabel}>{period === 'daily' ? 'Daily kWh' : period === 'weekly' ? 'Weekly kWh' : 'Monthly kWh'}</Text>
+            <Text style={s.statValue} numberOfLines={1} adjustsFontSizeToFit>{Number(totalEnergy || 0).toFixed(2)}</Text>
+            <Text style={s.statLabel} numberOfLines={1}>{period === 'daily' ? 'Daily kWh' : period === 'weekly' ? 'Weekly kWh' : 'Monthly kWh'}</Text>
           </GlassCard>
           <GlassCard style={s.statCard}>
             <Ionicons name="cash" size={18} color={COLORS.warning} />
-            <Text style={s.statValue}>₱{Number(totalCost || 0).toFixed(2)}</Text>
-            <Text style={s.statLabel}>{period === 'daily' ? 'Daily Cost' : period === 'weekly' ? 'Weekly Cost' : 'Monthly Cost'}</Text>
+            <Text style={s.statValue} numberOfLines={1} adjustsFontSizeToFit>₱{Number(totalCost || 0).toFixed(2)}</Text>
+            <Text style={s.statLabel} numberOfLines={1}>{period === 'daily' ? 'Daily Cost' : period === 'weekly' ? 'Weekly Cost' : 'Monthly Cost'}</Text>
           </GlassCard>
           <GlassCard style={s.statCard}>
             <Ionicons name="trending-up" size={18} color={COLORS.danger} />
-            <Text style={s.statValue}>{Number(peakPower || 0).toFixed(0)}</Text>
-            <Text style={s.statLabel}>Peak W</Text>
+            <Text style={s.statValue} numberOfLines={1} adjustsFontSizeToFit>{Number(peakPower || 0).toFixed(0)}</Text>
+            <Text style={s.statLabel} numberOfLines={1}>Peak W</Text>
           </GlassCard>
         </View>
 
@@ -496,107 +626,18 @@ export default function AnalyticsScreen() {
         )}
 
         {/* View Toggle */}
-        <View style={s.viewToggle}>
-          {VIEW_TABS.map(tab => (
-            <TouchableOpacity key={tab.key} onPress={() => { setActiveView(tab.key); setHistoryLimit(20); }}
-              style={[s.viewTab, activeView === tab.key && s.viewTabActive]} activeOpacity={0.7}>
-              <Ionicons name={tab.icon} size={16} color={activeView === tab.key ? COLORS.primary : COLORS.textMuted} />
-              <Text style={[s.viewTabText, activeView === tab.key && s.viewTabTextActive]}>{tab.label}</Text>
-            </TouchableOpacity>
-          ))}
+        <View style={{ marginBottom: SPACING.lg }}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.viewToggle}>
+            {VIEW_TABS.map(tab => (
+              <TouchableOpacity key={tab.key} onPress={() => { setActiveView(tab.key); setHistoryLimit(20); }}
+                style={[s.viewTab, activeView === tab.key && s.viewTabActive]} activeOpacity={0.7}>
+                <Ionicons name={tab.icon} size={16} color={activeView === tab.key ? COLORS.primary : COLORS.textMuted} />
+                <Text style={[s.viewTabText, activeView === tab.key && s.viewTabTextActive]}>{tab.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
         </View>
 
-
-        {/* PDF Report Generation */}
-        <GlassCard style={s.reportCard}>
-          <View style={s.reportHeader}>
-            <Ionicons name="document-text" size={18} color={COLORS.info} />
-            <Text style={s.reportTitle}>Generate Report</Text>
-          </View>
-          <Text style={s.reportDesc}>Export consumption data as a PDF report</Text>
-          <View style={{ marginTop: 12 }}>
-            <Text style={{ color: COLORS.textMuted, fontSize: 13, marginBottom: 8 }}>Select Billing Cycle</Text>
-            <TouchableOpacity style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', padding: 12, borderRadius: RADIUS.md, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }} onPress={() => setShowPdfCycleDrop(!showPdfCycleDrop)}>
-              <Text style={{ color: COLORS.textPrimary }}>
-                {selectedPdfCycle ? `${new Date(selectedPdfCycle.cycle_start).toLocaleDateString('default', { month: 'short', day: 'numeric', year: 'numeric' })} – ${new Date(selectedPdfCycle.cycle_end).toLocaleDateString('default', { month: 'short', day: 'numeric', year: 'numeric' })}` : 'Loading...'}
-              </Text>
-              <Ionicons name={showPdfCycleDrop ? 'chevron-up' : 'chevron-down'} size={16} color={COLORS.primary} />
-            </TouchableOpacity>
-
-            {showPdfCycleDrop && availableCycles.length > 0 && (
-              <View style={{ backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: RADIUS.md, marginTop: 4, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', maxHeight: 150, overflow: 'hidden' }}>
-                <ScrollView nestedScrollEnabled>
-                  {availableCycles.map((c, i) => (
-                    <TouchableOpacity key={i} style={{ padding: 12, borderBottomWidth: i !== availableCycles.length - 1 ? 1 : 0, borderBottomColor: 'rgba(255,255,255,0.05)' }} 
-                      onPress={() => {
-                        setSelectedPdfCycle(c);
-                        setSelectedPdfWeek(null);
-                        setShowPdfCycleDrop(false);
-                      }}>
-                      <Text style={{ color: selectedPdfCycle?.id === c.id ? COLORS.primary : COLORS.textPrimary, fontWeight: selectedPdfCycle?.id === c.id ? 'bold' : 'normal' }}>
-                        {new Date(c.cycle_start).toLocaleDateString('default', { month: 'short', day: 'numeric' })} – {new Date(c.cycle_end).toLocaleDateString('default', { month: 'short', day: 'numeric', year: 'numeric' })}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
-            )}
-
-            {selectedPdfCycle && (
-              <>
-                <Text style={{ color: COLORS.textMuted, fontSize: 13, marginTop: 12, marginBottom: 8 }}>Select Week (Optional)</Text>
-                <TouchableOpacity style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', padding: 12, borderRadius: RADIUS.md, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }} onPress={() => setShowPdfWeekDrop(!showPdfWeekDrop)}>
-                  <Text style={{ color: COLORS.textPrimary }}>
-                    {selectedPdfWeek ? `${selectedPdfWeek.label} (${new Date(selectedPdfWeek.start).toLocaleDateString('default', { month: 'short', day: 'numeric' })} – ${new Date(selectedPdfWeek.end).toLocaleDateString('default', { month: 'short', day: 'numeric' })})` : 'Entire Billing Cycle'}
-                  </Text>
-                  <Ionicons name={showPdfWeekDrop ? 'chevron-up' : 'chevron-down'} size={16} color={COLORS.primary} />
-                </TouchableOpacity>
-
-                {showPdfWeekDrop && (() => {
-                  const weeks = [];
-                  let curr = new Date(selectedPdfCycle.cycle_start);
-                  const end = new Date(selectedPdfCycle.cycle_end);
-                  let w = 1;
-                  while (curr < end) {
-                    let wEnd = new Date(curr);
-                    wEnd.setDate(wEnd.getDate() + 6);
-                    if (wEnd > end) wEnd = new Date(end);
-                    weeks.push({ label: `Week ${w}`, start: new Date(curr), end: wEnd });
-                    curr.setDate(curr.getDate() + 7);
-                    w++;
-                  }
-
-                  return (
-                    <View style={{ backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: RADIUS.md, marginTop: 4, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
-                      <TouchableOpacity style={{ padding: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }} 
-                        onPress={() => { setSelectedPdfWeek(null); setShowPdfWeekDrop(false); }}>
-                        <Text style={{ color: !selectedPdfWeek ? COLORS.primary : COLORS.textPrimary, fontWeight: !selectedPdfWeek ? 'bold' : 'normal' }}>Entire Billing Cycle</Text>
-                      </TouchableOpacity>
-                      {weeks.map((week, i) => (
-                        <TouchableOpacity key={i} style={{ padding: 12, borderBottomWidth: i !== weeks.length - 1 ? 1 : 0, borderBottomColor: 'rgba(255,255,255,0.05)' }} 
-                          onPress={() => {
-                            setSelectedPdfWeek(week);
-                            setShowPdfWeekDrop(false);
-                          }}>
-                          <Text style={{ color: selectedPdfWeek?.label === week.label ? COLORS.primary : COLORS.textPrimary, fontWeight: selectedPdfWeek?.label === week.label ? 'bold' : 'normal' }}>
-                            {week.label} ({week.start.toLocaleDateString('default', { month: 'short', day: 'numeric' })} – {week.end.toLocaleDateString('default', { month: 'short', day: 'numeric' })})
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  );
-                })()}
-              </>
-            )}
-
-            <TouchableOpacity style={{ backgroundColor: COLORS.info, padding: 14, borderRadius: RADIUS.md, alignItems: 'center', justifyContent: 'center', marginTop: 16, flexDirection: 'row', gap: 8 }} onPress={() => generateReport()} disabled={generatingPdf || !selectedPdfCycle} activeOpacity={0.7}>
-              {generatingPdf ? <ActivityIndicator size="small" color="#fff" /> : (
-                <><Ionicons name="download-outline" size={18} color="#fff" />
-                <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>Download PDF Report</Text></>
-              )}
-            </TouchableOpacity>
-          </View>
-        </GlassCard>
 
         {/* Charts View */}
         {activeView === 'charts' && (
@@ -647,29 +688,6 @@ export default function AnalyticsScreen() {
                     fromZero 
                     yAxisSuffix="" 
                     onDataPointClick={handleDataPointClick}
-                  />
-                </ScrollView>
-              ) : (
-                <Text style={s.noData}>No data available yet</Text>
-              )}
-            </GlassCard>
-
-            <GlassCard style={s.chartCard}>
-              <Text style={s.chartTitle}>Cost Breakdown (₱)</Text>
-              <Text style={s.chartHelpText}>Tap on bars to view details</Text>
-              {history.length > 0 ? (
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.chartScroll}>
-                  <BarChart 
-                    data={{ labels: labels, datasets: [{ data: costData }] }}
-                    width={chartWidth} 
-                    height={220}
-                    chartConfig={{ ...chartConfig, color: (o = 1) => `rgba(249, 115, 22, ${o})` }}
-                    style={s.chart} 
-                    withInnerLines={false} 
-                    fromZero 
-                    yAxisSuffix="" 
-                    yAxisLabel="₱" 
-                    showBarTops={false}
                   />
                 </ScrollView>
               ) : (
@@ -906,6 +924,24 @@ export default function AnalyticsScreen() {
           </TouchableOpacity>
         </ModalBody>
       </BaseModal>
+
+        {/* PDF Report Generation */}
+        <GlassCard style={s.reportCard}>
+          <View style={s.reportHeader}>
+            <Ionicons name="document-text" size={18} color={COLORS.info} />
+            <Text style={s.reportTitle}>Generate Report</Text>
+          </View>
+          <Text style={s.reportDesc}>Export a detailed PDF analytics report for the currently viewed {period} period.</Text>
+          <View style={{ marginTop: 12 }}>
+            <TouchableOpacity style={{ backgroundColor: COLORS.info, padding: 14, borderRadius: RADIUS.md, alignItems: 'center', justifyContent: 'center', marginTop: 8, flexDirection: 'row', gap: 8 }} onPress={() => generateReport()} disabled={generatingPdf} activeOpacity={0.7}>
+              {generatingPdf ? <ActivityIndicator size="small" color="#fff" /> : (
+                <><Ionicons name="download-outline" size={18} color="#fff" />
+                <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 14 }}>Download {period.charAt(0).toUpperCase() + period.slice(1)} Report</Text></>
+              )}
+            </TouchableOpacity>
+          </View>
+        </GlassCard>
+
       </ScrollView>
     </View>
   );

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   ScrollView, KeyboardAvoidingView, Platform, Alert, ActivityIndicator,
@@ -10,6 +10,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { requestTenantAccessCode } from '../../services/emailService';
 import { COLORS, GRADIENTS, FONT_WEIGHT } from '@/styles/theme';
 import s from '@/styles/auth/register.styles';
+import TermsAgreementModal from '../../components/modals/TermsAgreementModal';
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -34,6 +35,18 @@ export default function RegisterScreen() {
   const [adminCode, setAdminCode] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState({});
+
+  // Terms Modal
+  const [termsModalVisible, setTermsModalVisible] = useState(false);
+  const [acceptedTermsId, setAcceptedTermsId] = useState(null);
+  const [acceptedDeviceInfo, setAcceptedDeviceInfo] = useState(null);
+
+  // Trigger modal immediately when user lands on Registration screen and is a Tenant
+  useEffect(() => {
+    if (role === 'tenant' && !acceptedTermsId) {
+      setTermsModalVisible(true);
+    }
+  }, [role, acceptedTermsId]);
 
   // ─── Step 1: Request access code ───────────────────────────────────────────
   const handleRequestCode = async () => {
@@ -78,11 +91,16 @@ export default function RegisterScreen() {
     return Object.keys(e).length === 0;
   };
 
-  const handleRegister = async () => {
+  const handleRegisterClick = () => {
     if (!validate()) return;
+    executeRegistration();
+  };
+
+  const executeRegistration = async () => {
     const result = await register(
       name.trim(), email.trim(), password, role,
-      role === 'tenant' ? tenantCode.trim() : null
+      role === 'tenant' ? tenantCode.trim() : null,
+      acceptedTermsId, null, acceptedDeviceInfo
     );
     if (result.success) {
       if (result.needsVerification) {
@@ -93,6 +111,17 @@ export default function RegisterScreen() {
     } else {
       Alert.alert('Registration Failed', result.message);
     }
+  };
+
+  const handleTermsAccept = (versionId, deviceInfo) => {
+    setTermsModalVisible(false);
+    setAcceptedTermsId(versionId);
+    setAcceptedDeviceInfo(deviceInfo);
+  };
+
+  const handleTermsDecline = () => {
+    setTermsModalVisible(false);
+    router.replace('/(auth)/login');
   };
 
 
@@ -184,6 +213,13 @@ export default function RegisterScreen() {
             <Text style={s.regText}>Already have an account? <Text style={s.regLink}>Sign In</Text></Text>
           </TouchableOpacity>
         </ScrollView>
+
+        {/* Terms Agreement Modal */}
+        <TermsAgreementModal 
+          visible={termsModalVisible} 
+          onAccept={handleTermsAccept} 
+          onDecline={handleTermsDecline} 
+        />
       </KeyboardAvoidingView>
     );
   }
@@ -280,7 +316,7 @@ export default function RegisterScreen() {
             </View>
           )}
 
-          <TouchableOpacity onPress={handleRegister} activeOpacity={0.8} disabled={isLoading} style={s.btnWrap}>
+          <TouchableOpacity onPress={handleRegisterClick} activeOpacity={0.8} disabled={isLoading} style={s.btnWrap}>
             <LinearGradient colors={GRADIENTS.primary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s.btn}>
               {isLoading
                 ? <ActivityIndicator color="#fff" />

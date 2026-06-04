@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { Alert } from 'react-native';
+import { Alert, DeviceEventEmitter } from 'react-native';
 import Storage from './storage';
 import { API_URL } from './config';
 
@@ -78,7 +78,7 @@ apiClient.interceptors.response.use(
           await Storage.deleteItem('refresh_token');
           await Storage.deleteItem('user_data');
           if (!isLoggingOut) {
-            Alert.alert('Session Expired', 'Your security token has expired. Please restart the app or go to Profile -> Logout, then log back in to see your data.');
+            DeviceEventEmitter.emit('showToast', { message: 'Session Expired. Please log in again.', type: 'error' });
           }
           return Promise.resolve({ data: { success: false, message: 'Session expired' } });
         }
@@ -106,9 +106,17 @@ apiClient.interceptors.response.use(
         await Storage.deleteItem('user_data');
         
         if (!isLoggingOut) {
-          Alert.alert('Session Expired', 'Your security token has expired. Please restart the app or go to Profile -> Logout, then log back in to see your data.');
+          DeviceEventEmitter.emit('showToast', { message: 'Session Expired. Please log in again.', type: 'error' });
         }
         return Promise.resolve({ data: { success: false, message: 'Session expired' } });
+      }
+    }
+
+    // Generic Network/Server Error handling
+    const isSyncRoute = originalRequest.url?.includes('action=syncTenantData') || originalRequest.url?.includes('action=syncLandlordData');
+    if (!isLoggingOut && !isAuthRoute && !isSyncRoute) {
+      if (error.message === 'Network Error' || error.code === 'ECONNABORTED' || error.response?.status >= 500) {
+        DeviceEventEmitter.emit('showToast', { message: 'Network connection issue. Please check your internet.', type: 'error', duration: 4000 });
       }
     }
 

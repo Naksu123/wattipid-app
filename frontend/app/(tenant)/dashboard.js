@@ -381,16 +381,16 @@ export default function DashboardScreen() {
         {/* Power Gauge */}
         <GlassCard gradient style={[ms.gaugeCard, offline && { opacity: 0.8 }]}>
           {offline ? (
-            <View style={{ height: 180, justifyContent: 'center', alignItems: 'center' }}>
-              <View style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', padding: 20, borderRadius: 100, marginBottom: 15 }}>
-                <Ionicons name="cloud-offline-outline" size={50} color={COLORS.danger} />
+            <View style={{ paddingVertical: SPACING.sm, justifyContent: 'center', alignItems: 'center' }}>
+              <View style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', padding: 12, borderRadius: 100, marginBottom: 8 }}>
+                <Ionicons name="cloud-offline-outline" size={32} color={COLORS.danger} />
               </View>
-              <Text style={{ color: COLORS.textPrimary, fontSize: 18, fontWeight: '600' }}>Submeter is Offline</Text>
-              <Text style={{ color: COLORS.textMuted, fontSize: 14, textAlign: 'center', marginTop: 8, paddingHorizontal: 40 }}>
+              <Text style={{ color: COLORS.textPrimary, fontSize: 16, fontWeight: '600' }}>Submeter is Offline</Text>
+              <Text style={{ color: COLORS.textMuted, fontSize: 12, textAlign: 'center', marginTop: 4, paddingHorizontal: 20 }}>
                 Real-time monitoring is currently unavailable. Check your WiFi or submeter power.
               </Text>
               <TouchableOpacity
-                style={{ marginTop: 20, paddingVertical: 10, paddingHorizontal: 20, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}
+                style={{ marginTop: 12, paddingVertical: 8, paddingHorizontal: 20, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}
                 onPress={() => {
                   setAlertData({
                     type: 'info',
@@ -419,7 +419,7 @@ export default function DashboardScreen() {
         <View style={ms.grid}>
           <MetricCard icon="flash" label="Voltage" value={offline ? '0.0' : Number(data.voltage || 0).toFixed(1)} unit="V" color={COLORS.accent} />
           <MetricCard icon="water" label="Current" value={offline ? '0.00' : Number(data.current || 0).toFixed(2)} unit="A" color={COLORS.info} />
-          <MetricCard icon="battery-charging" label="Energy Today" value={Number(todayUsage.totalEnergy || 0).toFixed(3)} unit="kWh" color={COLORS.primary} />
+          <MetricCard icon="battery-charging" label="Energy Today" value={Number(todayUsage.totalEnergy || 0).toFixed(2)} unit="kWh" color={COLORS.primary} />
           <MetricCard icon="cash" label="Amount Due" value={`₱${Number(amountDue || 0).toFixed(2)}`} unit="" color={COLORS.warning} />
         </View>
 
@@ -438,7 +438,7 @@ export default function DashboardScreen() {
                 </View>
                 <Text style={ms.totalLabel}>{item.label}</Text>
                 <Text style={ms.totalEnergy} numberOfLines={1} adjustsFontSizeToFit>
-                  {Number(item.energy || 0).toFixed(3)}
+                  {Number(item.energy || 0).toFixed(2)}
                 </Text>
                 <Text style={ms.totalUnit}>kWh</Text>
                 <Text style={[ms.totalCost, { marginTop: 6 }]} numberOfLines={1}>₱{Number(item.cost || 0).toFixed(2)}</Text>

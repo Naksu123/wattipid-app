@@ -220,16 +220,16 @@ export default function TenantBillingScreen() {
                                 <View style={styles.meterBox}>
                                     <View style={styles.meterRow}>
                                         <Text style={styles.meterLabel}>Previous Reading</Text>
-                                        <Text style={styles.meterValue}>{parseFloat(previous_reading || 0).toFixed(4)} kWh</Text>
+                                        <Text style={styles.meterValue}>{parseFloat(previous_reading || 0).toFixed(2)} kWh</Text>
                                     </View>
                                     <View style={styles.meterRow}>
                                         <Text style={styles.meterLabel}>Current Reading</Text>
-                                        <Text style={styles.meterValue}>{parseFloat(current_reading || total_kwh || 0).toFixed(4)} kWh</Text>
+                                        <Text style={styles.meterValue}>{(parseFloat(current_reading || 0) > 0 ? parseFloat(current_reading) : (parseFloat(previous_reading || 0) + parseFloat(total_kwh || 0))).toFixed(2)} kWh</Text>
                                     </View>
                                     <View style={styles.divider} />
                                     <View style={styles.meterRow}>
                                         <Text style={styles.meterLabel}>Total Consumption</Text>
-                                        <Text style={[styles.meterValue, { color: COLORS.primary, fontWeight: '700' }]}>{parseFloat(total_kwh || 0).toFixed(4)} kWh</Text>
+                                        <Text style={[styles.meterValue, { color: COLORS.primary, fontWeight: '700' }]}>{parseFloat(total_kwh || 0).toFixed(2)} kWh</Text>
                                     </View>
                                     <View style={styles.meterRow}>
                                         <Text style={styles.meterLabel}>Rate Per kWh</Text>
@@ -311,7 +311,7 @@ export default function TenantBillingScreen() {
                     )}
                     
                     <View style={styles.totalComputationRow}>
-                        <Text style={styles.totalComputationLabel}>GRAND TOTAL DUE</Text>
+                        <Text style={styles.totalComputationLabel}>Grand Total Due</Text>
                         <Text style={styles.totalComputationValue}>
                             ₱{computedGrandTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </Text>
@@ -338,14 +338,14 @@ const styles = StyleSheet.create({
     headerDetails: { flexDirection: 'row', justifyContent: 'space-between', padding: SPACING.md, marginBottom: SPACING.lg },
     headerItem: { flex: 1 },
     headerLabel: { fontSize: FONT_SIZE.xs, color: COLORS.textSecondary, marginBottom: 4 },
-    headerValue: { fontSize: FONT_SIZE.sm, fontWeight: FONT_WEIGHT.bold, color: COLORS.textPrimary },
+    headerValue: { fontSize: FONT_SIZE.xs, fontWeight: FONT_WEIGHT.bold, color: COLORS.textPrimary },
     
     amountDueCard: { padding: SPACING.xl, marginBottom: SPACING.lg },
     amountDueLabel: { color: COLORS.textSecondary, fontSize: FONT_SIZE.xs, fontWeight: FONT_WEIGHT.bold, letterSpacing: 1, marginBottom: 8 },
-    amountDueValue: { color: COLORS.white, fontSize: 40, fontWeight: FONT_WEIGHT.heavy, marginBottom: SPACING.lg },
+    amountDueValue: { color: COLORS.white, fontSize: 24, fontWeight: FONT_WEIGHT.heavy, marginBottom: SPACING.lg },
     dueRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
     dueLabel: { color: COLORS.textSecondary, fontSize: FONT_SIZE.xs, marginBottom: 4 },
-    dueValue: { color: COLORS.textPrimary, fontSize: FONT_SIZE.md, fontWeight: FONT_WEIGHT.bold },
+    dueValue: { color: COLORS.textPrimary, fontSize: FONT_SIZE.sm, fontWeight: FONT_WEIGHT.bold },
     statusBadge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 6, borderRadius: RADIUS.full },
     statusText: { fontSize: FONT_SIZE.xs, fontWeight: FONT_WEIGHT.bold },
     payButton: { backgroundColor: COLORS.primary, borderRadius: RADIUS.md, paddingVertical: 14, alignItems: 'center', marginTop: SPACING.xl },
@@ -376,5 +376,5 @@ const styles = StyleSheet.create({
     
     totalComputationRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: SPACING.md, paddingTop: SPACING.md, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.1)' },
     totalComputationLabel: { fontSize: FONT_SIZE.sm, fontWeight: FONT_WEIGHT.heavy, color: COLORS.textPrimary },
-    totalComputationValue: { fontSize: FONT_SIZE.xl, fontWeight: FONT_WEIGHT.heavy, color: COLORS.danger }
+    totalComputationValue: { fontSize: FONT_SIZE.lg, fontWeight: FONT_WEIGHT.heavy, color: COLORS.danger }
 });

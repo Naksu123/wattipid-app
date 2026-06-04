@@ -58,19 +58,21 @@ export default StyleSheet.create({
   statCard: { 
     flex: 1, 
     alignItems: 'center', 
-    paddingVertical: SPACING.lg,
-    paddingHorizontal: SPACING.xs
+    justifyContent: 'center',
+    paddingVertical: SPACING.md,
+    paddingHorizontal: 4
   },
   statValue: { 
-    fontSize: FONT_SIZE.xl, 
-    fontWeight: FONT_WEIGHT.bold, 
+    fontSize: FONT_SIZE.lg, 
+    fontWeight: FONT_WEIGHT.heavy, 
     color: COLORS.textPrimary, 
-    marginTop: SPACING.sm 
+    marginTop: 6 
   },
   statLabel: { 
-    fontSize: FONT_SIZE.sm, 
+    fontSize: 10, 
     color: COLORS.textSecondary, 
-    marginTop: 4 
+    marginTop: 2,
+    textAlign: 'center'
   },
   compBanner: { 
     marginBottom: SPACING.lg 
@@ -130,30 +132,30 @@ export default StyleSheet.create({
   viewToggle: { 
     flexDirection: 'row', 
     gap: SPACING.xs, 
-    marginBottom: SPACING.lg,
     backgroundColor: 'rgba(255,255,255,0.03)',
     borderRadius: RADIUS.full,
-    padding: 4
+    padding: 4,
+    minWidth: '100%'
   },
   viewTab: { 
-    flex: 1, 
     flexDirection: 'row', 
     alignItems: 'center', 
     justifyContent: 'center', 
     gap: SPACING.xs, 
     paddingVertical: SPACING.sm + 2, 
+    paddingHorizontal: SPACING.lg,
     borderRadius: RADIUS.full, 
   },
   viewTabActive: { 
-    backgroundColor: 'rgba(59,130,246,0.15)', 
+    backgroundColor: 'rgba(16,185,129,0.15)', 
   },
   viewTabText: { 
-    fontSize: FONT_SIZE.sm, 
+    fontSize: 12, 
     color: COLORS.textMuted, 
     fontWeight: FONT_WEIGHT.medium 
   },
   viewTabTextActive: { 
-    color: COLORS.info, 
+    color: COLORS.primary, 
     fontWeight: FONT_WEIGHT.bold 
   },
   reportCard: { 

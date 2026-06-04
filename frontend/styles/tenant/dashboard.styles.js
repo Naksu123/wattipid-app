@@ -81,16 +81,16 @@ export default StyleSheet.create({
   },
   gaugeCard: { 
     alignItems: 'center', 
-    paddingVertical: SPACING.xxl, 
-    marginBottom: SPACING.lg 
+    paddingVertical: SPACING.lg, 
+    marginBottom: SPACING.md 
   },
   pf: { 
     flexDirection: 'row', 
     alignItems: 'center', 
     gap: SPACING.sm, 
-    marginTop: SPACING.lg,
+    marginTop: SPACING.sm,
     paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
+    paddingVertical: 6,
     backgroundColor: 'rgba(255,255,255,0.03)',
     borderRadius: RADIUS.full
   },
@@ -107,20 +107,20 @@ export default StyleSheet.create({
     flexDirection: 'row', 
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    gap: SPACING.md, 
-    marginBottom: SPACING.lg 
+    gap: SPACING.sm, 
+    marginBottom: SPACING.md 
   },
   metricCard: { 
-    width: '47%',
+    width: '48%',
     alignItems: 'flex-start', 
     padding: SPACING.md, 
-    paddingVertical: SPACING.lg,
+    paddingVertical: SPACING.md,
   },
   metricValue: { 
-    fontSize: FONT_SIZE.xl, 
-    fontWeight: FONT_WEIGHT.bold, 
+    fontSize: FONT_SIZE.lg, 
+    fontWeight: FONT_WEIGHT.heavy, 
     color: COLORS.textPrimary, 
-    marginTop: SPACING.md 
+    marginTop: 8 
   },
   metricUnit: { 
     fontSize: FONT_SIZE.sm, 

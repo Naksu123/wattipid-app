@@ -1,6 +1,8 @@
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { Image } from 'react-native';
+import { Asset } from 'expo-asset';
+import * as FileSystem from 'expo-file-system';
 import { getMonthlyConsumptionFiltered, getDailyBreakdownFiltered, getSetting, getTransactionHistory, getConsumptionComparison } from './database';
 
 const MONTH_NAMES = [
@@ -8,11 +10,22 @@ const MONTH_NAMES = [
   'July', 'August', 'September', 'October', 'November', 'December',
 ];
 
-// Resolving the Wattipid logo
-const logoSource = require('../assets/images/Wattipid-icon.png');
-const logoUri = Image.resolveAssetSource(logoSource).uri;
+async function getBase64Logo() {
+  try {
+    const asset = Asset.fromModule(require('../assets/images/wattipid-logo-small.png'));
+    await asset.downloadAsync();
+    const base64 = await FileSystem.readAsStringAsync(asset.localUri || asset.uri, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+    return `data:image/png;base64,${base64}`;
+  } catch (e) {
+    console.warn("Could not load base64 logo for PDF", e);
+    return null;
+  }
+}
 
 export async function generateMonthlyReport({ roomId, tenantName, tenantStartDate, moveOutDate, year, month }) {
+  const base64Logo = await getBase64Logo();
   const rate = parseFloat(await getSetting('rate_per_kwh') || '12.50');
 
   // Current month consumption (filtered by tenant's occupancy period)
@@ -104,7 +117,7 @@ export async function generateMonthlyReport({ roomId, tenantName, tenantStartDat
 <div class="bill-container">
   <div class="header">
     <div class="company">
-      <h1><img src="${logoUri}" /> Wattipid</h1>
+      <h1>${base64Logo ? `<img src="${base64Logo}" style="width:32px;height:32px;border-radius:8px;"/>` : `<span style="display:inline-block;background:#16A34A;color:#fff;border-radius:8px;padding:4px 8px;font-size:24px;margin-right:8px;">W</span>`} Wattipid</h1>
       <p>Electricity Statement of Account</p>
     </div>
     <div class="statement-badge">
@@ -186,6 +199,7 @@ export async function generateMonthlyReport({ roomId, tenantName, tenantStartDat
 }
 
 export async function generateCycleReport({ roomId, tenantName, startDate, endDate, reportTitle, isWeekly, room = null, billingCycle = null }) {
+  const base64Logo = await getBase64Logo();
   const defaultRate = parseFloat(await getSetting('rate_per_kwh') || '12.50');
   
   const startStr = startDate.toISOString().split('T')[0];
@@ -391,9 +405,9 @@ export async function generateCycleReport({ roomId, tenantName, startDate, endDa
   <div class="receipt">
     <div class="header">
       <div class="logo-row">
-        <div class="logo-circle">
-          <img src="${logoUri}" alt="Wattipid" />
-        </div>
+        ${base64Logo 
+          ? `<div class="logo-circle"><img src="${base64Logo}" alt="Wattipid" /></div>` 
+          : `<div class="logo-circle" style="background:#16A34A;color:#fff;font-size:24px;font-weight:900;">W</div>`}
         <div class="company-details">
           <div class="company-sub">Bacolod City, Negros Occidental<br>VAT REG. TIN 123 - 456 - 789 - 00000</div>
         </div>

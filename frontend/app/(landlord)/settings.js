@@ -313,6 +313,7 @@ export default function LandlordSettings() {
         <GlassCard style={styles.menuCard}>
           <MenuItem icon="book-outline" label="Installation & User Manual" value="System documentation & wiring" onPress={() => router.push('/(landlord)/manual')} />
           <MenuItem icon="wifi-outline" label="Hardware Connection" value={isMockMode ? 'Mocking active' : `Gateway: ${esp32Ip}`} onPress={() => { setEsp32IpError(''); setEsp32Visible(true); }} />
+          <MenuItem icon="document-text-outline" label="Terms and Conditions" value="System Legal Policies" onPress={() => router.push('/terms')} />
           <MenuItem icon="information-circle-outline" label="About System" value="Wattipid v2.1.0-prod" onPress={() => setAboutVisible(true)} />
         </GlassCard>
 

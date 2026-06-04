@@ -10,14 +10,20 @@ import { useAuth } from '@/contexts/AuthContext';
 import { COLORS, GRADIENTS } from '@/styles/theme';
 import Logo from '@/components/ui/Logo';
 import s from '@/styles/auth/login.styles';
+import TermsAgreementModal from '../../components/modals/TermsAgreementModal';
+import { acceptTerms } from '../../services/termsApi';
 
 export default function LoginScreen() {
   const router = useRouter();
-  const { login, isLoading } = useAuth();
+  const { login, logout, isLoading } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState({});
+
+  // Terms Update Handling
+  const [termsModalVisible, setTermsModalVisible] = useState(false);
+  const [pendingRole, setPendingRole] = useState(null);
 
   const validate = () => {
     const e = {};
@@ -32,10 +38,38 @@ export default function LoginScreen() {
     const result = await login(email.trim(), password);
     if (result?.success) {
       const role = result?.user?.role || 'tenant';
-      router.replace(role === 'landlord' ? '/(landlord)/overview' : '/(tenant)/dashboard');
+      
+      if (result.requiresTerms) {
+        setPendingRole(role);
+        setTermsModalVisible(true);
+      } else {
+        router.replace(role === 'landlord' ? '/(landlord)/overview' : '/(tenant)/dashboard');
+      }
     } else {
       Alert.alert('Login Failed', result?.message || 'Server returned an invalid response.');
     }
+  };
+
+  const handleTermsAccept = async (versionId, deviceInfo) => {
+    try {
+      const result = await acceptTerms(versionId, null, deviceInfo);
+      if (result.success) {
+        setTermsModalVisible(false);
+        router.replace(pendingRole === 'landlord' ? '/(landlord)/overview' : '/(tenant)/dashboard');
+      } else {
+        Alert.alert('Error', 'Failed to record terms acceptance. Please try again.');
+      }
+    } catch (e) {
+      Alert.alert('Error', 'Network error while accepting terms.');
+    }
+  };
+
+  const handleTermsDecline = () => {
+    setTermsModalVisible(false);
+    // They declined updated terms, so we force them back to login (they can't proceed)
+    // Actually we should log them out via auth context to clear the session
+    logout(); // Just clear it out
+    Alert.alert("Terms Required", "You cannot access your account without accepting the updated Terms and Conditions.");
   };
 
   return (
@@ -99,6 +133,14 @@ export default function LoginScreen() {
           <Text style={s.footerText}>Powered by IoT Technology</Text>
         </View>
       </ScrollView>
+
+      <TermsAgreementModal 
+        visible={termsModalVisible} 
+        onAccept={handleTermsAccept} 
+        onDecline={handleTermsDecline} 
+        isLoginMode={true}
+      />
+
     </KeyboardAvoidingView>
   );
 }

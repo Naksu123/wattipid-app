@@ -126,7 +126,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   title: {
-    fontSize: 28,
+    fontSize: 22,
     fontWeight: FONT_WEIGHT.heavy,
     color: COLORS.textPrimary,
   },

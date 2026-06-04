@@ -425,7 +425,7 @@ const styles = StyleSheet.create({
     scroll: { padding: SPACING.lg, paddingBottom: 100, paddingTop: SPACING.xl },
     center: { justifyContent: 'center', alignItems: 'center' },
     
-    headerTitle: { fontSize: FONT_SIZE.xxl, fontWeight: FONT_WEIGHT.bold, color: COLORS.textPrimary, marginBottom: SPACING.xl },
+    headerTitle: { fontSize: FONT_SIZE.xl, fontWeight: FONT_WEIGHT.bold, color: COLORS.textPrimary, marginBottom: SPACING.lg },
 
     invoiceCard: { padding: SPACING.lg, marginBottom: SPACING.lg },
     invoiceHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: SPACING.md },
@@ -437,7 +437,7 @@ const styles = StyleSheet.create({
     
     totalRow: { borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.1)', paddingTop: 16, marginTop: 8 },
     totalLabel: { fontSize: FONT_SIZE.md, fontWeight: FONT_WEIGHT.bold, color: COLORS.textPrimary },
-    totalValue: { fontSize: FONT_SIZE.xl, fontWeight: FONT_WEIGHT.heavy, color: COLORS.primary },
+    totalValue: { fontSize: 20, fontWeight: FONT_WEIGHT.heavy, color: COLORS.primary },
     
     statusBox: { marginTop: SPACING.lg, padding: 10, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: RADIUS.md, alignItems: 'center' },
     statusText: { fontSize: FONT_SIZE.xs, color: COLORS.textSecondary, letterSpacing: 0.5 },
@@ -459,7 +459,7 @@ const styles = StyleSheet.create({
     instructionsBox: { backgroundColor: 'rgba(255,255,255,0.02)', padding: 20, borderRadius: RADIUS.lg, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
     instructionsText: { color: COLORS.textSecondary, fontSize: 14, textAlign: 'center', marginBottom: 12, lineHeight: 22 },
     accountLabel: { fontSize: 12, color: COLORS.textMuted, marginBottom: 4, marginTop: 12, textTransform: 'uppercase', letterSpacing: 1 },
-    accountValue: { fontSize: 18, color: COLORS.textPrimary, fontWeight: 'bold' },
+    accountValue: { fontSize: 16, color: COLORS.textPrimary, fontWeight: 'bold' },
     qrContainer: { marginTop: 20, alignItems: 'center' },
     qrImage: { width: 200, height: 200, borderRadius: RADIUS.md, marginTop: 12 },
     
