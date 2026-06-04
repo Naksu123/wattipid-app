@@ -4,6 +4,8 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { getTenantBillingHistory } from '../../services/database';
+import GlassCard from '../../components/ui/GlassCard';
+import { COLORS, FONT_SIZE, FONT_WEIGHT, SPACING, RADIUS } from '../../styles/theme';
 
 export default function TenantBillingHistoryScreen() {
     const { user } = useAuth();
@@ -52,55 +54,61 @@ export default function TenantBillingHistoryScreen() {
 
     const getStatusConfig = (status) => {
         switch (status) {
-            case 'paid': return { color: '#16A34A', bg: '#DCFCE7', text: 'PAID' };
-            case 'pending_verification': return { color: '#F59E0B', bg: '#FEF3C7', text: 'PENDING' };
-            case 'overdue': return { color: '#DC2626', bg: '#FEE2E2', text: 'OVERDUE' };
-            case 'rejected': return { color: '#991B1B', bg: '#FECACA', text: 'REJECTED' };
-            default: return { color: '#475569', bg: '#F1F5F9', text: 'UNPAID' };
+            case 'paid': return { color: COLORS.success, bg: 'rgba(16, 185, 129, 0.15)', text: 'PAID' };
+            case 'pending_verification': return { color: COLORS.warning, bg: 'rgba(245, 158, 11, 0.15)', text: 'PENDING' };
+            case 'overdue': return { color: COLORS.danger, bg: 'rgba(239, 68, 68, 0.15)', text: 'OVERDUE' };
+            case 'rejected': return { color: COLORS.danger, bg: 'rgba(239, 68, 68, 0.15)', text: 'REJECTED' };
+            default: return { color: COLORS.textSecondary, bg: 'rgba(255, 255, 255, 0.1)', text: 'UNPAID' };
         }
     };
 
     const renderItem = ({ item }) => {
         const statusConfig = getStatusConfig(item.payment_status);
-        const amount = parseFloat(item.grand_total || (item.electricity_charge + item.penalty_amount)).toLocaleString('en-US', { minimumFractionDigits: 2 });
+        const amount = parseFloat(item.grand_total || (item.electricity_charge + item.penalty_amount + item.monthly_rent)).toLocaleString('en-US', { minimumFractionDigits: 2 });
         const monthYear = new Date(item.cycle_end).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-        const consumption = parseFloat(item.total_kwh).toFixed(2);
+        const consumption = parseFloat(item.total_kwh || 0).toFixed(2);
+        const dueDate = item.due_date ? new Date(item.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A';
 
         return (
             <TouchableOpacity 
-                style={styles.card}
+                activeOpacity={0.8}
                 onPress={() => router.push({ pathname: '/(tenant)/pdf-viewer', params: { id: item.id } })}
             >
-                <View style={styles.cardHeader}>
-                    <Text style={styles.invoiceNumber}>{item.invoice_number || `WT-2026${item.id}`}</Text>
-                    <View style={[styles.statusBadge, { backgroundColor: statusConfig.bg }]}>
-                        <Text style={[styles.statusText, { color: statusConfig.color }]}>{statusConfig.text}</Text>
+                <GlassCard style={styles.card}>
+                    <View style={styles.cardHeader}>
+                        <View style={styles.headerLeft}>
+                            <Ionicons name="document-text" size={16} color={COLORS.primary} style={{marginRight: 6}} />
+                            <Text style={styles.invoiceNumber}>{item.invoice_number || `WT-2026${item.id}`}</Text>
+                        </View>
+                        <View style={[styles.statusBadge, { backgroundColor: statusConfig.bg }]}>
+                            <Text style={[styles.statusText, { color: statusConfig.color }]}>{statusConfig.text}</Text>
+                        </View>
                     </View>
-                </View>
-                
-                <View style={styles.cardBody}>
-                    <View style={styles.infoCol}>
-                        <Text style={styles.infoLabel}>Billing Month</Text>
-                        <Text style={styles.infoValue}>{monthYear}</Text>
+                    
+                    <View style={styles.cardBody}>
+                        <View style={styles.infoCol}>
+                            <Text style={styles.infoLabel}>Billing Month</Text>
+                            <Text style={styles.infoValue}>{monthYear}</Text>
+                        </View>
+                        <View style={styles.infoCol}>
+                            <Text style={styles.infoLabel}>Consumption</Text>
+                            <Text style={styles.infoValue}>{consumption} kWh</Text>
+                        </View>
                     </View>
-                    <View style={styles.infoCol}>
-                        <Text style={styles.infoLabel}>Consumption</Text>
-                        <Text style={styles.infoValue}>{consumption} kWh</Text>
+                    
+                    <View style={styles.cardFooter}>
+                        <View>
+                            <Text style={styles.infoLabel}>Due Date</Text>
+                            <Text style={[styles.infoValue, { color: item.payment_status === 'overdue' ? COLORS.danger : COLORS.textPrimary }]}>
+                                {dueDate}
+                            </Text>
+                        </View>
+                        <View style={{ alignItems: 'flex-end' }}>
+                            <Text style={styles.infoLabel}>Amount Due</Text>
+                            <Text style={[styles.amountValue, item.payment_status === 'overdue' && { color: COLORS.danger }]}>₱{amount}</Text>
+                        </View>
                     </View>
-                </View>
-                
-                <View style={styles.cardFooter}>
-                    <View>
-                        <Text style={styles.infoLabel}>Due Date</Text>
-                        <Text style={[styles.infoValue, { color: item.payment_status === 'overdue' ? '#DC2626' : '#475569' }]}>
-                            {new Date(item.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                        </Text>
-                    </View>
-                    <View style={{ alignItems: 'flex-end' }}>
-                        <Text style={styles.infoLabel}>Amount Due</Text>
-                        <Text style={styles.amountValue}>₱{amount}</Text>
-                    </View>
-                </View>
+                </GlassCard>
             </TouchableOpacity>
         );
     };
@@ -108,7 +116,8 @@ export default function TenantBillingHistoryScreen() {
     if (loading) {
         return (
             <View style={styles.centerContainer}>
-                <ActivityIndicator size="large" color="#16A34A" />
+                <ActivityIndicator size="large" color={COLORS.primary} />
+                <Text style={styles.loadingText}>Loading history...</Text>
             </View>
         );
     }
@@ -117,7 +126,7 @@ export default function TenantBillingHistoryScreen() {
         <View style={styles.container}>
             <View style={styles.header}>
                 <Text style={styles.headerTitle}>Billing History</Text>
-                <Text style={styles.headerSubtitle}>View and download past invoices</Text>
+                <Text style={styles.headerSubtitle}>View and download your past statements of account. Tap any record to view its PDF.</Text>
             </View>
 
             <FlatList
@@ -135,13 +144,14 @@ export default function TenantBillingHistoryScreen() {
                 onEndReachedThreshold={0.5}
                 ListEmptyComponent={
                     <View style={styles.emptyContainer}>
-                        <Ionicons name="documents-outline" size={64} color="#CBD5E1" />
-                        <Text style={styles.emptyText}>No billing history available.</Text>
+                        <Ionicons name="documents-outline" size={64} color={COLORS.textMuted} />
+                        <Text style={styles.emptyText}>No billing history available yet.</Text>
+                        <Text style={styles.emptySubText}>Once your landlord completes a billing cycle, it will appear here.</Text>
                     </View>
                 }
                 ListFooterComponent={
                     hasMore && history.length > 0 ? (
-                        <ActivityIndicator style={{ margin: 20 }} color="#16A34A" />
+                        <ActivityIndicator style={{ margin: SPACING.xl }} color={COLORS.primary} />
                     ) : null
                 }
             />
@@ -150,28 +160,32 @@ export default function TenantBillingHistoryScreen() {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#F8FAFC' },
-    centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F8FAFC' },
-    header: { padding: 24, backgroundColor: '#FFF', borderBottomWidth: 1, borderBottomColor: '#E2E8F0' },
-    headerTitle: { fontSize: 24, fontWeight: '800', color: '#0F172A', marginBottom: 4 },
-    headerSubtitle: { fontSize: 14, color: '#64748B' },
+    container: { flex: 1, backgroundColor: COLORS.background },
+    centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.background },
+    loadingText: { color: COLORS.textMuted, marginTop: SPACING.md, fontSize: FONT_SIZE.md },
     
-    listContainer: { padding: 16, gap: 16 },
-    card: { backgroundColor: '#FFF', borderRadius: 12, padding: 16, borderWidth: 1, borderColor: '#E2E8F0', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 },
+    header: { padding: SPACING.xl, paddingTop: SPACING.xl + 20, marginBottom: SPACING.sm },
+    headerTitle: { fontSize: FONT_SIZE.xxl, fontWeight: FONT_WEIGHT.heavy, color: COLORS.textPrimary, marginBottom: 8 },
+    headerSubtitle: { fontSize: FONT_SIZE.sm, color: COLORS.textSecondary, lineHeight: 20 },
     
-    cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, borderBottomWidth: 1, borderBottomColor: '#F1F5F9', paddingBottom: 12 },
-    invoiceNumber: { fontSize: 13, fontWeight: '700', color: '#334155' },
-    statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
-    statusText: { fontSize: 11, fontWeight: '800' },
+    listContainer: { paddingHorizontal: SPACING.lg, paddingBottom: 100, gap: SPACING.md },
+    card: { padding: SPACING.lg, marginBottom: SPACING.md },
     
-    cardBody: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 },
+    cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.md, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)', paddingBottom: SPACING.md },
+    headerLeft: { flexDirection: 'row', alignItems: 'center' },
+    invoiceNumber: { fontSize: FONT_SIZE.sm, fontWeight: FONT_WEIGHT.bold, color: COLORS.textPrimary, letterSpacing: 0.5 },
+    statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: RADIUS.full },
+    statusText: { fontSize: 10, fontWeight: FONT_WEIGHT.heavy },
+    
+    cardBody: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: SPACING.lg },
     infoCol: { flex: 1 },
-    infoLabel: { fontSize: 11, color: '#64748B', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 },
-    infoValue: { fontSize: 14, fontWeight: '600', color: '#1E293B' },
+    infoLabel: { fontSize: 10, color: COLORS.textSecondary, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 },
+    infoValue: { fontSize: FONT_SIZE.md, fontWeight: FONT_WEIGHT.bold, color: COLORS.textPrimary },
     
-    cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', backgroundColor: '#F8FAFC', padding: 12, borderRadius: 8 },
-    amountValue: { fontSize: 18, fontWeight: '800', color: '#0F172A' },
+    cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', backgroundColor: 'rgba(255,255,255,0.03)', padding: SPACING.md, borderRadius: RADIUS.sm, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+    amountValue: { fontSize: FONT_SIZE.xl, fontWeight: FONT_WEIGHT.heavy, color: COLORS.textPrimary },
     
-    emptyContainer: { alignItems: 'center', justifyContent: 'center', paddingVertical: 64 },
-    emptyText: { marginTop: 16, fontSize: 15, color: '#64748B' }
+    emptyContainer: { alignItems: 'center', justifyContent: 'center', paddingVertical: 80, paddingHorizontal: 40 },
+    emptyText: { marginTop: SPACING.lg, fontSize: FONT_SIZE.lg, fontWeight: FONT_WEIGHT.bold, color: COLORS.textPrimary, textAlign: 'center' },
+    emptySubText: { marginTop: SPACING.sm, fontSize: FONT_SIZE.sm, color: COLORS.textSecondary, textAlign: 'center', lineHeight: 20 }
 });
