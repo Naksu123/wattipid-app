@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, TextInput, Modal, Switch, SafeAreaView, StatusBar, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, TextInput, Modal, Switch, SafeAreaView, StatusBar, Platform, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -42,6 +42,16 @@ export default function LandlordSettings() {
   const [rateSuccessVisible, setRateSuccessVisible] = useState(false);
   const [rateSuccessMsg, setRateSuccessMsg] = useState('');
 
+  // Payment Methods state
+  const [paymentMethodsVisible, setPaymentMethodsVisible] = useState(false);
+  const [partialPayments, setPartialPayments] = useState(false);
+  const [gcashName, setGcashName] = useState('');
+  const [gcashNumber, setGcashNumber] = useState('');
+  const [gcashQrBase64, setGcashQrBase64] = useState(null);
+  const [mayaName, setMayaName] = useState('');
+  const [mayaNumber, setMayaNumber] = useState('');
+  const [mayaQrBase64, setMayaQrBase64] = useState(null);
+
   // Penalty Config Modal
   const [penaltyVisible, setPenaltyVisible] = useState(false);
   const [penaltyGrace, setPenaltyGrace] = useState('3');
@@ -69,6 +79,22 @@ export default function LandlordSettings() {
       if (nnt !== null) setNotifNewTenant(nnt !== 'false');
       const nr = await getSetting('landlord_notif_revoke');
       if (nr !== null) setNotifRevoke(nr !== 'false');
+
+      const pp = await getSetting('partial_payments_enabled');
+      if (pp !== null) setPartialPayments(pp === 'true');
+      const gn = await getSetting('gcash_name');
+      if (gn) setGcashName(gn);
+      const gnum = await getSetting('gcash_number');
+      if (gnum) setGcashNumber(gnum);
+      const gqr = await getSetting('gcash_qr');
+      if (gqr) setGcashQrBase64(gqr);
+      const mn = await getSetting('maya_name');
+      if (mn) setMayaName(mn);
+      const mnum = await getSetting('maya_number');
+      if (mnum) setMayaNumber(mnum);
+      const mqr = await getSetting('maya_qr');
+      if (mqr) setMayaQrBase64(mqr);
+
     } catch (err) {
       console.warn("Failed to load settings:", err);
     }
@@ -148,6 +174,47 @@ export default function LandlordSettings() {
     } catch (e) {
       Alert.alert('Error', e.message || 'Failed to update penalty config');
     }
+  };
+
+  const pickImage = async (setter) => {
+    try {
+      const ImagePicker = await import('expo-image-picker');
+      const requestPermissions = ImagePicker.requestMediaLibraryPermissionsAsync || ImagePicker.default?.requestMediaLibraryPermissionsAsync;
+      const launchLibrary = ImagePicker.launchImageLibraryAsync || ImagePicker.default?.launchImageLibraryAsync;
+      
+      const { status } = await requestPermissions();
+      if (status !== 'granted') {
+          Alert.alert('Permission Required', 'Please allow access to your photo library to upload QR codes.');
+          return;
+      }
+
+      let result = await launchLibrary({
+          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          quality: 0.5,
+          base64: true,
+      });
+
+      if (!result.canceled && result.assets?.[0]) {
+          setter(`data:image/jpeg;base64,${result.assets[0].base64}`);
+      }
+    } catch (err) {
+      console.warn('Image picker error:', err);
+      Alert.alert('Error', 'Image upload is not supported in this environment.');
+    }
+  };
+
+  const handleSavePaymentMethods = async () => {
+    await Promise.all([
+      setSetting('partial_payments_enabled', partialPayments.toString()),
+      setSetting('gcash_name', gcashName),
+      setSetting('gcash_number', gcashNumber),
+      setSetting('maya_name', mayaName),
+      setSetting('maya_number', mayaNumber),
+      ...(gcashQrBase64 ? [setSetting('gcash_qr', gcashQrBase64)] : []),
+      ...(mayaQrBase64 ? [setSetting('maya_qr', mayaQrBase64)] : []),
+    ]);
+    setPaymentMethodsVisible(false);
+    Alert.alert('Saved', 'Payment method settings updated successfully.');
   };
 
   const MenuItem = ({ icon, label, value, onPress, danger, highlighted }) => (
@@ -235,6 +302,7 @@ export default function LandlordSettings() {
 
         <Text style={styles.groupTitle}>FACILITY TOOLS</Text>
         <GlassCard style={styles.menuCard}>
+          <MenuItem icon="card-outline" label="Payment Methods" value="Manage GCash, Maya & Partial Payments" onPress={() => setPaymentMethodsVisible(true)} />
           <MenuItem icon="shield-checkmark-outline" label="System Audit Logs" value="Immutable compliance records" onPress={() => router.push('/(landlord)/audit')} />
           <MenuItem icon="warning-outline" label="Penalty Configuration" value="Grace period & late fees" onPress={() => setPenaltyVisible(true)} />
           <MenuItem icon="bulb" label="Manage Electricity Tips" value="Curate tips for student saving habits" highlighted={true} onPress={() => router.push('/(landlord)/manage-tips')} />
@@ -350,6 +418,61 @@ export default function LandlordSettings() {
         </View>
       </Modal>
 
+      <Modal visible={paymentMethodsVisible} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setPaymentMethodsVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { maxHeight: '90%', paddingHorizontal: 16 }]}>
+            <ScrollView style={{ width: '100%' }} showsVerticalScrollIndicator={false}>
+              <View style={[styles.modalIconBox, { alignSelf: 'center' }]}><Ionicons name="card" size={32} color={COLORS.primary} /></View>
+              <Text style={[styles.modalTitle, { textAlign: 'center' }]}>Payment Settings</Text>
+              <Text style={styles.modalDesc}>Configure options for tenants</Text>
+              
+              <View style={{ marginBottom: 20 }}>
+                <ToggleRow label="Enable Partial Payments" desc="Allow tenants to pay bills partially" value={partialPayments} onToggle={setPartialPayments} />
+              </View>
+
+              <Text style={[styles.groupTitle, { marginLeft: 0 }]}>GCASH DETAILS</Text>
+              <View style={[styles.form, { marginBottom: 24 }]}>
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>ACCOUNT NAME</Text>
+                  <TextInput style={styles.input} value={gcashName} onChangeText={setGcashName} placeholder="e.g. Juan Dela Cruz" placeholderTextColor={COLORS.textMuted} />
+                </View>
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>ACCOUNT NUMBER</Text>
+                  <TextInput style={styles.input} value={gcashNumber} onChangeText={setGcashNumber} placeholder="e.g. 09123456789" placeholderTextColor={COLORS.textMuted} />
+                </View>
+                <TouchableOpacity style={styles.qrUploadBtn} onPress={() => pickImage(setGcashQrBase64)}>
+                  <Ionicons name="qr-code-outline" size={20} color={COLORS.primary} />
+                  <Text style={styles.qrUploadText}>{gcashQrBase64 ? 'Change GCash QR Code' : 'Upload GCash QR Code'}</Text>
+                </TouchableOpacity>
+                {gcashQrBase64 && <Image source={{uri: gcashQrBase64}} style={styles.qrPreview} resizeMode="contain" />}
+              </View>
+
+              <Text style={[styles.groupTitle, { marginLeft: 0 }]}>MAYA DETAILS</Text>
+              <View style={[styles.form, { marginBottom: 10 }]}>
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>ACCOUNT NAME</Text>
+                  <TextInput style={styles.input} value={mayaName} onChangeText={setMayaName} placeholder="e.g. Juan Dela Cruz" placeholderTextColor={COLORS.textMuted} />
+                </View>
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>ACCOUNT NUMBER</Text>
+                  <TextInput style={styles.input} value={mayaNumber} onChangeText={setMayaNumber} placeholder="e.g. 09123456789" placeholderTextColor={COLORS.textMuted} />
+                </View>
+                <TouchableOpacity style={styles.qrUploadBtn} onPress={() => pickImage(setMayaQrBase64)}>
+                  <Ionicons name="qr-code-outline" size={20} color={COLORS.primary} />
+                  <Text style={styles.qrUploadText}>{mayaQrBase64 ? 'Change Maya QR Code' : 'Upload Maya QR Code'}</Text>
+                </TouchableOpacity>
+                {mayaQrBase64 && <Image source={{uri: mayaQrBase64}} style={styles.qrPreview} resizeMode="contain" />}
+              </View>
+            </ScrollView>
+
+            <View style={[styles.modalFooter, { marginTop: 16 }]}>
+              <TouchableOpacity onPress={() => setPaymentMethodsVisible(false)} style={styles.modalCancel}><Text style={styles.modalCancelText}>Cancel</Text></TouchableOpacity>
+              <TouchableOpacity onPress={handleSavePaymentMethods} style={styles.modalSave}><Text style={styles.modalSaveText}>Save</Text></TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       <Modal visible={aboutVisible} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setAboutVisible(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
@@ -433,4 +556,7 @@ const styles = StyleSheet.create({
   toggleContent: { flex: 1 },
   toggleLabel: { fontSize: 15, color: COLORS.textPrimary, fontWeight: '600' },
   toggleDesc: { fontSize: 12, color: COLORS.textMuted, marginTop: 2 },
+  qrUploadBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: 'rgba(34,197,94,0.1)', padding: 12, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(34,197,94,0.3)', borderStyle: 'dashed' },
+  qrUploadText: { color: COLORS.primary, fontWeight: '600', fontSize: 14 },
+  qrPreview: { width: '100%', height: 120, borderRadius: 8, marginTop: 8, backgroundColor: 'rgba(255,255,255,0.02)' }
 });

@@ -1,6 +1,6 @@
 import apiClient from './apiClient';
 
-export const submitPayment = async (billingCycleId, roomId, amount, proofUrl, referenceNumber) => {
+export const submitPayment = async (billingCycleId, roomId, amount, proofUrl, referenceNumber, paymentMethod = 'Cash', paymentDate = null) => {
     try {
         const response = await apiClient.post('/api.php', { 
             action: 'submitPayment',
@@ -8,7 +8,9 @@ export const submitPayment = async (billingCycleId, roomId, amount, proofUrl, re
             roomId, 
             amount, 
             proofUrl, 
-            referenceNumber 
+            referenceNumber,
+            paymentMethod,
+            paymentDate
         });
         if (!response.data.success) throw new Error(response.data.message);
         return response.data;
@@ -34,13 +36,14 @@ export const submitOfflinePayment = async (billingCycleId, roomId, amount) => {
     }
 };
 
-export const verifyPayment = async (paymentId, action, reason = null) => {
+export const verifyPayment = async (paymentId, action, reason = null, actualAmount = null) => {
     try {
         const response = await apiClient.post('/api.php', { 
             action: 'verifyPayment',
             paymentId, 
             action_type: action, 
-            reason 
+            reason,
+            actual_amount: actualAmount
         });
         if (!response.data.success) throw new Error(response.data.message);
         return response.data;

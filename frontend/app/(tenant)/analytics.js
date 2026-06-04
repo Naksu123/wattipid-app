@@ -5,7 +5,7 @@ import { LineChart, BarChart } from 'react-native-chart-kit';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { useAuth } from '../../contexts/AuthContext';
-import { getConsumptionHistory, getConsumptionComparison, getDailyBreakdown, getHourlyBreakdown, getTransactionHistory, getTotalConsumptionToday, getTotalConsumptionWeek, getTotalConsumptionMonth, getAvailableBillingCycles, getSetting } from '../../services/database';
+import { getConsumptionHistory, getConsumptionComparison, getDailyBreakdown, getHourlyBreakdown, getTransactionHistory, getTotalConsumptionToday, getTotalConsumptionWeek, getTotalConsumptionMonth, getAvailableBillingCycles, getSetting, getPaymentInsights } from '../../services/database';
 import { getMonthlyForecast } from '../../services/notificationApi';
 import { generateConsumptionReport } from '../../services/reportService';
 import { BaseModal, ModalHeader, ModalBody, ModalFooter } from '../../components/modals/BaseModal';
@@ -44,6 +44,7 @@ export default function AnalyticsScreen() {
   const [selectedPoint, setSelectedPoint] = useState(null);
   const [rate, setRate] = useState(12.50);
   const [forecast, setForecast] = useState(null);
+  const [paymentInsights, setPaymentInsights] = useState(null);
   const [showFilter, setShowFilter] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -109,6 +110,13 @@ export default function AnalyticsScreen() {
       setBreakdown(dailyBreakdown);
       setHourlyBreakdown([]);
     }
+    
+    try {
+        const pInsights = await getPaymentInsights(roomId);
+        if (pInsights?.data) {
+             setPaymentInsights(pInsights.data);
+        }
+    } catch (e) { console.warn("Failed to load payment insights", e); }
     
     setSelectedPoint(null);
   }, [roomId, period]);
@@ -198,6 +206,7 @@ export default function AnalyticsScreen() {
     { key: 'charts', icon: 'bar-chart-outline', label: 'Charts' },
     { key: 'breakdown', icon: 'list-outline', label: 'Breakdown' },
     { key: 'history', icon: 'receipt-outline', label: 'History' },
+    { key: 'payments', icon: 'wallet-outline', label: 'Payments' },
   ];
 
   // ─── PDF Report Generation ──────────────────────────────────────────────────

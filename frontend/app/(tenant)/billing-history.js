@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, TextInput, Platform, BackHandler } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
@@ -11,30 +11,22 @@ export default function TenantBillingHistoryScreen() {
     const { user } = useAuth();
     const router = useRouter();
     const [history, setHistory] = useState([]);
+    const [filteredHistory, setFilteredHistory] = useState([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
-    const [offset, setOffset] = useState(0);
-    const [hasMore, setHasMore] = useState(true);
-    const LIMIT = 20;
+    
+    // Filters
+    const [searchQuery, setSearchQuery] = useState('');
+    const [filterYear, setFilterYear] = useState('All');
 
-    const fetchHistory = async (isRefresh = false) => {
+    const fetchHistory = async () => {
         try {
             if (!user?.room_id) return;
             
-            const currentOffset = isRefresh ? 0 : offset;
-            const data = await getTenantBillingHistory(user.room_id, LIMIT, currentOffset);
-            
-            if (data.length < LIMIT) {
-                setHasMore(false);
-            }
-            
-            if (isRefresh) {
-                setHistory(data);
-                setOffset(LIMIT);
-            } else {
-                setHistory(prev => [...prev, ...data]);
-                setOffset(prev => prev + LIMIT);
-            }
+            // We fetch a large limit to allow local filtering
+            const data = await getTenantBillingHistory(user.room_id, 100, 0);
+            setHistory(data);
+            setFilteredHistory(data);
         } catch (error) {
             console.error('Failed to fetch billing history:', error);
         } finally {
@@ -44,17 +36,44 @@ export default function TenantBillingHistoryScreen() {
     };
 
     useEffect(() => {
-        fetchHistory(true);
+        fetchHistory();
+
+        const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+            router.navigate('/(tenant)/billing');
+            return true;
+        });
+
+        return () => backHandler.remove();
     }, []);
+
+    useEffect(() => {
+        let result = history;
+        
+        if (filterYear !== 'All') {
+            result = result.filter(item => new Date(item.cycle_end).getFullYear().toString() === filterYear);
+        }
+
+        if (searchQuery.trim() !== '') {
+            const query = searchQuery.toLowerCase();
+            result = result.filter(item => 
+                (item.invoice_number && item.invoice_number.toLowerCase().includes(query)) ||
+                (item.payment_method && item.payment_method.toLowerCase().includes(query)) ||
+                (item.payment_status && item.payment_status.toLowerCase().includes(query))
+            );
+        }
+
+        setFilteredHistory(result);
+    }, [searchQuery, filterYear, history]);
 
     const onRefresh = () => {
         setRefreshing(true);
-        fetchHistory(true);
+        fetchHistory();
     };
 
     const getStatusConfig = (status) => {
         switch (status) {
             case 'paid': return { color: COLORS.success, bg: 'rgba(16, 185, 129, 0.15)', text: 'PAID' };
+            case 'partially_paid': return { color: '#3b82f6', bg: 'rgba(59, 130, 246, 0.15)', text: 'PARTIAL' };
             case 'pending_verification': return { color: COLORS.warning, bg: 'rgba(245, 158, 11, 0.15)', text: 'PENDING' };
             case 'overdue': return { color: COLORS.danger, bg: 'rgba(239, 68, 68, 0.15)', text: 'OVERDUE' };
             case 'rejected': return { color: COLORS.danger, bg: 'rgba(239, 68, 68, 0.15)', text: 'REJECTED' };
@@ -62,13 +81,15 @@ export default function TenantBillingHistoryScreen() {
         }
     };
 
+    // Extract unique years for filter
+    const availableYears = ['All', ...Array.from(new Set(history.map(item => new Date(item.cycle_end).getFullYear().toString())))].sort((a,b) => b.localeCompare(a));
+
     const renderItem = ({ item }) => {
         const statusConfig = getStatusConfig(item.payment_status);
         const amount = parseFloat(item.grand_total || (item.electricity_charge + item.penalty_amount + item.monthly_rent)).toLocaleString('en-US', { minimumFractionDigits: 2 });
         const monthYear = new Date(item.cycle_end).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
         const consumption = parseFloat(item.total_kwh || 0).toFixed(2);
         
-        // Fallback for older database records that do not have a due_date
         let computedDueDate = item.due_date;
         if (!computedDueDate && item.cycle_end) {
             const dateObj = new Date(item.cycle_end);
@@ -77,10 +98,14 @@ export default function TenantBillingHistoryScreen() {
         }
         const dueDate = computedDueDate ? new Date(computedDueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A';
 
+        const paymentMethod = item.payment_method ? item.payment_method.toUpperCase() : 'N/A';
+        const verificationDate = item.verification_date ? new Date(item.verification_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : null;
+        const verifiedBy = item.verified_by_name || 'System';
+
         return (
             <TouchableOpacity 
                 activeOpacity={0.8}
-                onPress={() => router.push({ pathname: '/(tenant)/pdf-viewer', params: { id: item.id } })}
+                onPress={() => router.push({ pathname: '/(tenant)/pdf-viewer', params: { id: item.id, invoice_number: item.invoice_number } })}
             >
                 <GlassCard style={styles.card}>
                     <View style={styles.cardHeader}>
@@ -103,6 +128,13 @@ export default function TenantBillingHistoryScreen() {
                             <Text style={styles.infoValue}>{consumption} kWh</Text>
                         </View>
                     </View>
+
+                    {item.payment_status === 'paid' && (
+                        <View style={styles.paymentDetailsBox}>
+                            <Text style={styles.paymentDetailsText}>Paid via {paymentMethod} • Verified on {verificationDate}</Text>
+                            <Text style={styles.paymentDetailsSubText}>Verified by {verifiedBy}</Text>
+                        </View>
+                    )}
                     
                     <View style={styles.cardFooter}>
                         <View>
@@ -133,35 +165,50 @@ export default function TenantBillingHistoryScreen() {
     return (
         <View style={styles.container}>
             <View style={styles.header}>
-                <Text style={styles.headerTitle}>Billing History</Text>
-                <Text style={styles.headerSubtitle}>View and download your past statements of account. Tap any record to view its PDF.</Text>
+                <View style={styles.headerTitleRow}>
+                    <TouchableOpacity onPress={() => router.navigate('/(tenant)/billing')} style={styles.backButton}>
+                        <Ionicons name="arrow-back" size={24} color={COLORS.textPrimary} />
+                    </TouchableOpacity>
+                    <Text style={styles.headerTitle}>Billing History</Text>
+                </View>
+                
+                <View style={styles.searchContainer}>
+                    <Ionicons name="search" size={20} color={COLORS.textMuted} style={styles.searchIcon} />
+                    <TextInput 
+                        style={styles.searchInput}
+                        placeholder="Search invoice or method..."
+                        placeholderTextColor={COLORS.textMuted}
+                        value={searchQuery}
+                        onChangeText={setSearchQuery}
+                    />
+                </View>
+
+                <View style={styles.filterContainer}>
+                    {availableYears.map(year => (
+                        <TouchableOpacity 
+                            key={year} 
+                            style={[styles.filterPill, filterYear === year && styles.filterPillActive]}
+                            onPress={() => setFilterYear(year)}
+                        >
+                            <Text style={[styles.filterText, filterYear === year && styles.filterTextActive]}>{year}</Text>
+                        </TouchableOpacity>
+                    ))}
+                </View>
             </View>
 
             <FlatList
-                data={history}
+                data={filteredHistory}
                 keyExtractor={(item) => item.id.toString()}
                 renderItem={renderItem}
                 contentContainerStyle={styles.listContainer}
                 refreshing={refreshing}
                 onRefresh={onRefresh}
-                onEndReached={() => {
-                    if (hasMore && !loading && !refreshing) {
-                        fetchHistory(false);
-                    }
-                }}
-                onEndReachedThreshold={0.5}
-                ListEmptyComponent={
+                ListEmptyComponent={() => (
                     <View style={styles.emptyContainer}>
-                        <Ionicons name="documents-outline" size={64} color={COLORS.textMuted} />
-                        <Text style={styles.emptyText}>No billing history available yet.</Text>
-                        <Text style={styles.emptySubText}>Once your landlord completes a billing cycle, it will appear here.</Text>
+                        <Ionicons name="document-outline" size={48} color={COLORS.textMuted} />
+                        <Text style={styles.emptyText}>No billing records found.</Text>
                     </View>
-                }
-                ListFooterComponent={
-                    hasMore && history.length > 0 ? (
-                        <ActivityIndicator style={{ margin: SPACING.xl }} color={COLORS.primary} />
-                    ) : null
-                }
+                )}
             />
         </View>
     );
@@ -170,30 +217,62 @@ export default function TenantBillingHistoryScreen() {
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: COLORS.background },
     centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.background },
-    loadingText: { color: COLORS.textMuted, marginTop: SPACING.md, fontSize: FONT_SIZE.md },
+    loadingText: { color: COLORS.textMuted, marginTop: 12 },
     
-    header: { padding: SPACING.xl, paddingTop: SPACING.xl + 20, marginBottom: SPACING.sm },
-    headerTitle: { fontSize: FONT_SIZE.xxl, fontWeight: FONT_WEIGHT.heavy, color: COLORS.textPrimary, marginBottom: 8 },
-    headerSubtitle: { fontSize: FONT_SIZE.sm, color: COLORS.textSecondary, lineHeight: 20 },
+    header: {
+        padding: SPACING.lg,
+        paddingTop: Platform.OS === 'ios' ? 60 : 40,
+        backgroundColor: COLORS.surface,
+        borderBottomWidth: 1,
+        borderBottomColor: 'rgba(255,255,255,0.05)',
+    },
+    headerTitleRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: SPACING.md,
+    },
+    backButton: {
+        marginRight: SPACING.sm,
+        padding: 4,
+    },
+    headerTitle: {
+        fontSize: FONT_SIZE.xl,
+        fontWeight: FONT_WEIGHT.bold,
+        color: COLORS.textPrimary,
+    },
     
-    listContainer: { paddingHorizontal: SPACING.lg, paddingBottom: 100, gap: SPACING.md },
-    card: { padding: SPACING.lg, marginBottom: SPACING.md },
+    searchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: RADIUS.md, paddingHorizontal: 12, marginBottom: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+    searchIcon: { marginRight: 8 },
+    searchInput: { flex: 1, height: 44, color: COLORS.textPrimary, fontSize: 14 },
     
-    cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.md, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)', paddingBottom: SPACING.md },
+    filterContainer: { flexDirection: 'row', gap: 8 },
+    filterPill: { paddingVertical: 6, paddingHorizontal: 16, borderRadius: RADIUS.xl, backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+    filterPillActive: { backgroundColor: 'rgba(16, 185, 129, 0.2)', borderColor: COLORS.primary },
+    filterText: { fontSize: 13, color: COLORS.textSecondary, fontWeight: '600' },
+    filterTextActive: { color: COLORS.primary },
+
+    listContainer: { padding: SPACING.lg, paddingBottom: 100 },
+    card: { padding: 16, marginBottom: 16, borderRadius: RADIUS.lg, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+    
+    cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
     headerLeft: { flexDirection: 'row', alignItems: 'center' },
-    invoiceNumber: { fontSize: FONT_SIZE.sm, fontWeight: FONT_WEIGHT.bold, color: COLORS.textPrimary, letterSpacing: 0.5 },
-    statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: RADIUS.full },
-    statusText: { fontSize: 10, fontWeight: FONT_WEIGHT.heavy },
+    invoiceNumber: { fontSize: 15, fontWeight: FONT_WEIGHT.bold, color: COLORS.textPrimary },
     
-    cardBody: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: SPACING.lg },
+    statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
+    statusText: { fontSize: 10, fontWeight: '800', letterSpacing: 0.5 },
+    
+    cardBody: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
     infoCol: { flex: 1 },
-    infoLabel: { fontSize: 10, color: COLORS.textSecondary, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 },
-    infoValue: { fontSize: FONT_SIZE.md, fontWeight: FONT_WEIGHT.bold, color: COLORS.textPrimary },
+    infoLabel: { fontSize: 11, color: COLORS.textMuted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 },
+    infoValue: { fontSize: 14, color: COLORS.textPrimary, fontWeight: '600' },
     
-    cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', backgroundColor: 'rgba(255,255,255,0.03)', padding: SPACING.md, borderRadius: RADIUS.sm, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
-    amountValue: { fontSize: FONT_SIZE.xl, fontWeight: FONT_WEIGHT.heavy, color: COLORS.textPrimary },
-    
-    emptyContainer: { alignItems: 'center', justifyContent: 'center', paddingVertical: 80, paddingHorizontal: 40 },
-    emptyText: { marginTop: SPACING.lg, fontSize: FONT_SIZE.lg, fontWeight: FONT_WEIGHT.bold, color: COLORS.textPrimary, textAlign: 'center' },
-    emptySubText: { marginTop: SPACING.sm, fontSize: FONT_SIZE.sm, color: COLORS.textSecondary, textAlign: 'center', lineHeight: 20 }
+    paymentDetailsBox: { backgroundColor: 'rgba(16, 185, 129, 0.05)', padding: 12, borderRadius: RADIUS.sm, marginBottom: 16 },
+    paymentDetailsText: { fontSize: 12, color: COLORS.success, fontWeight: '600', marginBottom: 2 },
+    paymentDetailsSubText: { fontSize: 11, color: COLORS.textMuted },
+
+    cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
+    amountValue: { fontSize: 20, fontWeight: FONT_WEIGHT.heavy, color: COLORS.primary },
+
+    emptyContainer: { alignItems: 'center', justifyContent: 'center', paddingVertical: 40 },
+    emptyText: { color: COLORS.textMuted, marginTop: 12, fontSize: 14 }
 });

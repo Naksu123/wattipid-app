@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Modal, Alert, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Image, Modal, Alert, ActivityIndicator, TextInput } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import GlassCard from '../../ui/GlassCard';
 import { COLORS, FONT_WEIGHT, SPACING } from '@/styles/theme';
@@ -9,8 +9,21 @@ export default function PendingPaymentsWidget({ payments = [], onRefresh }) {
   const [selectedPayment, setSelectedPayment] = useState(null);
   const [loading, setLoading] = useState(false);
   const [confirmAction, setConfirmAction] = useState(null);
+  const [partialEnabled, setPartialEnabled] = useState(false);
+  const [actualAmount, setActualAmount] = useState('');
+
+  useEffect(() => {
+    import('../../../services/database').then(({ getSetting }) => {
+      getSetting('partial_payments_enabled').then(res => setPartialEnabled(res === 'true'));
+    });
+  }, []);
 
   if (!payments || payments.length === 0) return null;
+
+  const handleSelectPayment = (payment) => {
+    setSelectedPayment(payment);
+    setActualAmount(payment.amount.toString());
+  };
 
   const handleAction = (action) => {
     setConfirmAction(action);
@@ -20,7 +33,12 @@ export default function PendingPaymentsWidget({ payments = [], onRefresh }) {
     if (!confirmAction) return;
     setLoading(true);
     try {
-      await verifyPayment(selectedPayment.id, confirmAction);
+      const parsedAmount = parseFloat(actualAmount);
+      if (confirmAction === 'approve' && (isNaN(parsedAmount) || parsedAmount <= 0)) {
+         throw new Error('Please enter a valid actual amount received.');
+      }
+      
+      await verifyPayment(selectedPayment.id, confirmAction, null, parsedAmount);
       setSelectedPayment(null);
       setConfirmAction(null);
       if (onRefresh) onRefresh();
@@ -36,7 +54,7 @@ export default function PendingPaymentsWidget({ payments = [], onRefresh }) {
     <>
       <Text style={[styles.sectionTitle, { marginTop: 12 }]}>Action Required</Text>
       {payments.map(payment => (
-        <TouchableOpacity key={payment.id} onPress={() => setSelectedPayment(payment)}>
+        <TouchableOpacity key={payment.id} onPress={() => handleSelectPayment(payment)}>
           <GlassCard style={styles.card}>
             <View style={styles.cardHeader}>
               <View style={styles.roomBadge}>
@@ -48,7 +66,8 @@ export default function PendingPaymentsWidget({ payments = [], onRefresh }) {
             <View style={styles.cardBody}>
               <View>
                 <Text style={styles.tenantName}>{payment.tenant_name || 'Unknown Tenant'}</Text>
-                <Text style={styles.referenceText}>Ref: {payment.reference_number}</Text>
+                <Text style={styles.referenceText}>Method: {payment.payment_method?.toUpperCase() || 'ONLINE'}</Text>
+                {payment.reference_number && <Text style={styles.referenceText}>Ref: {payment.reference_number}</Text>}
               </View>
               <Text style={styles.amount}>₱{parseFloat(payment.amount).toFixed(2)}</Text>
             </View>
@@ -60,7 +79,7 @@ export default function PendingPaymentsWidget({ payments = [], onRefresh }) {
       ))}
 
       {/* Verification Modal */}
-      <Modal visible={!!selectedPayment} transparent animationType="slide">
+      <Modal visible={!!selectedPayment} transparent animationType="slide" onRequestClose={() => setSelectedPayment(null)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
             <View style={styles.modalHeader}>
@@ -77,9 +96,31 @@ export default function PendingPaymentsWidget({ payments = [], onRefresh }) {
                   <Text style={styles.infoValue}>{selectedPayment.tenant_name}</Text>
                 </View>
                 <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Amount Paid:</Text>
+                  <Text style={styles.infoLabel}>Method:</Text>
+                  <Text style={styles.infoValue}>{selectedPayment.payment_method?.toUpperCase() || 'ONLINE'}</Text>
+                </View>
+                {selectedPayment.payment_date && (
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>Paid On:</Text>
+                  <Text style={styles.infoValue}>{new Date(selectedPayment.payment_date).toLocaleDateString()}</Text>
+                </View>
+                )}
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>Declared Amount:</Text>
                   <Text style={styles.infoValueBold}>₱{parseFloat(selectedPayment.amount).toFixed(2)}</Text>
                 </View>
+                
+                {partialEnabled && (
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.infoLabel}>Actual Amount Received:</Text>
+                    <TextInput 
+                      style={styles.actualInput}
+                      value={actualAmount}
+                      onChangeText={setActualAmount}
+                      keyboardType="numeric"
+                    />
+                  </View>
+                )}
 
                 <Text style={styles.proofLabel}>Proof of Payment:</Text>
                 {selectedPayment.proof_url ? (
@@ -103,7 +144,7 @@ export default function PendingPaymentsWidget({ payments = [], onRefresh }) {
       </Modal>
 
       {/* Sleek Custom Confirmation Modal */}
-      <Modal visible={!!confirmAction} transparent animationType="fade">
+      <Modal visible={!!confirmAction} transparent animationType="fade" onRequestClose={() => setConfirmAction(null)}>
         <View style={styles.modalOverlay}>
           <View style={styles.confirmModalContainer}>
             <View style={styles.confirmHeader}>
@@ -141,6 +182,8 @@ export default function PendingPaymentsWidget({ payments = [], onRefresh }) {
 }
 
 const styles = StyleSheet.create({
+  actualInput: { backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: COLORS.border, borderRadius: 8, color: '#fff', padding: 10, fontSize: 16, marginTop: 4, marginBottom: 12 },
+  inputGroup: { marginTop: 8 },
   sectionTitle: { fontSize: 13, fontWeight: FONT_WEIGHT.bold, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 12, marginLeft: 4, marginTop: 16 },
   card: { padding: 16, marginBottom: 12, backgroundColor: 'rgba(30, 41, 59, 0.7)', borderWidth: 1, borderColor: 'rgba(245, 158, 11, 0.3)' },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },

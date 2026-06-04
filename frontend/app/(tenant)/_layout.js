@@ -5,29 +5,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { COLORS, FONT_SIZE } from '@/styles/theme';
 import NotificationBadge from '../../components/ui/NotificationBadge';
-import { getUnreadNotificationCount } from '../../services/notificationApi';
+import { useSync } from '@/contexts/SyncContext';
 
 export default function TenantLayout() {
   const { isAuthenticated } = useAuth();
-  const [unreadCount, setUnreadCount] = useState(0);
+  const { unreadCount } = useSync();
   const router = useRouter();
   const pathname = usePathname();
-
-  // Poll for unread count every 30 seconds
-  useEffect(() => {
-    if (!isAuthenticated) return;
-
-    const fetchCount = async () => {
-      try {
-        const count = await getUnreadNotificationCount();
-        setUnreadCount(count);
-      } catch (e) {}
-    };
-
-    fetchCount();
-    const interval = setInterval(fetchCount, 30000);
-    return () => clearInterval(interval);
-  }, [isAuthenticated]);
 
   return (
     <View style={{ flex: 1, backgroundColor: COLORS.background }}>
@@ -75,7 +59,7 @@ export default function TenantLayout() {
           tabBarIcon: ({ color, size }) => <Ionicons name="bulb-outline" size={size} color={color} /> }} />
         <Tabs.Screen name="budget" options={{ title: 'Budget',
           tabBarIcon: ({ color, size }) => <Ionicons name="wallet-outline" size={size} color={color} /> }} />
-        <Tabs.Screen name="payment" options={{ title: 'Payment',
+        <Tabs.Screen name="billing/index" options={{ title: 'Payment',
           tabBarIcon: ({ color, size }) => <Ionicons name="card-outline" size={size} color={color} /> }} />
         <Tabs.Screen name="settings" options={{ title: 'Settings',
           tabBarIcon: ({ color, size }) => <Ionicons name="settings-outline" size={size} color={color} /> }} />
@@ -84,24 +68,10 @@ export default function TenantLayout() {
         <Tabs.Screen name="edit-profile" options={{ href: null, tabBarStyle: { display: 'none' } }} />
         <Tabs.Screen name="pdf-viewer" options={{ href: null, tabBarStyle: { display: 'none' } }} />
         <Tabs.Screen name="billing-history" options={{ href: null, tabBarStyle: { display: 'none' } }} />
-        <Tabs.Screen name="billing/index" options={{ href: null, tabBarStyle: { display: 'none' } }} />
+        <Tabs.Screen name="payment" options={{ href: null, tabBarStyle: { display: 'none' } }} />
       </Tabs>
 
-      {/* Global Notification Bell */}
-      {!pathname.includes('/notifications') && (
-        <TouchableOpacity 
-          style={styles.globalBell} 
-          activeOpacity={0.8}
-          onPress={() => {
-            router.navigate('/(tenant)/notifications');
-          }}
-        >
-          <View>
-            <Ionicons name="notifications-outline" size={22} color={COLORS.textPrimary} />
-            <NotificationBadge count={unreadCount} />
-          </View>
-        </TouchableOpacity>
-      )}
+
     </View>
   );
 }

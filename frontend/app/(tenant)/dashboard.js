@@ -3,21 +3,24 @@ import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity } 
 import { useIsFocused } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRef } from 'react';
+import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSync } from '@/contexts/SyncContext';
 import { fetchRealtimeData, isDeviceConnected } from '../../services/esp32Api';
 import PowerGauge from '../../components/ui/PowerGauge';
 import GlassCard from '../../components/ui/GlassCard';
 import StatusBadge from '../../components/ui/StatusBadge';
 import AlertModal from '../../components/modals/AlertModal';
-import { COLORS } from '@/styles/theme';
+import { COLORS, SPACING } from '@/styles/theme';
 import ms from '@/styles/tenant/dashboard.styles';
 import { getDashboardSummary, getForecast } from '../../services/consumptionService';
 import apiClient from '../../services/apiClient';
-import { getBillingCycle } from '../../services/database';
+import { getBillingCycle, getPaymentInsights, getNotifications } from '../../services/database';
 import { tipsService } from '../../services/tipsService';
 
 export default function DashboardScreen() {
   const { user, isAuthenticated } = useAuth();
+  const router = useRouter();
   const isFocused = useIsFocused();
   const [data, setData] = useState({ voltage: 0, current: 0, power: 0, energy: 0, powerFactor: 0 });
   const [relayOn, setRelayOn] = useState(true);
@@ -42,10 +45,25 @@ export default function DashboardScreen() {
 
   const roomId = user?.room_id || 'Room 1';
 
+  const { globalRefreshTick, unreadCount: globalUnreadCount, isOnline } = useSync();
   const [billingCycle, setBillingCycle] = useState(null);
-  const [unreadCount, setUnreadCount] = useState(0);
+  const [unreadCount, setUnreadCount] = useState(0); // We will sync this with globalUnreadCount
+  const [paymentInsights, setPaymentInsights] = useState(null);
+  const [activities, setActivities] = useState([]);
+
+  // Sync Global Refresh
+  useEffect(() => {
+    if (globalRefreshTick > 0) {
+      fetchStaticData();
+    }
+  }, [globalRefreshTick]);
+
+  useEffect(() => {
+    setUnreadCount(globalUnreadCount);
+  }, [globalUnreadCount]);
 
   const fetchStaticData = useCallback(async () => {
+    if (!roomId) return;
     try {
       setLoading(true);
       const result = await getDashboardSummary(roomId);
@@ -72,6 +90,16 @@ export default function DashboardScreen() {
       if (cycle) {
         setBillingCycle(cycle);
         setBudgetData(cycle.budget || null);
+      }
+
+      const insights = await getPaymentInsights(roomId);
+      if (insights && insights.success) {
+        setPaymentInsights(insights.data);
+      }
+
+      const notifs = await getNotifications(roomId, user?.id);
+      if (notifs) {
+        setActivities(notifs.slice(0, 3)); // Get top 3 recent activities
       }
 
       const tipResult = await tipsService.getSmartRecommendation();
@@ -110,6 +138,7 @@ export default function DashboardScreen() {
 
 
   const fetchRealtimeDataLoop = useCallback(async () => {
+    if (!roomId) return;
     try {
       const sensorData = await fetchRealtimeData(roomId);
 
@@ -187,15 +216,11 @@ export default function DashboardScreen() {
     // 1. Initial fetch of everything
     fetchStaticData().then(() => fetchRealtimeDataLoop());
 
-    // 2. Real-time loop (5 seconds)
+    // 2. Real-time loop (5 seconds for ESP32 consumption)
     const realtimeInterval = setInterval(fetchRealtimeDataLoop, 5000);
-
-    // 3. Static data loop (60 seconds)
-    const staticInterval = setInterval(fetchStaticData, 60000);
 
     return () => {
       clearInterval(realtimeInterval);
-      clearInterval(staticInterval);
     };
   }, [isFocused, isAuthenticated]);
 
@@ -242,6 +267,18 @@ export default function DashboardScreen() {
 
   return (
     <View style={ms.container}>
+      {/* GLOBAL SYNC STATUS BANNER */}
+      {!isOnline && (
+        <View style={{ backgroundColor: COLORS.danger, padding: 8, alignItems: 'center' }}>
+          <Text style={{ color: COLORS.white, fontSize: 12, fontWeight: 'bold' }}>⚠️ Offline Mode - Waiting for network...</Text>
+        </View>
+      )}
+      {isOnline && globalRefreshTick > 0 && !billingCycle && (
+        <View style={{ backgroundColor: COLORS.success, padding: 8, alignItems: 'center' }}>
+          <Text style={{ color: COLORS.white, fontSize: 12, fontWeight: 'bold' }}>🔄 Connection Restored. Synchronizing Data...</Text>
+        </View>
+      )}
+
       <ScrollView contentContainerStyle={ms.scroll} showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}>
 
@@ -249,15 +286,13 @@ export default function DashboardScreen() {
         <View style={ms.header}>
           <View>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Text style={ms.greeting}>Hello, {user?.name || 'Tenant'}</Text>
+              <Ionicons name="home" size={24} color={COLORS.primary} style={{ marginRight: 8 }} />
+              <Text style={ms.greeting}>{roomId}</Text>
             </View>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
-              <Ionicons name="home-outline" size={14} color={COLORS.textSecondary} />
-              <Text style={ms.roomLabel}>{roomId}</Text>
-              <Text style={ms.lastSeenDot}>•</Text>
-              <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: offline ? COLORS.danger : COLORS.success }} />
+              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: offline ? COLORS.danger : COLORS.success }} />
               <Text style={[ms.lastSeenText, { color: offline ? COLORS.danger : COLORS.success }]}>
-                {offline ? 'Offline' : `Live: ${formatLastSeen()}`}
+                {offline ? 'Submeter Offline' : `Live Data: ${formatLastSeen()}`}
               </Text>
             </View>
           </View>
@@ -274,24 +309,6 @@ export default function DashboardScreen() {
           </View>
         </View>
 
-        {/* Due Date / Overdue Banner */}
-        {daysUntilDue !== null && daysUntilDue <= 7 && (
-          <TouchableOpacity activeOpacity={0.8} onPress={() => router.push('/(tenant)/payment')}>
-            <GlassCard style={[ms.alertBanner, { borderLeftColor: daysUntilDue < 0 ? COLORS.danger : (daysUntilDue <= 3 ? COLORS.warning : COLORS.info) }]}>
-              <View style={[ms.alertBannerIcon, { backgroundColor: daysUntilDue < 0 ? 'rgba(239,68,68,0.12)' : (daysUntilDue <= 3 ? 'rgba(245,158,11,0.12)' : 'rgba(59,130,246,0.12)') }]}>
-                <Ionicons name={daysUntilDue < 0 ? 'alert-circle' : 'calendar'} size={22}
-                  color={daysUntilDue < 0 ? COLORS.danger : (daysUntilDue <= 3 ? COLORS.warning : COLORS.info)} />
-              </View>
-              <View style={ms.alertBannerContent}>
-                <Text style={[ms.alertBannerTitle, { color: daysUntilDue < 0 ? COLORS.danger : (daysUntilDue <= 3 ? COLORS.warning : COLORS.info) }]}>
-                  {daysUntilDue < 0 ? 'Bill Overdue' : (daysUntilDue === 0 ? 'Bill Due Today' : `Bill Due in ${daysUntilDue} Days`)}
-                </Text>
-                <Text style={ms.alertBannerSub}>₱{Number(amountDue).toFixed(2)} pending • Tap to pay</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={16} color={COLORS.textMuted} />
-            </GlassCard>
-          </TouchableOpacity>
-        )}
 
         {/* GHOST FIX: Only show budget warning banner when device is ONLINE and real data exists */}
         {!offline && budget && budgetPct >= 80 && todayUsage.totalCost > 0 && (
@@ -336,6 +353,31 @@ export default function DashboardScreen() {
           </GlassCard>
         )}
 
+        {/* Payment Status Overview */}
+        {paymentInsights && (
+          <>
+            <Text style={ms.sectionTitle}>Payment Overview</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={ms.statsScroll}>
+              <GlassCard style={ms.statCard}>
+                <Ionicons name="checkmark-circle" size={24} color={COLORS.success} />
+                <Text style={ms.statValue}>₱{Number(paymentInsights.totalPaid || 0).toLocaleString()}</Text>
+                <Text style={ms.statLabel}>Total Paid</Text>
+              </GlassCard>
+              <GlassCard style={[ms.statCard, { borderColor: 'rgba(245,158,11,0.3)' }]}>
+                <Ionicons name="time" size={24} color={COLORS.warning} />
+                <Text style={[ms.statValue, { color: COLORS.warning }]}>₱{Number(paymentInsights.totalPending || 0).toLocaleString()}</Text>
+                <Text style={ms.statLabel}>Pending Verification</Text>
+              </GlassCard>
+              <GlassCard style={[ms.statCard, { borderColor: 'rgba(239,68,68,0.3)' }]}>
+                <Ionicons name="alert-circle" size={24} color={COLORS.danger} />
+                <Text style={[ms.statValue, { color: COLORS.danger }]}>₱{Number(paymentInsights.totalOverdue || 0).toLocaleString()}</Text>
+                <Text style={ms.statLabel}>Total Overdue</Text>
+              </GlassCard>
+            </ScrollView>
+          </>
+        )}
+
+        <Text style={ms.sectionTitle}>Live Consumption</Text>
         {/* Power Gauge */}
         <GlassCard gradient style={[ms.gaugeCard, offline && { opacity: 0.8 }]}>
           {offline ? (
@@ -441,32 +483,122 @@ export default function DashboardScreen() {
           </GlassCard>
         )}
 
-        {/* Billing Cycle Info */}
-        <GlassCard style={[ms.rateCard, { flexDirection: 'column', alignItems: 'flex-start', padding: 16 }]}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
-            <Ionicons name="calendar-outline" size={18} color={COLORS.primary} />
-            <Text style={[ms.rateText, { marginLeft: 8, fontWeight: 'bold', color: COLORS.textPrimary, flex: 1 }]}>Active Billing Cycle</Text>
-            <Text style={{ fontSize: 12, color: COLORS.textMuted }}>Rate: ₱{Number(rate || 0).toFixed(2)}/kWh</Text>
+        {/* Recent Activities */}
+        <Text style={ms.sectionTitle}>Recent Activities</Text>
+        <GlassCard style={{ padding: SPACING.md, marginBottom: SPACING.xl }}>
+          {activities.length > 0 ? (
+            <View>
+              {activities.map((act, index) => (
+                <View key={act.id || index} style={ms.activityItem}>
+                  {index < activities.length - 1 && <View style={ms.activityLine} />}
+                  <View style={ms.activityIconWrap}>
+                    <Ionicons 
+                      name={act.type === 'payment_verified' ? 'checkmark-circle' : act.type === 'bill_generated' ? 'document-text' : act.type === 'penalty' ? 'alert-circle' : 'notifications'} 
+                      size={16} 
+                      color={act.type === 'payment_verified' ? COLORS.success : act.type === 'penalty' ? COLORS.danger : COLORS.primary} 
+                    />
+                  </View>
+                  <View style={ms.activityContent}>
+                    <Text style={ms.activityTitle}>{act.title}</Text>
+                    <Text style={ms.activityMessage}>{act.message}</Text>
+                    <Text style={ms.activityTime}>{new Date(act.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</Text>
+                  </View>
+                </View>
+              ))}
+              <TouchableOpacity onPress={() => router.push('/(tenant)/notifications')} style={{ marginTop: 8, alignItems: 'center', paddingVertical: 8, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)' }}>
+                <Text style={{ color: COLORS.primary, fontSize: 12, fontWeight: 'bold' }}>View All Activities</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <Text style={ms.emptyActivity}>No recent activities found.</Text>
+          )}
+        </GlassCard>
+
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: SPACING.lg, marginBottom: SPACING.md }}>
+          <Text style={[ms.sectionTitle, { marginTop: 0, marginBottom: 0 }]}>Current Bill</Text>
+          <StatusBadge status={billingCycle?.payment_status || 'unpaid'} />
+        </View>
+        <GlassCard style={ms.soaCard}>
+          
+          <View style={ms.soaAmountRow}>
+            <View>
+              <Text style={ms.soaLabel}>Amount Due</Text>
+              <Text style={ms.soaAmount}>₱{Number(amountDue || 0).toFixed(2)}</Text>
+            </View>
+            <View style={{ alignItems: 'flex-end' }}>
+              <Text style={ms.soaLabel}>Due Date</Text>
+              <Text style={[ms.soaValue, { color: daysUntilDue !== null && daysUntilDue < 0 ? COLORS.danger : COLORS.textPrimary }]}>
+                {billingCycle?.due_date ? new Date(billingCycle.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '--'}
+              </Text>
+            </View>
           </View>
 
-          <View style={{ width: '100%', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 8, padding: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
-              <Text style={{ fontSize: 12, color: COLORS.textMuted }}>Billing Period</Text>
-              <Text style={{ fontSize: 12, color: COLORS.textPrimary, fontWeight: '500' }}>
-                {monthUsage.cycle_start ? new Date(monthUsage.cycle_start).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '--'} - {monthUsage.cycle_end ? new Date(monthUsage.cycle_end).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '--'}
+          <View style={ms.soaRow}>
+            <Text style={ms.soaLabel}>Invoice No.</Text>
+            <Text style={[ms.soaValue, !billingCycle?.invoice_number && { fontStyle: 'italic', color: COLORS.textMuted, fontSize: 12 }]}>
+              {billingCycle?.invoice_number || 'Pending'}
+            </Text>
+          </View>
+          <View style={ms.soaRow}>
+            <Text style={ms.soaLabel}>Billing Period</Text>
+            <Text style={[ms.soaValue, { fontSize: 13 }]}>
+              {monthUsage.cycle_start ? new Date(monthUsage.cycle_start).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '--'} - {monthUsage.cycle_end ? new Date(monthUsage.cycle_end).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '--'}
+            </Text>
+          </View>
+          {daysUntilDue !== null && daysUntilDue < 0 && (
+            <View style={ms.soaRow}>
+              <Text style={ms.soaLabel}>Penalty Applied</Text>
+              <Text style={[ms.soaValue, { color: COLORS.danger, fontWeight: 'bold' }]}>
+                ₱{Number(billingCycle?.penalty_amount || 0).toFixed(2)}
               </Text>
             </View>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
-              <Text style={{ fontSize: 12, color: COLORS.textMuted }}>Next Reset</Text>
-              <Text style={{ fontSize: 12, color: COLORS.warning, fontWeight: '500' }}>
-                {monthUsage.next_reset ? new Date(monthUsage.next_reset).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : '--'}
-              </Text>
-            </View>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingTop: 8, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)' }}>
-              <Text style={{ fontSize: 12, color: COLORS.textMuted }}>Move-in Date</Text>
-              <Text style={{ fontSize: 12, color: COLORS.textSecondary, fontWeight: '500' }}>
-                {monthUsage.tenant_start_date ? new Date(monthUsage.tenant_start_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : '--'}
-              </Text>
+          )}
+
+          <View style={ms.soaActions}>
+            <TouchableOpacity style={ms.soaBtnSecondary} onPress={() => router.push('/(tenant)/billing')}>
+              <Text style={ms.soaBtnText}>View Details</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[ms.soaBtnPrimary, { opacity: (billingCycle?.payment_status === 'paid' || billingCycle?.payment_status === 'pending_verification') ? 0.5 : 1 }]} 
+              disabled={billingCycle?.payment_status === 'paid' || billingCycle?.payment_status === 'pending_verification'}
+              onPress={() => router.push('/(tenant)/payment')}
+            >
+              <Text style={ms.soaBtnText}>Pay Now</Text>
+            </TouchableOpacity>
+          </View>
+        </GlassCard>
+
+        {/* Account Summary */}
+        <Text style={ms.sectionTitle}>Account Summary</Text>
+        <GlassCard style={ms.accountCard}>
+          <View style={ms.accountRow}>
+            <Text style={ms.soaLabel}>Tenant Name</Text>
+            <Text style={[ms.soaValue, { fontSize: 13 }]}>{user?.name || 'Tenant'}</Text>
+          </View>
+          <View style={ms.accountRow}>
+            <Text style={ms.soaLabel}>Room</Text>
+            <Text style={[ms.soaValue, { fontSize: 13 }]}>{roomId}</Text>
+          </View>
+          <View style={ms.accountRow}>
+            <Text style={ms.soaLabel}>Move-In Date</Text>
+            <Text style={[ms.soaValue, { fontSize: 13 }]}>
+              {monthUsage.tenant_start_date ? new Date(monthUsage.tenant_start_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : '--'}
+            </Text>
+          </View>
+          <View style={ms.accountRow}>
+            <Text style={ms.soaLabel}>Rate (per kWh)</Text>
+            <Text style={[ms.soaValue, { fontSize: 13 }]}>₱{Number(rate || 0).toFixed(2)}</Text>
+          </View>
+          <View style={ms.accountRow}>
+            <Text style={ms.soaLabel}>Next Billing Cycle</Text>
+            <Text style={[ms.soaValue, { fontSize: 13 }]}>
+              {monthUsage.next_reset ? new Date(monthUsage.next_reset).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '--'}
+            </Text>
+          </View>
+          <View style={[ms.accountRow, { borderBottomWidth: 0 }]}>
+            <Text style={ms.soaLabel}>Account Status</Text>
+            <View style={{ backgroundColor: 'rgba(16, 185, 129, 0.15)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 }}>
+              <Text style={{ color: COLORS.success, fontSize: 11, fontWeight: 'bold' }}>Active</Text>
             </View>
           </View>
         </GlassCard>

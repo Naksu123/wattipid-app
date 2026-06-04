@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Alert, BackHandler } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,29 +10,38 @@ import GlassCard from '../../components/ui/GlassCard';
 import { COLORS, FONT_SIZE, FONT_WEIGHT, SPACING, RADIUS } from '../../styles/theme';
 
 export default function PDFViewerScreen() {
-    const { id } = useLocalSearchParams();
+    const { id, invoice_number } = useLocalSearchParams();
     const router = useRouter();
     const { user } = useAuth();
     
     const [loading, setLoading] = useState(true);
     const [pdfUri, setPdfUri] = useState(null);
+    const [errorMsg, setErrorMsg] = useState(null);
 
     useEffect(() => {
-        if (id) {
+        if (id || invoice_number) {
             loadAndGeneratePDF();
         } else {
-            Alert.alert('Error', 'No billing record specified.');
-            router.back();
+            setErrorMsg('No billing record specified.');
+            setLoading(false);
         }
+
+        const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+            router.navigate('/(tenant)/billing');
+            return true;
+        });
+
+        return () => backHandler.remove();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [id, router]);
+    }, [id, invoice_number, router]);
 
     const loadAndGeneratePDF = async () => {
         try {
-            // 1. Fetch exact backend records
-            const billingCycle = await getBillingDetails(null, id, user.room_id);
+            // 1. Fetch exact backend records (use invoice_number if available)
+            const billingCycle = await getBillingDetails(invoice_number || null, id || null, user.room_id);
             if (!billingCycle) {
-                throw new Error('Billing record not found');
+                console.error('[PDF Viewer] Billing Details API returned empty. id:', id, 'invoice_number:', invoice_number);
+                throw new Error('Billing record not found in the database. Please try again.');
             }
             
             const startDate = new Date(billingCycle.cycle_start);
@@ -51,8 +60,8 @@ export default function PDFViewerScreen() {
             
             setPdfUri(result.uri);
         } catch (error) {
-            console.error('Failed to generate PDF:', error);
-            Alert.alert('Generation Failed', 'Could not generate the PDF statement.');
+            console.error('[PDF Viewer] Failed to generate PDF:', error.message);
+            setErrorMsg(error.message || 'Could not generate the PDF statement.');
         } finally {
             setLoading(false);
         }
@@ -76,6 +85,10 @@ export default function PDFViewerScreen() {
         }
     };
 
+    const handleGoBack = () => {
+        router.navigate('/(tenant)/billing');
+    };
+
     return (
         <View style={styles.container}>
             <Stack.Screen 
@@ -86,6 +99,11 @@ export default function PDFViewerScreen() {
                     },
                     headerTintColor: COLORS.textPrimary,
                     headerShadowVisible: false,
+                    headerLeft: () => (
+                        <TouchableOpacity onPress={handleGoBack} style={{ marginLeft: 15, marginRight: 15 }}>
+                            <Ionicons name="arrow-back" size={24} color={COLORS.textPrimary} />
+                        </TouchableOpacity>
+                    ),
                     headerRight: () => (
                         <TouchableOpacity onPress={handleShare} disabled={!pdfUri} style={{ marginRight: 15 }}>
                             <Ionicons name="share-outline" size={24} color={pdfUri ? COLORS.primary : COLORS.textMuted} />
@@ -118,7 +136,7 @@ export default function PDFViewerScreen() {
                         
                         <TouchableOpacity 
                             style={styles.secondaryButton}
-                            onPress={() => router.back()}
+                            onPress={handleGoBack}
                         >
                             <Text style={styles.secondaryButtonText}>Go Back</Text>
                         </TouchableOpacity>
@@ -128,7 +146,8 @@ export default function PDFViewerScreen() {
                 <View style={styles.centerContainer}>
                     <Ionicons name="alert-circle-outline" size={64} color={COLORS.danger} />
                     <Text style={styles.errorText}>Could not generate PDF</Text>
-                    <TouchableOpacity style={styles.secondaryButton} onPress={() => router.back()}>
+                    <Text style={styles.errorSubtext}>{errorMsg}</Text>
+                    <TouchableOpacity style={styles.secondaryButton} onPress={handleGoBack}>
                         <Text style={styles.secondaryButtonText}>Go Back</Text>
                     </TouchableOpacity>
                 </View>
@@ -153,5 +172,6 @@ const styles = StyleSheet.create({
     secondaryButton: { backgroundColor: 'transparent', borderRadius: RADIUS.md, paddingVertical: 14, paddingHorizontal: 24, width: '100%', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
     secondaryButtonText: { color: COLORS.textPrimary, fontSize: FONT_SIZE.md, fontWeight: FONT_WEIGHT.bold },
     
-    errorText: { marginTop: SPACING.lg, fontSize: FONT_SIZE.lg, color: COLORS.danger, fontWeight: FONT_WEIGHT.bold, marginBottom: SPACING.xl }
+    errorText: { marginTop: SPACING.lg, fontSize: FONT_SIZE.lg, color: COLORS.danger, fontWeight: FONT_WEIGHT.bold, marginBottom: SPACING.xs },
+    errorSubtext: { color: COLORS.textSecondary, fontSize: FONT_SIZE.sm, textAlign: 'center', marginBottom: SPACING.xl, paddingHorizontal: 20 }
 });

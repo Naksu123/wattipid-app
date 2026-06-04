@@ -123,11 +123,8 @@ export default function TenantBillingScreen() {
                 contentContainerStyle={styles.scroll}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
             >
-                <View style={styles.brandRow}>
-                    <Ionicons name="flash" size={18} color={COLORS.primary} />
-                    <Text style={styles.brandText}>WATTIPID SMART ELECTRICITY MONITORING</Text>
-                </View>
-                <Text style={styles.invoiceTitle}>STATEMENT OF ACCOUNT</Text>
+
+                <Text style={styles.invoiceTitle}>Statement of Account</Text>
                 
                 <GlassCard style={styles.headerDetails}>
                     <View style={styles.headerItem}>
@@ -176,7 +173,7 @@ export default function TenantBillingScreen() {
                         <Ionicons name="time-outline" size={18} color={COLORS.primary} />
                         <Text style={styles.actionBtnText}>Billing History</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity style={styles.actionBtn} onPress={() => router.push({ pathname: '/(tenant)/pdf-viewer', params: { id: billingDetails.id } })}>
+                    <TouchableOpacity style={styles.actionBtn} onPress={() => router.push({ pathname: '/(tenant)/pdf-viewer', params: { id: billingDetails.id, invoice_number: billingDetails.invoice_number } })}>
                         <Ionicons name="document-text-outline" size={18} color={COLORS.primary} />
                         <Text style={styles.actionBtnText}>View PDF</Text>
                     </TouchableOpacity>
@@ -336,7 +333,7 @@ const styles = StyleSheet.create({
     
     brandRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12, marginTop: 10 },
     brandText: { marginLeft: 8, fontSize: 11, fontWeight: FONT_WEIGHT.bold, color: COLORS.primary, letterSpacing: 0.5 },
-    invoiceTitle: { fontSize: FONT_SIZE.xl, fontWeight: FONT_WEIGHT.heavy, color: COLORS.textPrimary, marginBottom: SPACING.lg },
+    invoiceTitle: { fontSize: FONT_SIZE.xl, fontWeight: FONT_WEIGHT.heavy, color: COLORS.textPrimary, marginBottom: SPACING.lg, marginTop: SPACING.md },
     
     headerDetails: { flexDirection: 'row', justifyContent: 'space-between', padding: SPACING.md, marginBottom: SPACING.lg },
     headerItem: { flex: 1 },

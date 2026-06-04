@@ -289,5 +289,204 @@ export default StyleSheet.create({
     color: COLORS.primary,
     fontWeight: 'bold',
     textTransform: 'uppercase',
+  },
+  
+  // Phase 4 - Super Dashboard Styles
+  sectionTitle: {
+    fontSize: FONT_SIZE.md,
+    fontWeight: FONT_WEIGHT.bold,
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.md,
+    marginTop: SPACING.md,
+    letterSpacing: 0.5
+  },
+  quickActionsScroll: {
+    marginBottom: SPACING.lg
+  },
+  quickActionBtn: {
+    alignItems: 'center',
+    marginRight: SPACING.md,
+    width: 72
+  },
+  quickActionIconWrap: {
+    width: 56,
+    height: 56,
+    borderRadius: RADIUS.xl,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)'
+  },
+  quickActionText: {
+    fontSize: 11,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    fontWeight: FONT_WEIGHT.medium
+  },
+  
+  // Statement of Account Card
+  soaCard: {
+    padding: SPACING.md,
+    marginBottom: SPACING.xl,
+    borderColor: 'rgba(59, 130, 246, 0.3)',
+    borderWidth: 1
+  },
+  soaHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.md
+  },
+  soaTitle: {
+    fontSize: FONT_SIZE.xs,
+    color: COLORS.textSecondary,
+    fontWeight: FONT_WEIGHT.bold,
+    letterSpacing: 1
+  },
+  soaAmountRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    marginBottom: SPACING.md
+  },
+  soaAmount: {
+    fontSize: 32,
+    fontWeight: FONT_WEIGHT.heavy,
+    color: COLORS.white
+  },
+  soaRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 4
+  },
+  soaLabel: {
+    fontSize: FONT_SIZE.xs,
+    color: COLORS.textMuted
+  },
+  soaValue: {
+    fontSize: FONT_SIZE.md,
+    color: COLORS.textPrimary,
+    fontWeight: FONT_WEIGHT.semibold
+  },
+  soaActions: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+    marginTop: SPACING.sm,
+    paddingTop: SPACING.sm,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.05)'
+  },
+  soaBtnPrimary: {
+    flex: 1,
+    backgroundColor: COLORS.primary,
+    paddingVertical: 8,
+    borderRadius: RADIUS.md,
+    alignItems: 'center'
+  },
+  soaBtnSecondary: {
+    flex: 1,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    paddingVertical: 8,
+    borderRadius: RADIUS.md,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)'
+  },
+  soaBtnText: {
+    color: COLORS.white,
+    fontWeight: FONT_WEIGHT.bold,
+    fontSize: FONT_SIZE.xs
+  },
+  
+  // Payment Status Overview
+  statsScroll: {
+    marginBottom: SPACING.lg
+  },
+  statCard: {
+    width: 140,
+    padding: SPACING.md,
+    marginRight: SPACING.sm,
+    alignItems: 'flex-start'
+  },
+  statValue: {
+    fontSize: FONT_SIZE.xl,
+    fontWeight: FONT_WEIGHT.bold,
+    color: COLORS.textPrimary,
+    marginTop: SPACING.sm
+  },
+  statLabel: {
+    fontSize: FONT_SIZE.xs,
+    color: COLORS.textSecondary,
+    marginTop: 4
+  },
+  
+  // Recent Activities
+  activityItem: {
+    flexDirection: 'row',
+    marginBottom: SPACING.md
+  },
+  activityLine: {
+    width: 2,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    position: 'absolute',
+    left: 15,
+    top: 30,
+    bottom: -15
+  },
+  activityIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: SPACING.md,
+    zIndex: 2
+  },
+  activityContent: {
+    flex: 1,
+    backgroundColor: 'rgba(255,255,255,0.02)',
+    padding: SPACING.md,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)'
+  },
+  activityTitle: {
+    fontSize: FONT_SIZE.sm,
+    fontWeight: FONT_WEIGHT.bold,
+    color: COLORS.textPrimary,
+    marginBottom: 4
+  },
+  activityMessage: {
+    fontSize: FONT_SIZE.xs,
+    color: COLORS.textSecondary,
+    marginBottom: 6
+  },
+  activityTime: {
+    fontSize: 10,
+    color: COLORS.textMuted
+  },
+  emptyActivity: {
+    textAlign: 'center',
+    color: COLORS.textMuted,
+    fontSize: FONT_SIZE.sm,
+    fontStyle: 'italic',
+    marginVertical: SPACING.lg
+  },
+  
+  // Account Summary
+  accountCard: {
+    padding: SPACING.lg,
+    marginBottom: SPACING.xxl
+  },
+  accountRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: SPACING.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.05)'
   }
 });

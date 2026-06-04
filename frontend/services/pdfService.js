@@ -212,10 +212,28 @@ export async function generateCycleReport({ roomId, tenantName, startDate, endDa
   
   // USE EXACT BACKEND VALUES IF AVAILABLE to establish Single Source of Truth
   const invoiceNumber = billingCycle?.invoice_number || `WT-2026${new Date().getTime().toString().slice(-8)}`;
-  const rate = billingCycle ? parseFloat(billingCycle.rate_per_kwh || 0) : defaultRate;
+  let rate = billingCycle ? parseFloat(billingCycle.rate_per_kwh || 0) : defaultRate;
   
-  const cycleEnergy = billingCycle ? parseFloat(billingCycle.total_kwh || 0) : filteredHistory.reduce((a, b) => a + (Number(b.energy || b.totalEnergy) || 0), 0);
-  const electricityCharge = billingCycle ? parseFloat(billingCycle.electricity_charge || 0) : cycleEnergy * rate;
+  let cycleEnergy = billingCycle ? parseFloat(billingCycle.total_kwh || 0) : filteredHistory.reduce((a, b) => a + (Number(b.energy || b.totalEnergy) || 0), 0);
+  
+  // Backwards compatibility: if total_kwh is 0 but we have history, calculate it
+  if (cycleEnergy === 0) {
+      cycleEnergy = filteredHistory.reduce((a, b) => a + (Number(b.energy || b.totalEnergy) || 0), 0);
+  }
+  
+  const electricityCharge = billingCycle ? parseFloat(billingCycle.electricity_charge || billingCycle.total_cost || 0) : cycleEnergy * rate;
+
+  // Fallback: If cycleEnergy is STILL 0 but we have an electricity charge, reverse-calculate it
+  if (cycleEnergy === 0 && electricityCharge > 0) {
+      cycleEnergy = electricityCharge / (rate || defaultRate);
+  }
+
+  // Calculate effective rate for breakdown math if rate_per_kwh was 0 in old database records
+  if (rate === 0 && cycleEnergy > 0 && electricityCharge > 0) {
+      rate = electricityCharge / cycleEnergy;
+  } else if (rate === 0) {
+      rate = defaultRate;
+  }
   
   const previousReading = billingCycle ? parseFloat(billingCycle.previous_reading || 0) : 0;
   const currentReading = billingCycle ? parseFloat(billingCycle.current_reading || 0) : cycleEnergy;
@@ -224,16 +242,33 @@ export async function generateCycleReport({ roomId, tenantName, startDate, endDa
   const additionalCharges = billingCycle ? parseFloat(billingCycle.additional_charges || 0) : 0;
   const discounts = billingCycle ? parseFloat(billingCycle.discounts || 0) : 0;
   const penaltyFee = billingCycle ? parseFloat(billingCycle.penalty_amount || 0) : 0;
-  const totalDue = billingCycle ? parseFloat(billingCycle.grand_total || 0) : electricityCharge + penaltyFee;
+  
+  let totalDue = billingCycle ? parseFloat(billingCycle.grand_total || 0) : 0;
+  if (totalDue === 0 && electricityCharge > 0) {
+      totalDue = electricityCharge + penaltyFee + monthlyRent + previousBalance + additionalCharges - discounts;
+  }
 
   const generated = new Date();
-  const dueDate = new Date();
-  dueDate.setDate(dueDate.getDate() + 7);
+  
+  // If no due date is provided in the database (older records), default to 7 days after the billing cycle ended
+  const fallbackDueDate = new Date(endDate);
+  fallbackDueDate.setDate(fallbackDueDate.getDate() + 7);
+
+  const amountPaid = billingCycle ? parseFloat(billingCycle.amount_paid || 0) : 0;
+  const remainingBalance = Math.max(totalDue - amountPaid, 0);
+  const isPaid = billingCycle ? billingCycle.payment_status === 'paid' : false;
+
+  let paymentMethods = [];
+  if (billingCycle && billingCycle.payments && billingCycle.payments.length > 0) {
+      const verifiedPayments = billingCycle.payments.filter(p => p.status === 'verified');
+      paymentMethods = [...new Set(verifiedPayments.map(p => p.payment_method?.toUpperCase()).filter(Boolean))];
+  }
+  const paymentMethodText = paymentMethods.length > 0 ? paymentMethods.join(', ') : '';
 
   const months = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
   const billingMonth = `${months[endDate.getMonth()]} ${endDate.getFullYear()}`;
   
-  const accountNo = `WT-AC-00${roomId.replace(/\D/g, '') || '1'}`;
+  const accountNo = `WT-AC-00${String(roomId).replace(/\D/g, '') || '1'}`;
   const serialNo = `GE${generated.getTime().toString().slice(-8)}`;
 
   // --- Breakdown Math for the simulated visual components (Vatable sales, etc.) ---
@@ -265,7 +300,7 @@ export async function generateCycleReport({ roomId, tenantName, startDate, endDa
   
   const dueDateStr = billingCycle && billingCycle.due_date 
     ? new Date(billingCycle.due_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).replace(/ /g, '-')
-    : dueDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).replace(/ /g, '-');
+    : fallbackDueDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).replace(/ /g, '-');
 
   const html = `
 <!DOCTYPE html>
@@ -309,17 +344,47 @@ export async function generateCycleReport({ roomId, tenantName, startDate, endDa
     .invoice-title { font-size: 18px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 10px; margin-bottom: 4px; color: #111827;}
     .invoice-no { font-size: 11px; margin-bottom: 12px; color: #4B5563; }
     
-    .info-table { width: 100%; font-size: 10px; margin-bottom: 12px; }
-    .info-table td { padding: 3px 0; }
+    .contact-info { font-size: 10px; line-height: 1.4; margin-bottom: 12px; text-align: center; color: #6B7280;}
     
-    .meter-info { border: 1px solid #E5E7EB; padding: 8px; border-radius: 4px; margin-bottom: 12px; }
-    .meter-info table { width: 100%; font-size: 10px; text-align: center; }
-    .meter-info th { color: #6B7280; font-weight: 600; padding-bottom: 4px; }
+    .notice-box { border: 1px solid #FCD34D; background: #FFFBEB; padding: 8px; font-size: 10px; text-align: center; margin-bottom: 12px; color: #B45309; border-radius: 4px;}
+    .notice-box .strong { font-weight: 800; font-size: 11px; margin-bottom: 2px; text-transform: uppercase; letter-spacing: 0.5px;}
     
-    .section-title { font-size: 10px; font-weight: 800; color: #16A34A; border-bottom: 1px solid #16A34A; padding-bottom: 4px; margin-bottom: 8px; text-transform: uppercase; }
-    .totals-table { width: 100%; font-size: 11px; border-collapse: collapse; }
-    .totals-table td { padding: 4px 0; }
-    .grand-total { border-top: 2px solid #E5E7EB; margin-top: 4px; font-weight: 800; font-size: 13px; }
+    .acct-row { border-top: 1px solid #E5E7EB; border-bottom: 1px solid #E5E7EB; padding: 6px 0; display: flex; justify-content: space-between; font-size: 11px; font-weight: 700; color: #374151;}
+    
+    .tenant-info { padding: 8px 0; border-bottom: 1px solid #E5E7EB; font-size: 12px; line-height: 1.4; font-weight: 700; color: #111827;}
+    .tenant-info span { color: #6B7280; font-weight: 500; font-size: 11px; }
+    
+    .meter-details { display: flex; border-bottom: 1px solid #E5E7EB; padding: 8px 0; font-size: 11px; color: #4B5563;}
+    .meter-left { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+    .meter-right { flex: 1; border-left: 1px solid #E5E7EB; padding-left: 8px; display: flex; flex-direction: column; gap: 6px;}
+    .meter-details span { font-weight: 700; color: #111827; }
+    
+    .reading-table { width: 100%; text-align: center; font-size: 11px; border-bottom: 1px solid #E5E7EB; border-collapse: collapse; margin-bottom: 4px;}
+    .reading-table th { padding: 6px 0; color: #6B7280; font-weight: 600; text-transform: uppercase; font-size: 9px; letter-spacing: 0.5px;}
+    .reading-table td { padding: 6px 0; font-weight: 600; color: #111827;}
+    .reading-table .kwh-val { font-size: 16px; font-weight: 800; color: #16A34A; }
+    
+    .rate-table { width: 100%; font-size: 10px; border-collapse: collapse; margin-bottom: 8px; color: #374151; }
+    .rate-table th { border-bottom: 1px solid #E5E7EB; padding: 6px 0; text-align: left; color: #6B7280; font-weight: 600; text-transform: uppercase; font-size: 9px; letter-spacing: 0.5px;}
+    .rate-table td { padding: 4px 0; }
+    .rate-table .num { text-align: right; width: 55px; font-weight: 500;}
+    
+    .subtotal-row { border-top: 1px solid #E5E7EB; font-weight: 700; color: #111827; }
+    .border-bottom { border-bottom: 1px solid #E5E7EB; padding-bottom: 6px; margin-bottom: 6px;}
+    
+    .amount-box { border-top: 2px solid #E5E7EB; border-bottom: 2px solid #E5E7EB; padding: 10px 0; font-size: 11px; color: #4B5563;}
+    .amount-row { display: flex; justify-content: space-between; margin-bottom: 4px; }
+    .amount-row span:last-child { font-weight: 600; color: #111827;}
+    
+    .final-due-box { padding: 12px 0 4px 0; display: flex; justify-content: space-between; align-items: flex-end; }
+    .final-due-label { font-weight: 800; font-size: 12px; display: flex; flex-direction: column; gap: 4px; color: #111827;}
+    .final-due-val-col { text-align: right; }
+    .final-due-val { font-size: 22px; font-weight: 900; color: #10B981; letter-spacing: -0.5px;}
+    .final-due-date { font-size: 11px; font-weight: 700; color: #DC2626; margin-top: 2px;}
+    
+    .overdue-box { margin-top: 8px; padding: 8px; background: #FEF2F2; border: 1px solid #FECACA; border-radius: 4px; font-size: 10px; color: #991B1B; }
+    .overdue-row { display: flex; justify-content: space-between; font-weight: 600; margin-bottom: 4px;}
+    .overdue-row.total { font-weight: 800; font-size: 12px; color: #DC2626; border-top: 1px solid #FECACA; padding-top: 4px; margin-top: 2px;}
   </style>
 </head>
 <body>
@@ -335,7 +400,7 @@ export async function generateCycleReport({ roomId, tenantName, startDate, endDa
       </div>
       <div class="text-center">
         <div class="invoice-title">Spot Billing Invoice</div>
-        <div class="invoice-no">Invoice Number: <strong>${invoiceNo}</strong></div>
+        <div class="invoice-no">Invoice Number: <strong>${invoiceNumber}</strong></div>
       </div>
       <div class="contact-info">
         For billing concerns/inquiry, connect with us<br>through our 24/7 hotlines and channels.<br>
@@ -349,7 +414,7 @@ export async function generateCycleReport({ roomId, tenantName, startDate, endDa
 
     <div class="acct-row">
       <div>Acct. No.: ${accountNo}</div>
-      <div>Route: @${roomId.replace(/\D/g, '') || '1'}</div>
+      <div>Route: @${String(roomId).replace(/\D/g, '') || '1'}</div>
     </div>
 
     <div class="tenant-info">
@@ -508,7 +573,9 @@ export async function generateCycleReport({ roomId, tenantName, startDate, endDa
       <div class="amount-row"><span>VAT Amount</span><span>${sub3.toFixed(2)}</span></div>
       <div class="amount-row"><span>Electricity Subtotal</span><span>${electricitySubtotal.toFixed(2)}</span></div>
       ${penaltyFee > 0 ? `<div class="amount-row" style="color:red;"><span>Overdue Penalty Applied</span><span>${penaltyFee.toFixed(2)}</span></div>` : ''}
-      <div class="amount-row"><span>Amount Due</span><span>${totalDue.toFixed(2)}</span></div>
+      <div class="amount-row"><span>Total Invoice Amount</span><span>${totalDue.toFixed(2)}</span></div>
+      ${amountPaid > 0 ? `<div class="amount-row" style="color:#16A34A;"><span>Amount Paid</span><span>- ${amountPaid.toFixed(2)}</span></div>` : ''}
+      ${isPaid && paymentMethodText ? `<div class="amount-row" style="color:#4B5563; font-size: 10px;"><span>Paid via ${paymentMethodText}</span><span></span></div>` : ''}
     </div>
 
     <div class="final-due-box">
@@ -517,16 +584,18 @@ export async function generateCycleReport({ roomId, tenantName, startDate, endDa
         <div style="font-weight:normal;">Current Bill Due Date</div>
       </div>
       <div class="final-due-val-col">
-        <div class="final-due-val">${totalDue.toFixed(2)}</div>
+        <div class="final-due-val">${remainingBalance.toFixed(2)}</div>
         <div class="final-due-date">${dueDateStr}</div>
       </div>
     </div>
 
     <div class="overdue-box">
-      ${penaltyFee > 0 
-        ? `<div class="overdue-row total" style="color:red;"><span>ACCOUNT IS PAST DUE</span></div>`
-        : `<div class="overdue-row"><span>Penalty if paid after Due Date (2%)</span><span>${estimatedPenalty.toFixed(2)}</span></div>
-           <div class="overdue-row total"><span>Amount Due After ${dueDateStr}</span><span>${totalAfterDueDate.toFixed(2)}</span></div>`
+      ${isPaid 
+        ? `<div class="overdue-row total" style="color:#16A34A; border-color: #BBF7D0;"><span>FULLY PAID</span></div>`
+        : penaltyFee > 0 
+            ? `<div class="overdue-row total" style="color:red;"><span>ACCOUNT IS PAST DUE</span></div>`
+            : `<div class="overdue-row"><span>Penalty if paid after Due Date (2%)</span><span>${estimatedPenalty.toFixed(2)}</span></div>
+               <div class="overdue-row total"><span>Amount Due After ${dueDateStr}</span><span>${(remainingBalance + estimatedPenalty).toFixed(2)}</span></div>`
       }
     </div>
   </div>
@@ -534,7 +603,7 @@ export async function generateCycleReport({ roomId, tenantName, startDate, endDa
 </html>`;
 
   const { uri } = await Print.printToFileAsync({ html, base64: false });
-  return { uri, fileName: `${invoiceNo}.pdf` };
+  return { uri, fileName: `${invoiceNumber}.pdf` };
 }
 
 export async function shareReport(uri) {

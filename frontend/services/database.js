@@ -342,3 +342,7 @@ export async function getTenantBillingHistory(roomId, limit = 20, offset = 0) {
 export async function getBillingDetails(invoiceNumber, id = null, roomId = null) {
   return await apiCall('getBillingDetails', { invoiceNumber, id, roomId });
 }
+
+export async function getPaymentInsights(roomId) {
+  return await apiCall('getPaymentInsights', { roomId });
+}

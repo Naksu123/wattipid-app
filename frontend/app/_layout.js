@@ -9,6 +9,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import ErrorTracker from '../services/errorTracker';
 import { ThemeProvider, DarkTheme } from '@react-navigation/native';
 import { COLORS } from '@/styles/theme';
+import { SyncProvider } from '@/contexts/SyncContext';
 
 // Custom dark theme to match Wattipid brand
 const WattipidTheme = {
@@ -105,7 +106,9 @@ export default function RootLayout() {
     <ThemeProvider value={WattipidTheme}>
       <AuthProvider>
         <StatusBar style="light" />
-        <RootLayoutContent />
+        <SyncProvider>
+          <RootLayoutContent />
+        </SyncProvider>
       </AuthProvider>
     </ThemeProvider>
   );
