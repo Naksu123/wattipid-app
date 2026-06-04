@@ -181,6 +181,14 @@ export default function TenantPaymentScreen() {
                 <View style={styles.statusBox}>
                     <Text style={styles.statusText}>Status: <Text style={{fontWeight: 'bold', textTransform: 'uppercase'}}>{billingCycle.payment_status || 'unpaid'}</Text></Text>
                 </View>
+
+                <TouchableOpacity 
+                    style={{ marginTop: 16, backgroundColor: '#F1F5F9', paddingVertical: 12, borderRadius: 8, alignItems: 'center', borderWidth: 1, borderColor: '#E2E8F0', flexDirection: 'row', justifyContent: 'center', gap: 8 }}
+                    onPress={() => router.push('/(tenant)/billing')}
+                >
+                    <Ionicons name="document-text-outline" size={18} color="#1E293B" />
+                    <Text style={{ color: '#1E293B', fontWeight: '700', fontSize: 14 }}>View Detailed Statement</Text>
+                </TouchableOpacity>
             </View>
 
             {(!isPending && !isPaid) && (
