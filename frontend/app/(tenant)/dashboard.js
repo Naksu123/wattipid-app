@@ -80,7 +80,7 @@ export default function DashboardScreen() {
       }
 
       // Fetch unread notifications
-      const unreadRes = await apiClient.post('/api.php', { action: 'getUnreadCount', userId: user?.id });
+      const unreadRes = await apiClient.post('/api.php', { action: 'getUnreadNotificationCount', userId: user?.id });
       if (unreadRes.data.success) {
         setUnreadCount(unreadRes.data.data);
       }
@@ -213,6 +213,19 @@ export default function DashboardScreen() {
   // GHOST FIX: Use our tracked deviceOnline state instead of guessing from lastSeen
   const offline = !deviceOnline;
 
+  // Calculate due date data if applicable
+  const dueDateStr = billingCycle?.due_date;
+  const paymentStatus = billingCycle?.payment_status;
+  let daysUntilDue = null;
+  if (dueDateStr && (paymentStatus === 'unpaid' || paymentStatus === 'overdue')) {
+    const dueDate = new Date(dueDateStr);
+    const now = new Date();
+    // Reset time part for accurate day difference
+    dueDate.setHours(0, 0, 0, 0);
+    now.setHours(0, 0, 0, 0);
+    daysUntilDue = Math.round((dueDate - now) / 86400000);
+  }
+
   const formatLastSeen = () => {
     if (!lastSeen) return 'Never seen';
     const last = new Date(lastSeen);
@@ -260,6 +273,25 @@ export default function DashboardScreen() {
             <StatusBadge status={offline ? 'offline' : (relayOn ? 'active' : 'idle')} />
           </View>
         </View>
+
+        {/* Due Date / Overdue Banner */}
+        {daysUntilDue !== null && daysUntilDue <= 7 && (
+          <TouchableOpacity activeOpacity={0.8} onPress={() => router.push('/(tenant)/payment')}>
+            <GlassCard style={[ms.alertBanner, { borderLeftColor: daysUntilDue < 0 ? COLORS.danger : (daysUntilDue <= 3 ? COLORS.warning : COLORS.info) }]}>
+              <View style={[ms.alertBannerIcon, { backgroundColor: daysUntilDue < 0 ? 'rgba(239,68,68,0.12)' : (daysUntilDue <= 3 ? 'rgba(245,158,11,0.12)' : 'rgba(59,130,246,0.12)') }]}>
+                <Ionicons name={daysUntilDue < 0 ? 'alert-circle' : 'calendar'} size={22}
+                  color={daysUntilDue < 0 ? COLORS.danger : (daysUntilDue <= 3 ? COLORS.warning : COLORS.info)} />
+              </View>
+              <View style={ms.alertBannerContent}>
+                <Text style={[ms.alertBannerTitle, { color: daysUntilDue < 0 ? COLORS.danger : (daysUntilDue <= 3 ? COLORS.warning : COLORS.info) }]}>
+                  {daysUntilDue < 0 ? 'Bill Overdue' : (daysUntilDue === 0 ? 'Bill Due Today' : `Bill Due in ${daysUntilDue} Days`)}
+                </Text>
+                <Text style={ms.alertBannerSub}>₱{Number(amountDue).toFixed(2)} pending • Tap to pay</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={COLORS.textMuted} />
+            </GlassCard>
+          </TouchableOpacity>
+        )}
 
         {/* GHOST FIX: Only show budget warning banner when device is ONLINE and real data exists */}
         {!offline && budget && budgetPct >= 80 && todayUsage.totalCost > 0 && (

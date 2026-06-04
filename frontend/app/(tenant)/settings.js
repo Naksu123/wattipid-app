@@ -22,6 +22,10 @@ export default function TenantSettings() {
   const [budgetAlerts, setBudgetAlerts] = useState(true);
   const [powerSpikeAlerts, setPowerSpikeAlerts] = useState(true);
   const [forecastAlerts, setForecastAlerts] = useState(true);
+  const [dueDateAlerts, setDueDateAlerts] = useState(true);
+  const [overdueAlerts, setOverdueAlerts] = useState(true);
+  const [penaltyAlerts, setPenaltyAlerts] = useState(true);
+  const [paymentAlerts, setPaymentAlerts] = useState(true);
   
   const [env, setEnv] = useState('local');
   const [aboutVisible, setAboutVisible] = useState(false);
@@ -39,6 +43,10 @@ export default function TenantSettings() {
         setBudgetAlerts(result.data.budget_alerts !== false);
         setPowerSpikeAlerts(result.data.power_spike_alerts !== false);
         setForecastAlerts(result.data.forecast_alerts !== false);
+        setDueDateAlerts(result.data.due_date_alerts !== false);
+        setOverdueAlerts(result.data.overdue_alerts !== false);
+        setPenaltyAlerts(result.data.penalty_alerts !== false);
+        setPaymentAlerts(result.data.payment_alerts !== false);
       }
     } catch (error) {
       console.warn('Failed to load alert settings:', error);
@@ -77,7 +85,11 @@ export default function TenantSettings() {
       setBudgetAlerts(false);
       setPowerSpikeAlerts(false);
       setForecastAlerts(false);
-      await saveAlertSettings({ notif_enabled: false, budget_alerts: false, power_spike_alerts: false, forecast_alerts: false });
+      setDueDateAlerts(false);
+      setOverdueAlerts(false);
+      setPenaltyAlerts(false);
+      setPaymentAlerts(false);
+      await saveAlertSettings({ notif_enabled: false, budget_alerts: false, power_spike_alerts: false, forecast_alerts: false, due_date_alerts: false, overdue_alerts: false, penalty_alerts: false, payment_alerts: false });
     } else {
       await saveAlertSettings({ notif_enabled: true });
     }
@@ -184,6 +196,13 @@ export default function TenantSettings() {
           <View style={s.divider} />
           <ToggleItem icon="flash-outline" label="Power Spike Alerts" desc="Alert when power usage spikes" value={powerSpikeAlerts} onToggle={val => {setPowerSpikeAlerts(val); saveAlertSettings({ power_spike_alerts: val });}} disabled={!notifEnabled} />
           <View style={s.divider} />
+          <ToggleItem icon="calendar-outline" label="Due Date Reminders" desc="Remind before bill due dates" value={dueDateAlerts} onToggle={val => {setDueDateAlerts(val); saveAlertSettings({ due_date_alerts: val });}} disabled={!notifEnabled} />
+          <View style={s.divider} />
+          <ToggleItem icon="time-outline" label="Overdue Alerts" desc="Alert when payments are late" value={overdueAlerts} onToggle={val => {setOverdueAlerts(val); saveAlertSettings({ overdue_alerts: val });}} disabled={!notifEnabled} />
+          <View style={s.divider} />
+          <ToggleItem icon="alert-circle-outline" label="Penalty Alerts" desc="Notify when penalties are applied" value={penaltyAlerts} onToggle={val => {setPenaltyAlerts(val); saveAlertSettings({ penalty_alerts: val });}} disabled={!notifEnabled} />
+          <View style={s.divider} />
+          <ToggleItem icon="card-outline" label="Payment Alerts" desc="Payment status updates" value={paymentAlerts} onToggle={val => {setPaymentAlerts(val); saveAlertSettings({ payment_alerts: val });}} disabled={!notifEnabled} />
 
         </GlassCard>
 

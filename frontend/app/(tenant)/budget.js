@@ -259,20 +259,50 @@ export default function BudgetScreen() {
               ))}
             </View>
 
-            {/* Progress Ring */}
+            {/* Progress Ring & Alert Status */}
             <GlassCard style={s.progressCard}>
               <View style={s.progressCenter}>
                 <BudgetProgressRing spent={activeSpent} limit={activeLimit} size={160}
                   label={`${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Budget`} />
               </View>
-              {activePct >= 90 && (
-                <View style={s.warningBanner}>
-                  <Ionicons name="warning" size={16} color={activePct >= 100 ? COLORS.danger : COLORS.warning} />
-                  <Text style={[s.warningText, { color: activePct >= 100 ? COLORS.danger : COLORS.warning }]}>
-                    {activePct >= 100 ? 'Budget exceeded!' : 'Approaching limit!'}
+
+              {/* Budget Alert Status */}
+              <View style={s.alertStatusContainer}>
+                <View style={s.alertStatusHeader}>
+                  <Text style={s.alertStatusTitle}>Alert Status</Text>
+                  <Text style={[s.alertStatusLevel, { color: activePct >= 100 ? COLORS.danger : (activePct >= 90 ? COLORS.danger : (activePct >= 75 ? COLORS.warning : (activePct >= 50 ? COLORS.info : COLORS.success))) }]}>
+                    {activePct >= 100 ? 'Exceeded' : (activePct >= 90 ? 'Critical' : (activePct >= 75 ? 'Warning' : (activePct >= 50 ? 'Approaching' : 'Normal')))}
                   </Text>
                 </View>
-              )}
+
+                {/* Threshold Markers */}
+                <View style={s.thresholdTrack}>
+                  {/* Fill bar */}
+                  <View style={[s.thresholdFill, { width: `${Math.min(activePct, 100)}%`, backgroundColor: activePct >= 100 ? COLORS.danger : (activePct >= 90 ? COLORS.danger : (activePct >= 75 ? COLORS.warning : (activePct >= 50 ? COLORS.info : COLORS.success))) }]} />
+                  
+                  {/* Markers */}
+                  <View style={[s.thresholdMarker, { left: '50%' }]}>
+                    <Text style={s.thresholdText}>50%</Text>
+                    <View style={s.thresholdTick} />
+                  </View>
+                  <View style={[s.thresholdMarker, { left: '75%' }]}>
+                    <Text style={s.thresholdText}>75%</Text>
+                    <View style={s.thresholdTick} />
+                  </View>
+                  <View style={[s.thresholdMarker, { left: '90%' }]}>
+                    <Text style={s.thresholdText}>90%</Text>
+                    <View style={s.thresholdTick} />
+                  </View>
+                </View>
+                
+                <Text style={s.alertStatusDesc}>
+                  {activePct >= 100 ? 'You have exceeded your budget limit.' : 
+                   activePct >= 90 ? 'You are very close to exceeding your budget.' : 
+                   activePct >= 75 ? 'You have used 75% of your budget limit.' : 
+                   activePct >= 50 ? 'You have used half of your budget.' : 
+                   'Your spending is currently well within your budget limit.'}
+                </Text>
+              </View>
             </GlassCard>
 
             {/* Budget Breakdown */}

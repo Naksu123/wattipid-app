@@ -205,6 +205,64 @@ export default StyleSheet.create({
     fontSize: FONT_SIZE.sm, 
     fontWeight: FONT_WEIGHT.semibold 
   },
+  alertStatusContainer: {
+    width: '100%',
+    marginTop: SPACING.lg,
+    paddingTop: SPACING.md,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.05)'
+  },
+  alertStatusHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.md
+  },
+  alertStatusTitle: {
+    fontSize: FONT_SIZE.sm,
+    color: COLORS.textSecondary,
+    fontWeight: FONT_WEIGHT.semibold
+  },
+  alertStatusLevel: {
+    fontSize: FONT_SIZE.sm,
+    fontWeight: FONT_WEIGHT.bold,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5
+  },
+  thresholdTrack: {
+    height: 6,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 3,
+    position: 'relative',
+    marginBottom: SPACING.lg
+  },
+  thresholdFill: {
+    height: '100%',
+    borderRadius: 3
+  },
+  thresholdMarker: {
+    position: 'absolute',
+    top: -18,
+    alignItems: 'center',
+    transform: [{ translateX: -10 }]
+  },
+  thresholdText: {
+    fontSize: 10,
+    color: COLORS.textMuted,
+    fontWeight: 'bold',
+    marginBottom: 2
+  },
+  thresholdTick: {
+    width: 2,
+    height: 8,
+    backgroundColor: 'rgba(255,255,255,0.3)',
+    borderRadius: 1
+  },
+  alertStatusDesc: {
+    fontSize: FONT_SIZE.xs,
+    color: COLORS.textMuted,
+    lineHeight: 18
+  },
   breakdownCard: { 
     marginBottom: SPACING.lg 
   },
