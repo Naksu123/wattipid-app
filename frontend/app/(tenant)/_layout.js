@@ -82,6 +82,9 @@ export default function TenantLayout() {
         
         <Tabs.Screen name="notifications" options={{ href: null, tabBarStyle: { display: 'none' } }} />
         <Tabs.Screen name="edit-profile" options={{ href: null, tabBarStyle: { display: 'none' } }} />
+        <Tabs.Screen name="pdf-viewer" options={{ href: null, tabBarStyle: { display: 'none' } }} />
+        <Tabs.Screen name="billing-history" options={{ href: null, tabBarStyle: { display: 'none' } }} />
+        <Tabs.Screen name="billing/index" options={{ href: null, tabBarStyle: { display: 'none' } }} />
       </Tabs>
 
       {/* Global Notification Bell */}
