@@ -3,7 +3,9 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, A
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../../contexts/AuthContext';
-import { getAvailableBillingCycles } from '../../../services/database';
+import { getAvailableBillingCycles, getBillingDetails } from '../../../services/database';
+import GlassCard from '../../../components/ui/GlassCard';
+import { COLORS, FONT_SIZE, FONT_WEIGHT, SPACING, RADIUS } from '../../../styles/theme';
 
 export default function TenantBillingScreen() {
     const { user } = useAuth();
@@ -20,12 +22,16 @@ export default function TenantBillingScreen() {
                 return;
             }
             
-            // We use the same getAvailableBillingCycles but grab the latest completed invoice
             const cycles = await getAvailableBillingCycles(user.room_id);
             if (cycles && cycles.length > 0) {
-                const latestInvoice = cycles.find(c => c.status === 'completed');
-                if (latestInvoice) {
-                    setBillingDetails(latestInvoice);
+                const latestInvoiceSummary = cycles.find(c => c.status === 'completed');
+                if (latestInvoiceSummary) {
+                    const fullDetails = await getBillingDetails(latestInvoiceSummary.invoice_number, latestInvoiceSummary.id, user.room_id);
+                    if (fullDetails) {
+                        setBillingDetails(fullDetails);
+                    } else {
+                        setBillingDetails(latestInvoiceSummary);
+                    }
                 }
             }
         } catch (error) {
@@ -52,17 +58,17 @@ export default function TenantBillingScreen() {
 
     if (loading) {
         return (
-            <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#16A34A" />
-                <Text style={styles.loadingText}>Loading Billing Details...</Text>
+            <View style={[styles.container, styles.center]}>
+                <ActivityIndicator size="large" color={COLORS.primary} />
+                <Text style={styles.loadingText}>Loading Statement...</Text>
             </View>
         );
     }
 
     if (!billingDetails) {
         return (
-            <View style={styles.emptyContainer}>
-                <Ionicons name="receipt-outline" size={64} color="#94A3B8" />
+            <View style={[styles.container, styles.center]}>
+                <Ionicons name="receipt-outline" size={64} color={COLORS.textMuted} />
                 <Text style={styles.emptyText}>No billing records available.</Text>
                 <TouchableOpacity style={styles.refreshButton} onPress={onRefresh}>
                     <Text style={styles.refreshButtonText}>Refresh</Text>
@@ -90,32 +96,33 @@ export default function TenantBillingScreen() {
         grand_total
     } = billingDetails;
 
-    // Status Styling
     const getStatusStyle = (status) => {
         switch (status) {
-            case 'paid': return { color: '#16A34A', bg: '#DCFCE7', icon: 'checkmark-circle' };
-            case 'pending_verification': return { color: '#F59E0B', bg: '#FEF3C7', icon: 'time' };
-            case 'overdue': return { color: '#DC2626', bg: '#FEE2E2', icon: 'warning' };
-            case 'rejected': return { color: '#991B1B', bg: '#FECACA', icon: 'close-circle' };
-            default: return { color: '#475569', bg: '#F1F5F9', icon: 'alert-circle' };
+            case 'paid': return { color: COLORS.success, bg: 'rgba(16, 185, 129, 0.15)', icon: 'checkmark-circle' };
+            case 'pending_verification': return { color: COLORS.warning, bg: 'rgba(245, 158, 11, 0.15)', icon: 'time' };
+            case 'overdue': return { color: COLORS.danger, bg: 'rgba(239, 68, 68, 0.15)', icon: 'warning' };
+            case 'rejected': return { color: COLORS.danger, bg: 'rgba(239, 68, 68, 0.15)', icon: 'close-circle' };
+            default: return { color: COLORS.textSecondary, bg: 'rgba(255, 255, 255, 0.1)', icon: 'alert-circle' };
         }
     };
     
-    const statusConfig = getStatusStyle(payment_status);
+    const safeStatus = payment_status || 'unpaid';
+    const statusConfig = getStatusStyle(safeStatus);
+    const computedGrandTotal = parseFloat(grand_total || (parseFloat(electricity_charge || 0) + parseFloat(penalty_amount || 0) + parseFloat(monthly_rent || 0) + parseFloat(previous_balance || 0) + parseFloat(additional_charges || 0) - parseFloat(discounts || 0)));
 
     return (
-        <ScrollView 
-            style={styles.container}
-            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        >
-            {/* Header Section */}
-            <View style={styles.header}>
+        <View style={styles.container}>
+            <ScrollView 
+                contentContainerStyle={styles.scroll}
+                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
+            >
                 <View style={styles.brandRow}>
-                    <Ionicons name="flash" size={24} color="#16A34A" />
+                    <Ionicons name="flash" size={18} color={COLORS.primary} />
                     <Text style={styles.brandText}>WATTIPID SMART ELECTRICITY MONITORING</Text>
                 </View>
                 <Text style={styles.invoiceTitle}>STATEMENT OF ACCOUNT</Text>
-                <View style={styles.headerDetails}>
+                
+                <GlassCard style={styles.headerDetails}>
                     <View style={styles.headerItem}>
                         <Text style={styles.headerLabel}>Invoice Number</Text>
                         <Text style={styles.headerValue}>{invoice_number || 'N/A'}</Text>
@@ -123,257 +130,247 @@ export default function TenantBillingScreen() {
                     <View style={styles.headerItem}>
                         <Text style={styles.headerLabel}>Billing Period</Text>
                         <Text style={styles.headerValue}>
-                            {new Date(cycle_start).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} - 
-                            {new Date(cycle_end).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                            {cycle_start ? new Date(cycle_start).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'} - 
+                            {cycle_end ? new Date(cycle_end).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'}
                         </Text>
                     </View>
-                </View>
-            </View>
+                </GlassCard>
 
-            {/* Current Amount Due Card */}
-            <View style={styles.amountDueCard}>
-                <Text style={styles.amountDueLabel}>CURRENT AMOUNT DUE</Text>
-                <Text style={styles.amountDueValue}>
-                    ₱{parseFloat(grand_total || (electricity_charge + penalty_amount)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </Text>
-                <View style={styles.dueRow}>
-                    <View>
-                        <Text style={styles.dueLabel}>Due Date</Text>
-                        <Text style={styles.dueValue}>{new Date(due_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</Text>
-                    </View>
-                    <View style={[styles.statusBadge, { backgroundColor: statusConfig.bg }]}>
-                        <Ionicons name={statusConfig.icon} size={16} color={statusConfig.color} style={{ marginRight: 4 }} />
-                        <Text style={[styles.statusText, { color: statusConfig.color }]}>
-                            {payment_status.replace('_', ' ').toUpperCase()}
-                        </Text>
-                    </View>
-                </View>
-                
-                {payment_status !== 'paid' && payment_status !== 'pending_verification' && (
-                    <TouchableOpacity 
-                        style={styles.payButton}
-                        onPress={() => router.push('/(tenant)/payment')}
-                    >
-                        <Text style={styles.payButtonText}>Pay Now</Text>
-                    </TouchableOpacity>
-                )}
-            </View>
-
-            {/* Action Buttons */}
-            <View style={styles.actionRow}>
-                <TouchableOpacity style={styles.actionBtn} onPress={() => router.push('/(tenant)/billing-history')}>
-                    <Ionicons name="time-outline" size={20} color="#16A34A" />
-                    <Text style={styles.actionBtnText}>Billing History</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.actionBtn} onPress={() => router.push({ pathname: '/(tenant)/pdf-viewer', params: { id: billingDetails.id } })}>
-                    <Ionicons name="document-text-outline" size={20} color="#16A34A" />
-                    <Text style={styles.actionBtnText}>View PDF</Text>
-                </TouchableOpacity>
-            </View>
-
-            {/* Bill Breakdown Accordion */}
-            <View style={styles.breakdownContainer}>
-                <Text style={styles.sectionTitle}>BILLING BREAKDOWN</Text>
-
-                {/* Monthly Rent */}
-                {parseFloat(monthly_rent) > 0 && (
-                    <View style={styles.accordionItem}>
-                        <TouchableOpacity style={styles.accordionHeader} onPress={() => toggleSection('rent')}>
-                            <View>
-                                <Text style={styles.accordionTitle}>Monthly Room Rent</Text>
-                                <Text style={styles.accordionSub}>Fixed monthly rental fee</Text>
-                            </View>
-                            <View style={styles.accordionRight}>
-                                <Text style={styles.accordionAmount}>₱{parseFloat(monthly_rent).toLocaleString('en-US', {minimumFractionDigits: 2})}</Text>
-                                <Ionicons name={expandedSection === 'rent' ? 'chevron-up' : 'chevron-down'} size={20} color="#94A3B8" />
-                            </View>
-                        </TouchableOpacity>
-                        {expandedSection === 'rent' && (
-                            <View style={styles.accordionBody}>
-                                <Text style={styles.accordionDesc}>This is the standard monthly rental charge for your room as established in your contract.</Text>
-                            </View>
-                        )}
-                    </View>
-                )}
-
-                {/* Electricity Charge */}
-                <View style={styles.accordionItem}>
-                    <TouchableOpacity style={styles.accordionHeader} onPress={() => toggleSection('electricity')}>
+                <GlassCard style={styles.amountDueCard} premium>
+                    <Text style={styles.amountDueLabel}>CURRENT AMOUNT DUE</Text>
+                    <Text style={styles.amountDueValue}>
+                        ₱{computedGrandTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </Text>
+                    <View style={styles.dueRow}>
                         <View>
-                            <Text style={styles.accordionTitle}>Electricity Charge</Text>
-                            <Text style={styles.accordionSub}>Based on actual consumption</Text>
+                            <Text style={styles.dueLabel}>Due Date</Text>
+                            <Text style={styles.dueValue}>{due_date ? new Date(due_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'N/A'}</Text>
                         </View>
-                        <View style={styles.accordionRight}>
-                            <Text style={styles.accordionAmount}>₱{parseFloat(electricity_charge).toLocaleString('en-US', {minimumFractionDigits: 2})}</Text>
-                            <Ionicons name={expandedSection === 'electricity' ? 'chevron-up' : 'chevron-down'} size={20} color="#94A3B8" />
+                        <View style={[styles.statusBadge, { backgroundColor: statusConfig.bg }]}>
+                            <Ionicons name={statusConfig.icon} size={14} color={statusConfig.color} style={{ marginRight: 4 }} />
+                            <Text style={[styles.statusText, { color: statusConfig.color }]}>
+                                {safeStatus.replace('_', ' ').toUpperCase()}
+                            </Text>
                         </View>
+                    </View>
+                    
+                    {safeStatus !== 'paid' && safeStatus !== 'pending_verification' && (
+                        <TouchableOpacity 
+                            style={styles.payButton}
+                            onPress={() => router.push('/(tenant)/payment')}
+                        >
+                            <Text style={styles.payButtonText}>Pay Now</Text>
+                        </TouchableOpacity>
+                    )}
+                </GlassCard>
+
+                <View style={styles.actionRow}>
+                    <TouchableOpacity style={styles.actionBtn} onPress={() => router.push('/(tenant)/billing-history')}>
+                        <Ionicons name="time-outline" size={18} color={COLORS.primary} />
+                        <Text style={styles.actionBtnText}>Billing History</Text>
                     </TouchableOpacity>
-                    {expandedSection === 'electricity' && (
-                        <View style={styles.accordionBody}>
-                            <Text style={styles.accordionDesc}>This charge is based on your actual electricity consumption measured by the Wattipid monitoring device.</Text>
-                            
-                            <View style={styles.meterBox}>
-                                <View style={styles.meterRow}>
-                                    <Text style={styles.meterLabel}>Previous Reading</Text>
-                                    <Text style={styles.meterValue}>{parseFloat(previous_reading || 0).toFixed(4)} kWh</Text>
+                    <TouchableOpacity style={styles.actionBtn} onPress={() => router.push({ pathname: '/(tenant)/pdf-viewer', params: { id: billingDetails.id } })}>
+                        <Ionicons name="document-text-outline" size={18} color={COLORS.primary} />
+                        <Text style={styles.actionBtnText}>View PDF</Text>
+                    </TouchableOpacity>
+                </View>
+
+                <Text style={styles.sectionTitle}>BILLING BREAKDOWN</Text>
+                
+                <GlassCard style={styles.breakdownContainer}>
+                    {parseFloat(monthly_rent || 0) > 0 && (
+                        <View style={styles.accordionItem}>
+                            <TouchableOpacity style={styles.accordionHeader} onPress={() => toggleSection('rent')}>
+                                <View>
+                                    <Text style={styles.accordionTitle}>Monthly Room Rent</Text>
+                                    <Text style={styles.accordionSub}>Fixed monthly rental fee</Text>
                                 </View>
-                                <View style={styles.meterRow}>
-                                    <Text style={styles.meterLabel}>Current Reading</Text>
-                                    <Text style={styles.meterValue}>{parseFloat(current_reading || total_kwh).toFixed(4)} kWh</Text>
+                                <View style={styles.accordionRight}>
+                                    <Text style={styles.accordionAmount}>₱{parseFloat(monthly_rent).toLocaleString('en-US', {minimumFractionDigits: 2})}</Text>
+                                    <Ionicons name={expandedSection === 'rent' ? 'chevron-up' : 'chevron-down'} size={18} color={COLORS.textSecondary} />
                                 </View>
-                                <View style={styles.divider} />
-                                <View style={styles.meterRow}>
-                                    <Text style={styles.meterLabel}>Total Consumption</Text>
-                                    <Text style={[styles.meterValue, { color: '#16A34A', fontWeight: '700' }]}>{parseFloat(total_kwh).toFixed(4)} kWh</Text>
+                            </TouchableOpacity>
+                            {expandedSection === 'rent' && (
+                                <View style={styles.accordionBody}>
+                                    <Text style={styles.accordionDesc}>This is the standard monthly rental charge for your room as established in your contract.</Text>
                                 </View>
-                                <View style={styles.meterRow}>
-                                    <Text style={styles.meterLabel}>Rate Per kWh</Text>
-                                    <Text style={styles.meterValue}>₱{parseFloat(rate_per_kwh || 12.50).toFixed(2)}</Text>
-                                </View>
-                            </View>
+                            )}
                         </View>
                     )}
-                </View>
 
-                {/* Previous Balance */}
-                {parseFloat(previous_balance) > 0 && (
                     <View style={styles.accordionItem}>
-                        <TouchableOpacity style={styles.accordionHeader} onPress={() => toggleSection('balance')}>
+                        <TouchableOpacity style={styles.accordionHeader} onPress={() => toggleSection('electricity')}>
                             <View>
-                                <Text style={styles.accordionTitle}>Previous Balance</Text>
-                                <Text style={styles.accordionSub}>Unpaid amounts from last month</Text>
+                                <Text style={styles.accordionTitle}>Electricity Charge</Text>
+                                <Text style={styles.accordionSub}>Based on actual consumption</Text>
                             </View>
                             <View style={styles.accordionRight}>
-                                <Text style={styles.accordionAmount}>₱{parseFloat(previous_balance).toLocaleString('en-US', {minimumFractionDigits: 2})}</Text>
-                                <Ionicons name={expandedSection === 'balance' ? 'chevron-up' : 'chevron-down'} size={20} color="#94A3B8" />
+                                <Text style={styles.accordionAmount}>₱{parseFloat(electricity_charge || 0).toLocaleString('en-US', {minimumFractionDigits: 2})}</Text>
+                                <Ionicons name={expandedSection === 'electricity' ? 'chevron-up' : 'chevron-down'} size={18} color={COLORS.textSecondary} />
                             </View>
                         </TouchableOpacity>
-                        {expandedSection === 'balance' && (
+                        {expandedSection === 'electricity' && (
                             <View style={styles.accordionBody}>
-                                <Text style={styles.accordionDesc}>This represents the total unpaid balance carried over from your previous billing statement.</Text>
+                                <Text style={styles.accordionDesc}>This charge is based on your actual electricity consumption measured by the Wattipid monitoring device.</Text>
+                                
+                                <View style={styles.meterBox}>
+                                    <View style={styles.meterRow}>
+                                        <Text style={styles.meterLabel}>Previous Reading</Text>
+                                        <Text style={styles.meterValue}>{parseFloat(previous_reading || 0).toFixed(4)} kWh</Text>
+                                    </View>
+                                    <View style={styles.meterRow}>
+                                        <Text style={styles.meterLabel}>Current Reading</Text>
+                                        <Text style={styles.meterValue}>{parseFloat(current_reading || total_kwh || 0).toFixed(4)} kWh</Text>
+                                    </View>
+                                    <View style={styles.divider} />
+                                    <View style={styles.meterRow}>
+                                        <Text style={styles.meterLabel}>Total Consumption</Text>
+                                        <Text style={[styles.meterValue, { color: COLORS.primary, fontWeight: '700' }]}>{parseFloat(total_kwh || 0).toFixed(4)} kWh</Text>
+                                    </View>
+                                    <View style={styles.meterRow}>
+                                        <Text style={styles.meterLabel}>Rate Per kWh</Text>
+                                        <Text style={styles.meterValue}>₱{parseFloat(rate_per_kwh || 12.50).toFixed(2)}</Text>
+                                    </View>
+                                </View>
                             </View>
                         )}
                     </View>
-                )}
 
-                {/* Penalties */}
-                {parseFloat(penalty_amount) > 0 && (
-                    <View style={styles.accordionItem}>
-                        <TouchableOpacity style={styles.accordionHeader} onPress={() => toggleSection('penalty')}>
-                            <View>
-                                <Text style={styles.accordionTitle}>Penalty Charges</Text>
-                                <Text style={[styles.accordionSub, { color: '#DC2626' }]}>Late payment fees</Text>
-                            </View>
-                            <View style={styles.accordionRight}>
-                                <Text style={[styles.accordionAmount, { color: '#DC2626' }]}>₱{parseFloat(penalty_amount).toLocaleString('en-US', {minimumFractionDigits: 2})}</Text>
-                                <Ionicons name={expandedSection === 'penalty' ? 'chevron-up' : 'chevron-down'} size={20} color="#94A3B8" />
-                            </View>
-                        </TouchableOpacity>
-                        {expandedSection === 'penalty' && (
-                            <View style={styles.accordionBody}>
-                                <Text style={styles.accordionDesc}>A standard late fee applied automatically due to failure to settle the account on or before the due date.</Text>
-                            </View>
-                        )}
-                    </View>
-                )}
-                
-                {/* Additional Charges */}
-                {parseFloat(additional_charges) > 0 && (
-                    <View style={styles.accordionItem}>
-                        <TouchableOpacity style={styles.accordionHeader} onPress={() => toggleSection('additional')}>
-                            <View>
-                                <Text style={styles.accordionTitle}>Additional Charges</Text>
-                                <Text style={styles.accordionSub}>Other fees applied</Text>
-                            </View>
-                            <View style={styles.accordionRight}>
-                                <Text style={styles.accordionAmount}>₱{parseFloat(additional_charges).toLocaleString('en-US', {minimumFractionDigits: 2})}</Text>
-                                <Ionicons name={expandedSection === 'additional' ? 'chevron-up' : 'chevron-down'} size={20} color="#94A3B8" />
-                            </View>
-                        </TouchableOpacity>
-                    </View>
-                )}
+                    {parseFloat(previous_balance || 0) > 0 && (
+                        <View style={styles.accordionItem}>
+                            <TouchableOpacity style={styles.accordionHeader} onPress={() => toggleSection('balance')}>
+                                <View>
+                                    <Text style={styles.accordionTitle}>Previous Balance</Text>
+                                    <Text style={styles.accordionSub}>Unpaid amounts from last month</Text>
+                                </View>
+                                <View style={styles.accordionRight}>
+                                    <Text style={styles.accordionAmount}>₱{parseFloat(previous_balance).toLocaleString('en-US', {minimumFractionDigits: 2})}</Text>
+                                    <Ionicons name={expandedSection === 'balance' ? 'chevron-up' : 'chevron-down'} size={18} color={COLORS.textSecondary} />
+                                </View>
+                            </TouchableOpacity>
+                            {expandedSection === 'balance' && (
+                                <View style={styles.accordionBody}>
+                                    <Text style={styles.accordionDesc}>This represents the total unpaid balance carried over from your previous billing statement.</Text>
+                                </View>
+                            )}
+                        </View>
+                    )}
 
-                {/* Discounts */}
-                {parseFloat(discounts) > 0 && (
-                    <View style={styles.accordionItem}>
-                        <TouchableOpacity style={styles.accordionHeader} onPress={() => toggleSection('discount')}>
-                            <View>
-                                <Text style={styles.accordionTitle}>Discounts Applied</Text>
-                                <Text style={styles.accordionSub}>Deductions from total</Text>
-                            </View>
-                            <View style={styles.accordionRight}>
-                                <Text style={[styles.accordionAmount, { color: '#16A34A' }]}>-₱{parseFloat(discounts).toLocaleString('en-US', {minimumFractionDigits: 2})}</Text>
-                                <Ionicons name={expandedSection === 'discount' ? 'chevron-up' : 'chevron-down'} size={20} color="#94A3B8" />
-                            </View>
-                        </TouchableOpacity>
-                    </View>
-                )}
-                
-                <View style={styles.totalComputationRow}>
-                    <Text style={styles.totalComputationLabel}>GRAND TOTAL DUE</Text>
-                    <Text style={styles.totalComputationValue}>
-                        ₱{parseFloat(grand_total || (electricity_charge + penalty_amount)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </Text>
-                </View>
-            </View>
+                    {parseFloat(penalty_amount || 0) > 0 && (
+                        <View style={styles.accordionItem}>
+                            <TouchableOpacity style={styles.accordionHeader} onPress={() => toggleSection('penalty')}>
+                                <View>
+                                    <Text style={styles.accordionTitle}>Penalty Charges</Text>
+                                    <Text style={[styles.accordionSub, { color: COLORS.danger }]}>Late payment fees</Text>
+                                </View>
+                                <View style={styles.accordionRight}>
+                                    <Text style={[styles.accordionAmount, { color: COLORS.danger }]}>₱{parseFloat(penalty_amount).toLocaleString('en-US', {minimumFractionDigits: 2})}</Text>
+                                    <Ionicons name={expandedSection === 'penalty' ? 'chevron-up' : 'chevron-down'} size={18} color={COLORS.textSecondary} />
+                                </View>
+                            </TouchableOpacity>
+                            {expandedSection === 'penalty' && (
+                                <View style={styles.accordionBody}>
+                                    <Text style={styles.accordionDesc}>A standard late fee applied automatically due to failure to settle the account on or before the due date.</Text>
+                                </View>
+                            )}
+                        </View>
+                    )}
+                    
+                    {parseFloat(additional_charges || 0) > 0 && (
+                        <View style={styles.accordionItem}>
+                            <TouchableOpacity style={styles.accordionHeader} onPress={() => toggleSection('additional')}>
+                                <View>
+                                    <Text style={styles.accordionTitle}>Additional Charges</Text>
+                                    <Text style={styles.accordionSub}>Other fees applied</Text>
+                                </View>
+                                <View style={styles.accordionRight}>
+                                    <Text style={styles.accordionAmount}>₱{parseFloat(additional_charges).toLocaleString('en-US', {minimumFractionDigits: 2})}</Text>
+                                    <Ionicons name={expandedSection === 'additional' ? 'chevron-up' : 'chevron-down'} size={18} color={COLORS.textSecondary} />
+                                </View>
+                            </TouchableOpacity>
+                        </View>
+                    )}
 
-        </ScrollView>
+                    {parseFloat(discounts || 0) > 0 && (
+                        <View style={styles.accordionItem}>
+                            <TouchableOpacity style={styles.accordionHeader} onPress={() => toggleSection('discount')}>
+                                <View>
+                                    <Text style={styles.accordionTitle}>Discounts Applied</Text>
+                                    <Text style={styles.accordionSub}>Deductions from total</Text>
+                                </View>
+                                <View style={styles.accordionRight}>
+                                    <Text style={[styles.accordionAmount, { color: COLORS.success }]}>-₱{parseFloat(discounts).toLocaleString('en-US', {minimumFractionDigits: 2})}</Text>
+                                    <Ionicons name={expandedSection === 'discount' ? 'chevron-up' : 'chevron-down'} size={18} color={COLORS.textSecondary} />
+                                </View>
+                            </TouchableOpacity>
+                        </View>
+                    )}
+                    
+                    <View style={styles.totalComputationRow}>
+                        <Text style={styles.totalComputationLabel}>GRAND TOTAL DUE</Text>
+                        <Text style={styles.totalComputationValue}>
+                            ₱{computedGrandTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </Text>
+                    </View>
+                </GlassCard>
+            </ScrollView>
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#F8FAFC' },
-    loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F8FAFC' },
-    loadingText: { marginTop: 16, color: '#64748B', fontSize: 16 },
-    emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 },
-    emptyText: { marginTop: 16, fontSize: 16, color: '#64748B', textAlign: 'center' },
-    refreshButton: { marginTop: 24, paddingVertical: 12, paddingHorizontal: 24, backgroundColor: '#16A34A', borderRadius: 8 },
-    refreshButtonText: { color: '#FFF', fontWeight: '600' },
+    container: { flex: 1, backgroundColor: COLORS.background },
+    scroll: { padding: SPACING.lg, paddingBottom: 60 },
+    center: { justifyContent: 'center', alignItems: 'center' },
+    loadingText: { marginTop: 16, color: COLORS.textMuted, fontSize: FONT_SIZE.md },
+    emptyText: { marginTop: 16, fontSize: FONT_SIZE.md, color: COLORS.textMuted, textAlign: 'center' },
+    refreshButton: { marginTop: 24, paddingVertical: 12, paddingHorizontal: 24, backgroundColor: COLORS.primary, borderRadius: RADIUS.md },
+    refreshButtonText: { color: COLORS.white, fontWeight: FONT_WEIGHT.bold },
     
-    header: { padding: 24, backgroundColor: '#FFF', borderBottomWidth: 1, borderBottomColor: '#E2E8F0' },
-    brandRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
-    brandText: { marginLeft: 8, fontSize: 11, fontWeight: '700', color: '#16A34A', letterSpacing: 0.5 },
-    invoiceTitle: { fontSize: 22, fontWeight: '800', color: '#0F172A', marginBottom: 16 },
-    headerDetails: { flexDirection: 'row', justifyContent: 'space-between' },
+    brandRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12, marginTop: 10 },
+    brandText: { marginLeft: 8, fontSize: 11, fontWeight: FONT_WEIGHT.bold, color: COLORS.primary, letterSpacing: 0.5 },
+    invoiceTitle: { fontSize: FONT_SIZE.xl, fontWeight: FONT_WEIGHT.heavy, color: COLORS.textPrimary, marginBottom: SPACING.lg },
+    
+    headerDetails: { flexDirection: 'row', justifyContent: 'space-between', padding: SPACING.md, marginBottom: SPACING.lg },
     headerItem: { flex: 1 },
-    headerLabel: { fontSize: 12, color: '#64748B', marginBottom: 4 },
-    headerValue: { fontSize: 14, fontWeight: '600', color: '#1E293B' },
+    headerLabel: { fontSize: FONT_SIZE.xs, color: COLORS.textSecondary, marginBottom: 4 },
+    headerValue: { fontSize: FONT_SIZE.sm, fontWeight: FONT_WEIGHT.bold, color: COLORS.textPrimary },
     
-    amountDueCard: { margin: 20, backgroundColor: '#1E293B', borderRadius: 16, padding: 24, shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.15, shadowRadius: 12, elevation: 10 },
-    amountDueLabel: { color: '#94A3B8', fontSize: 13, fontWeight: '600', letterSpacing: 1, marginBottom: 8 },
-    amountDueValue: { color: '#FFF', fontSize: 40, fontWeight: '800', marginBottom: 20 },
+    amountDueCard: { padding: SPACING.xl, marginBottom: SPACING.lg },
+    amountDueLabel: { color: COLORS.textSecondary, fontSize: FONT_SIZE.xs, fontWeight: FONT_WEIGHT.bold, letterSpacing: 1, marginBottom: 8 },
+    amountDueValue: { color: COLORS.white, fontSize: 40, fontWeight: FONT_WEIGHT.heavy, marginBottom: SPACING.lg },
     dueRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
-    dueLabel: { color: '#94A3B8', fontSize: 12, marginBottom: 4 },
-    dueValue: { color: '#FFF', fontSize: 16, fontWeight: '600' },
-    statusBadge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
-    statusText: { fontSize: 12, fontWeight: '700' },
-    payButton: { backgroundColor: '#22C55E', borderRadius: 8, paddingVertical: 14, alignItems: 'center', marginTop: 24 },
-    payButtonText: { color: '#FFF', fontSize: 16, fontWeight: '700' },
+    dueLabel: { color: COLORS.textSecondary, fontSize: FONT_SIZE.xs, marginBottom: 4 },
+    dueValue: { color: COLORS.textPrimary, fontSize: FONT_SIZE.md, fontWeight: FONT_WEIGHT.bold },
+    statusBadge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 6, borderRadius: RADIUS.full },
+    statusText: { fontSize: FONT_SIZE.xs, fontWeight: FONT_WEIGHT.bold },
+    payButton: { backgroundColor: COLORS.primary, borderRadius: RADIUS.md, paddingVertical: 14, alignItems: 'center', marginTop: SPACING.xl },
+    payButtonText: { color: COLORS.white, fontSize: FONT_SIZE.md, fontWeight: FONT_WEIGHT.bold },
 
-    actionRow: { flexDirection: 'row', paddingHorizontal: 20, gap: 12, marginBottom: 20 },
-    actionBtn: { flex: 1, flexDirection: 'row', backgroundColor: '#FFF', paddingVertical: 14, borderRadius: 12, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#E2E8F0' },
-    actionBtnText: { marginLeft: 8, fontSize: 14, fontWeight: '600', color: '#1E293B' },
+    actionRow: { flexDirection: 'row', gap: 12, marginBottom: SPACING.xl },
+    actionBtn: { flex: 1, flexDirection: 'row', backgroundColor: 'rgba(16, 185, 129, 0.05)', paddingVertical: 14, borderRadius: RADIUS.md, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(16, 185, 129, 0.2)' },
+    actionBtnText: { marginLeft: 8, fontSize: FONT_SIZE.sm, fontWeight: FONT_WEIGHT.bold, color: COLORS.primary },
 
-    breakdownContainer: { backgroundColor: '#FFF', borderTopWidth: 1, borderTopColor: '#E2E8F0', padding: 20, paddingBottom: 40 },
-    sectionTitle: { fontSize: 13, fontWeight: '700', color: '#64748B', letterSpacing: 1, marginBottom: 16 },
+    sectionTitle: { fontSize: FONT_SIZE.xs, fontWeight: FONT_WEIGHT.bold, color: COLORS.textSecondary, letterSpacing: 1, marginBottom: SPACING.sm, marginLeft: 4 },
+    breakdownContainer: { padding: SPACING.md },
     
-    accordionItem: { borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
-    accordionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 16 },
-    accordionTitle: { fontSize: 15, fontWeight: '600', color: '#1E293B', marginBottom: 4 },
-    accordionSub: { fontSize: 12, color: '#64748B' },
+    accordionItem: { borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
+    accordionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: SPACING.md },
+    accordionTitle: { fontSize: FONT_SIZE.sm, fontWeight: FONT_WEIGHT.bold, color: COLORS.textPrimary, marginBottom: 2 },
+    accordionSub: { fontSize: FONT_SIZE.xs, color: COLORS.textSecondary },
     accordionRight: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-    accordionAmount: { fontSize: 16, fontWeight: '700', color: '#0F172A' },
+    accordionAmount: { fontSize: FONT_SIZE.md, fontWeight: FONT_WEIGHT.bold, color: COLORS.textPrimary },
     
-    accordionBody: { paddingBottom: 16, paddingRight: 16 },
-    accordionDesc: { fontSize: 13, color: '#475569', lineHeight: 20, marginBottom: 12 },
+    accordionBody: { paddingBottom: SPACING.md },
+    accordionDesc: { fontSize: FONT_SIZE.xs, color: COLORS.textSecondary, lineHeight: 20, marginBottom: SPACING.md },
     
-    meterBox: { backgroundColor: '#F8FAFC', borderRadius: 8, padding: 16, borderWidth: 1, borderColor: '#E2E8F0' },
+    meterBox: { backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: RADIUS.sm, padding: SPACING.md, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
     meterRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
-    meterLabel: { fontSize: 13, color: '#64748B' },
-    meterValue: { fontSize: 13, fontWeight: '600', color: '#1E293B' },
-    divider: { height: 1, backgroundColor: '#E2E8F0', marginVertical: 8 },
+    meterLabel: { fontSize: FONT_SIZE.xs, color: COLORS.textSecondary },
+    meterValue: { fontSize: FONT_SIZE.xs, fontWeight: FONT_WEIGHT.bold, color: COLORS.textPrimary },
+    divider: { height: 1, backgroundColor: 'rgba(255,255,255,0.05)', marginVertical: 8 },
     
-    totalComputationRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 24, paddingTop: 20, borderTopWidth: 2, borderTopColor: '#E2E8F0' },
-    totalComputationLabel: { fontSize: 16, fontWeight: '800', color: '#0F172A' },
-    totalComputationValue: { fontSize: 22, fontWeight: '800', color: '#DC2626' }
+    totalComputationRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: SPACING.md, paddingTop: SPACING.md, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.1)' },
+    totalComputationLabel: { fontSize: FONT_SIZE.sm, fontWeight: FONT_WEIGHT.heavy, color: COLORS.textPrimary },
+    totalComputationValue: { fontSize: FONT_SIZE.xl, fontWeight: FONT_WEIGHT.heavy, color: COLORS.danger }
 });
