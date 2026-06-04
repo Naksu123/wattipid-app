@@ -67,7 +67,15 @@ export default function TenantBillingHistoryScreen() {
         const amount = parseFloat(item.grand_total || (item.electricity_charge + item.penalty_amount + item.monthly_rent)).toLocaleString('en-US', { minimumFractionDigits: 2 });
         const monthYear = new Date(item.cycle_end).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
         const consumption = parseFloat(item.total_kwh || 0).toFixed(2);
-        const dueDate = item.due_date ? new Date(item.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A';
+        
+        // Fallback for older database records that do not have a due_date
+        let computedDueDate = item.due_date;
+        if (!computedDueDate && item.cycle_end) {
+            const dateObj = new Date(item.cycle_end);
+            dateObj.setDate(dateObj.getDate() + 7);
+            computedDueDate = dateObj;
+        }
+        const dueDate = computedDueDate ? new Date(computedDueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A';
 
         return (
             <TouchableOpacity 

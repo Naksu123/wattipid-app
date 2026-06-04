@@ -110,6 +110,13 @@ export default function TenantBillingScreen() {
     const statusConfig = getStatusStyle(safeStatus);
     const computedGrandTotal = parseFloat(grand_total || (parseFloat(electricity_charge || 0) + parseFloat(penalty_amount || 0) + parseFloat(monthly_rent || 0) + parseFloat(previous_balance || 0) + parseFloat(additional_charges || 0) - parseFloat(discounts || 0)));
 
+    let computedDueDate = due_date;
+    if (!computedDueDate && cycle_end) {
+        const dateObj = new Date(cycle_end);
+        dateObj.setDate(dateObj.getDate() + 7);
+        computedDueDate = dateObj;
+    }
+
     return (
         <View style={styles.container}>
             <ScrollView 
@@ -144,7 +151,7 @@ export default function TenantBillingScreen() {
                     <View style={styles.dueRow}>
                         <View>
                             <Text style={styles.dueLabel}>Due Date</Text>
-                            <Text style={styles.dueValue}>{due_date ? new Date(due_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'N/A'}</Text>
+                            <Text style={styles.dueValue}>{computedDueDate ? new Date(computedDueDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'N/A'}</Text>
                         </View>
                         <View style={[styles.statusBadge, { backgroundColor: statusConfig.bg }]}>
                             <Ionicons name={statusConfig.icon} size={14} color={statusConfig.color} style={{ marginRight: 4 }} />
