@@ -210,12 +210,21 @@ export async function generateCycleReport({ roomId, tenantName, startDate, endDa
     return d >= startBoundary && d <= endBoundary;
   });
   
-  // USE BACKEND VALUES IF AVAILABLE to prevent display discrepancies
-  const cycleEnergy = billingCycle ? parseFloat(billingCycle.total_kwh || 0) : filteredHistory.reduce((a, b) => a + (Number(b.energy || b.totalEnergy) || 0), 0);
-  const electricityCharge = billingCycle ? parseFloat(billingCycle.total_cost || 0) : cycleEnergy * defaultRate;
+  // USE EXACT BACKEND VALUES IF AVAILABLE to establish Single Source of Truth
+  const invoiceNumber = billingCycle?.invoice_number || `WT-2026${new Date().getTime().toString().slice(-8)}`;
+  const rate = billingCycle ? parseFloat(billingCycle.rate_per_kwh || 0) : defaultRate;
   
-  // Calculate effective rate for breakdown math (just to ensure math adds up)
-  const rate = cycleEnergy > 0 ? (electricityCharge / cycleEnergy) : defaultRate;
+  const cycleEnergy = billingCycle ? parseFloat(billingCycle.total_kwh || 0) : filteredHistory.reduce((a, b) => a + (Number(b.energy || b.totalEnergy) || 0), 0);
+  const electricityCharge = billingCycle ? parseFloat(billingCycle.electricity_charge || 0) : cycleEnergy * rate;
+  
+  const previousReading = billingCycle ? parseFloat(billingCycle.previous_reading || 0) : 0;
+  const currentReading = billingCycle ? parseFloat(billingCycle.current_reading || 0) : cycleEnergy;
+  const monthlyRent = billingCycle ? parseFloat(billingCycle.monthly_rent || 0) : 0;
+  const previousBalance = billingCycle ? parseFloat(billingCycle.previous_balance || 0) : 0;
+  const additionalCharges = billingCycle ? parseFloat(billingCycle.additional_charges || 0) : 0;
+  const discounts = billingCycle ? parseFloat(billingCycle.discounts || 0) : 0;
+  const penaltyFee = billingCycle ? parseFloat(billingCycle.penalty_amount || 0) : 0;
+  const totalDue = billingCycle ? parseFloat(billingCycle.grand_total || 0) : electricityCharge + penaltyFee;
 
   const generated = new Date();
   const dueDate = new Date();
@@ -224,12 +233,10 @@ export async function generateCycleReport({ roomId, tenantName, startDate, endDa
   const months = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
   const billingMonth = `${months[endDate.getMonth()]} ${endDate.getFullYear()}`;
   
-  const timestampId = generated.getTime().toString().slice(-8);
-  const invoiceNo = `2026${timestampId}`;
   const accountNo = `WT-AC-00${roomId.replace(/\D/g, '') || '1'}`;
   const serialNo = `GE${generated.getTime().toString().slice(-8)}`;
 
-  // --- Breakdown Math to simulate the exact invoice ---
+  // --- Breakdown Math for the simulated visual components (Vatable sales, etc.) ---
   const p_dist = rate * 0.15;
   const p_sup = rate * 0.05;
   const p_met = rate * 0.05;
@@ -253,15 +260,8 @@ export async function generateCycleReport({ roomId, tenantName, startDate, endDa
 
   const vatableSales = sub1 + sub2;
   const electricitySubtotal = vatableSales + sub3; 
-  
-  // Use exact backend penalty if available, otherwise default to 0 for display
-  const penaltyFee = billingCycle ? parseFloat(billingCycle.penalty_amount || 0) : 0;
-  const totalDue = electricityCharge + penaltyFee;
-
-  // Estimate penalty if paid after due date (just for text display on the invoice)
-  // Assuming a 2% rate based on the new Phase 5 configuration
-  const estimatedPenalty = electricityCharge * 0.02;
-  const totalAfterDueDate = electricityCharge + estimatedPenalty;
+  const estimatedPenalty = totalDue * 0.02;
+  const totalAfterDueDate = totalDue + estimatedPenalty;
   
   const dueDateStr = billingCycle && billingCycle.due_date 
     ? new Date(billingCycle.due_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).replace(/ /g, '-')
@@ -296,6 +296,7 @@ export async function generateCycleReport({ roomId, tenantName, startDate, endDa
     .text-center { text-align: center; }
     .text-right { text-align: right; }
     .bold { font-weight: 700; }
+    .text-red { color: #DC2626; }
     
     .header { padding-bottom: 12px; border-bottom: 2px solid #E5E7EB; margin-bottom: 12px; }
     .logo-row { display: flex; align-items: center; justify-content: center; margin-bottom: 12px; gap: 10px;}
@@ -308,47 +309,17 @@ export async function generateCycleReport({ roomId, tenantName, startDate, endDa
     .invoice-title { font-size: 18px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 10px; margin-bottom: 4px; color: #111827;}
     .invoice-no { font-size: 11px; margin-bottom: 12px; color: #4B5563; }
     
-    .contact-info { font-size: 10px; line-height: 1.4; margin-bottom: 12px; text-align: center; color: #6B7280;}
+    .info-table { width: 100%; font-size: 10px; margin-bottom: 12px; }
+    .info-table td { padding: 3px 0; }
     
-    .notice-box { border: 1px solid #FCD34D; background: #FFFBEB; padding: 8px; font-size: 10px; text-align: center; margin-bottom: 12px; color: #B45309; border-radius: 4px;}
-    .notice-box .strong { font-weight: 800; font-size: 11px; margin-bottom: 2px; text-transform: uppercase; letter-spacing: 0.5px;}
+    .meter-info { border: 1px solid #E5E7EB; padding: 8px; border-radius: 4px; margin-bottom: 12px; }
+    .meter-info table { width: 100%; font-size: 10px; text-align: center; }
+    .meter-info th { color: #6B7280; font-weight: 600; padding-bottom: 4px; }
     
-    .acct-row { border-top: 1px solid #E5E7EB; border-bottom: 1px solid #E5E7EB; padding: 6px 0; display: flex; justify-content: space-between; font-size: 11px; font-weight: 700; color: #374151;}
-    
-    .tenant-info { padding: 8px 0; border-bottom: 1px solid #E5E7EB; font-size: 12px; line-height: 1.4; font-weight: 700; color: #111827;}
-    .tenant-info span { color: #6B7280; font-weight: 500; font-size: 11px; }
-    
-    .meter-details { display: flex; border-bottom: 1px solid #E5E7EB; padding: 8px 0; font-size: 11px; color: #4B5563;}
-    .meter-left { flex: 1; display: flex; flex-direction: column; gap: 6px; }
-    .meter-right { flex: 1; border-left: 1px solid #E5E7EB; padding-left: 8px; display: flex; flex-direction: column; gap: 6px;}
-    .meter-details span { font-weight: 700; color: #111827; }
-    
-    .reading-table { width: 100%; text-align: center; font-size: 11px; border-bottom: 1px solid #E5E7EB; border-collapse: collapse; margin-bottom: 4px;}
-    .reading-table th { padding: 6px 0; color: #6B7280; font-weight: 600; text-transform: uppercase; font-size: 9px; letter-spacing: 0.5px;}
-    .reading-table td { padding: 6px 0; font-weight: 600; color: #111827;}
-    .reading-table .kwh-val { font-size: 16px; font-weight: 800; color: #16A34A; }
-    
-    .rate-table { width: 100%; font-size: 10px; border-collapse: collapse; margin-bottom: 8px; color: #374151; }
-    .rate-table th { border-bottom: 1px solid #E5E7EB; padding: 6px 0; text-align: left; color: #6B7280; font-weight: 600; text-transform: uppercase; font-size: 9px; letter-spacing: 0.5px;}
-    .rate-table td { padding: 4px 0; }
-    .rate-table .num { text-align: right; width: 55px; font-weight: 500;}
-    
-    .subtotal-row { border-top: 1px solid #E5E7EB; font-weight: 700; color: #111827; }
-    .border-bottom { border-bottom: 1px solid #E5E7EB; padding-bottom: 6px; margin-bottom: 6px;}
-    
-    .amount-box { border-top: 2px solid #E5E7EB; border-bottom: 2px solid #E5E7EB; padding: 10px 0; font-size: 11px; color: #4B5563;}
-    .amount-row { display: flex; justify-content: space-between; margin-bottom: 4px; }
-    .amount-row span:last-child { font-weight: 600; color: #111827;}
-    
-    .final-due-box { padding: 12px 0 4px 0; display: flex; justify-content: space-between; align-items: flex-end; }
-    .final-due-label { font-weight: 800; font-size: 12px; display: flex; flex-direction: column; gap: 4px; color: #111827;}
-    .final-due-val-col { text-align: right; }
-    .final-due-val { font-size: 22px; font-weight: 900; color: #10B981; letter-spacing: -0.5px;}
-    .final-due-date { font-size: 11px; font-weight: 700; color: #DC2626; margin-top: 2px;}
-    
-    .overdue-box { margin-top: 8px; padding: 8px; background: #FEF2F2; border: 1px solid #FECACA; border-radius: 4px; font-size: 10px; color: #991B1B; }
-    .overdue-row { display: flex; justify-content: space-between; font-weight: 600; margin-bottom: 4px;}
-    .overdue-row.total { font-weight: 800; font-size: 12px; color: #DC2626; border-top: 1px solid #FECACA; padding-top: 4px; margin-top: 2px;}
+    .section-title { font-size: 10px; font-weight: 800; color: #16A34A; border-bottom: 1px solid #16A34A; padding-bottom: 4px; margin-bottom: 8px; text-transform: uppercase; }
+    .totals-table { width: 100%; font-size: 11px; border-collapse: collapse; }
+    .totals-table td { padding: 4px 0; }
+    .grand-total { border-top: 2px solid #E5E7EB; margin-top: 4px; font-weight: 800; font-size: 13px; }
   </style>
 </head>
 <body>

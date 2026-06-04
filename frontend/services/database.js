@@ -334,3 +334,11 @@ export async function getNotifications(roomId, userId = null) {
 export async function markNotificationRead(id) {
   await apiCall('markNotificationRead', { id });
 }
+
+export async function getTenantBillingHistory(roomId, limit = 20, offset = 0) {
+  return await apiCall('getBillingHistory', { roomId, limit, offset }) || [];
+}
+
+export async function getBillingDetails(invoiceNumber, id = null, roomId = null) {
+  return await apiCall('getBillingDetails', { invoiceNumber, id, roomId });
+}
