@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Alert } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
-import { WebView } from 'react-native-webview';
-import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { Ionicons } from '@expo/vector-icons';
 import { getBillingDetails } from '../../services/database';
@@ -99,24 +97,13 @@ export default function PDFViewerScreen() {
                     <Text style={styles.loadingText}>Generating secure PDF...</Text>
                 </View>
             ) : pdfUri ? (
-                Platform.OS === 'android' ? (
-                    <View style={styles.centerContainer}>
-                        <Ionicons name="document-text" size={80} color="#16A34A" />
-                        <Text style={[styles.loadingText, { color: '#0F172A', fontWeight: 'bold' }]}>PDF Ready to View</Text>
-                        <Text style={{ textAlign: 'center', color: '#64748B', marginTop: 8, paddingHorizontal: 40 }}>
-                            Android does not support direct PDF previews. Tap the button below to open or share your statement.
-                        </Text>
-                    </View>
-                ) : (
-                    <WebView 
-                        style={styles.webview}
-                        source={{ uri: pdfUri }}
-                        originWhitelist={['*']}
-                        allowFileAccess={true}
-                        allowUniversalAccessFromFileURLs={true}
-                        allowFileAccessFromFileURLs={true}
-                    />
-                )
+                <View style={styles.centerContainer}>
+                    <Ionicons name="document-text" size={80} color="#16A34A" />
+                    <Text style={[styles.loadingText, { color: '#0F172A', fontWeight: 'bold' }]}>PDF Statement Ready</Text>
+                    <Text style={{ textAlign: 'center', color: '#64748B', marginTop: 8, paddingHorizontal: 40 }}>
+                        Your billing statement has been generated successfully. Tap the button below to view, save, or share it.
+                    </Text>
+                </View>
             ) : (
                 <View style={styles.centerContainer}>
                     <Ionicons name="document-text-outline" size={64} color="#CBD5E1" />
