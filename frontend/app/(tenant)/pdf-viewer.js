@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Alert, Platform } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { WebView } from 'react-native-webview';
 import * as FileSystem from 'expo-file-system';
@@ -25,7 +25,8 @@ export default function PDFViewerScreen() {
             Alert.alert('Error', 'No billing record specified.');
             router.back();
         }
-    }, [id]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [id, router]);
 
     const loadAndGeneratePDF = async () => {
         try {
@@ -51,7 +52,8 @@ export default function PDFViewerScreen() {
             });
             
             setPdfUri(result.uri);
-            setFileName(result.fileName);
+            setPdfUri(result.uri);
+            // setFileName(result.fileName); // Not strictly needed but kept available
         } catch (error) {
             console.error('Failed to generate PDF:', error);
             Alert.alert('Generation Failed', 'Could not generate the PDF statement.');
@@ -97,14 +99,24 @@ export default function PDFViewerScreen() {
                     <Text style={styles.loadingText}>Generating secure PDF...</Text>
                 </View>
             ) : pdfUri ? (
-                <WebView 
-                    style={styles.webview}
-                    source={{ uri: pdfUri }}
-                    originWhitelist={['*']}
-                    allowFileAccess={true}
-                    allowUniversalAccessFromFileURLs={true}
-                    allowFileAccessFromFileURLs={true}
-                />
+                Platform.OS === 'android' ? (
+                    <View style={styles.centerContainer}>
+                        <Ionicons name="document-text" size={80} color="#16A34A" />
+                        <Text style={[styles.loadingText, { color: '#0F172A', fontWeight: 'bold' }]}>PDF Ready to View</Text>
+                        <Text style={{ textAlign: 'center', color: '#64748B', marginTop: 8, paddingHorizontal: 40 }}>
+                            Android does not support direct PDF previews. Tap the button below to open or share your statement.
+                        </Text>
+                    </View>
+                ) : (
+                    <WebView 
+                        style={styles.webview}
+                        source={{ uri: pdfUri }}
+                        originWhitelist={['*']}
+                        allowFileAccess={true}
+                        allowUniversalAccessFromFileURLs={true}
+                        allowFileAccessFromFileURLs={true}
+                    />
+                )
             ) : (
                 <View style={styles.centerContainer}>
                     <Ionicons name="document-text-outline" size={64} color="#CBD5E1" />
