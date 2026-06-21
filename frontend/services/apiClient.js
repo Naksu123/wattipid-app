@@ -29,6 +29,15 @@ const apiClient = axios.create({
 // Automatically injects the Access Token into every request
 apiClient.interceptors.request.use(
   async (config) => {
+    // Silence aggressive polling logs
+    const isPolling = config.url?.includes('syncState') || config.url?.includes('getLatestConsumption') || config.data?.action === 'syncState' || config.data?.action === 'getLatestConsumption';
+    
+    // Robust Logging (Phase 1)
+    if (!isPolling) {
+        console.log("Request URL:", config.baseURL + config.url);
+        if (config.data) console.log("Request Data:", config.data);
+    }
+
     // Skip injecting tokens if we're logging out
     if (isLoggingOut) return config;
     const token = await Storage.getItem('user_token');
@@ -44,7 +53,14 @@ apiClient.interceptors.request.use(
 // --- RESPONSE INTERCEPTOR ---
 apiClient.interceptors.response.use(
   (response) => {
-    // Basic JSON check: If response.data is a string starting with "<?php" or "require", it's a leak
+    const isPolling = response.config.url?.includes('syncState') || response.config.url?.includes('getLatestConsumption') || response.config.data?.includes('syncState') || response.config.data?.includes('getLatestConsumption');
+
+    // Robust Logging (Phase 1)
+    if (!isPolling) {
+        console.log("Response:", response.status, response.config.url);
+    }
+
+    // Basic JSON check
     if (typeof response.data === 'string' && (response.data.includes('<?php') || response.data.includes('require_once'))) {
         console.error('[API Diagnostic] Server leaked PHP code:', response.data.substring(0, 200));
         throw new Error('Server returned source code instead of JSON. Check PHP tags.');
@@ -59,65 +75,65 @@ apiClient.interceptors.response.use(
       return Promise.resolve({ data: { success: false, message: 'Logging out' } });
     }
 
-    // Handle JSON Parsing Errors / Malformed Responses
-    if (error.message.includes('JSON') || !error.response) {
-        console.error('[API Diagnostic] Malformed response or Network Error:', error.message);
+    // Initialize retry count for network errors (Phase 5)
+    if (originalRequest && !originalRequest._retryCount) {
+        originalRequest._retryCount = 0;
     }
 
-    const isAuthRoute = originalRequest.url?.includes('action=login') || originalRequest.url?.includes('action=register');
+    // Phase 5: Implement retry mechanism (Retry Request 3 Times)
+    if (originalRequest && (error.message === 'Network Error' || error.code === 'ECONNABORTED' || error.response?.status >= 500)) {
+        if (originalRequest._retryCount < 3) {
+            originalRequest._retryCount++;
+            console.log(`[Network] Retrying request (${originalRequest._retryCount}/3)...`);
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            return apiClient(originalRequest);
+        }
+    }
 
-    // If error is 401 and we haven't retried yet, AND it's not a login attempt
+    // Phase 7: Replace raw Axios errors with user-friendly messages
+    if (error.message === 'Network Error' || error.code === 'ECONNABORTED') {
+        error.message = 'No internet connection detected. Unable to reach the Wattipid server.';
+    } else if (error.response?.status >= 500) {
+        error.message = 'Unable to process your request at this time. Server is currently unavailable.';
+    }
+
+    const isAuthRoute = originalRequest?.url?.includes('action=login') || originalRequest?.url?.includes('action=register');
+
+    // Handle 401 Session Expiration
     if (error.response?.status === 401 && !originalRequest._retry && !isAuthRoute) {
       originalRequest._retry = true;
 
       try {
         const refreshToken = await Storage.getItem('refresh_token');
         if (!refreshToken) {
-          // If no refresh token, the session is unrecoverable. Purge everything.
           await Storage.deleteItem('user_token');
           await Storage.deleteItem('refresh_token');
           await Storage.deleteItem('user_data');
-          if (!isLoggingOut) {
-            DeviceEventEmitter.emit('showToast', { message: 'Session Expired. Please log in again.', type: 'error' });
-          }
+          if (!isLoggingOut) DeviceEventEmitter.emit('showToast', { message: 'Session Expired. Please log in again.', type: 'error' });
           return Promise.resolve({ data: { success: false, message: 'Session expired' } });
         }
 
-        // Call the refresh endpoint on the backend
-        const response = await axios.post(`${API_URL}/api.php?action=refreshToken`, {
-          refreshToken: refreshToken,
-        });
-
+        const response = await axios.post(`${API_URL}/api.php?action=refreshToken`, { refreshToken });
         if (response.data.success) {
           const { token, refreshToken: newRefreshToken } = response.data.data;
-
-          // Store new tokens securely
           await Storage.setItem('user_token', token);
           await Storage.setItem('refresh_token', newRefreshToken);
-
-          // Retry the original request with the new token
           originalRequest.headers.Authorization = `Bearer ${token}`;
           return apiClient(originalRequest);
         }
       } catch (refreshError) {
-        // If refresh fails, the session is dead. Clean up and force logout.
         await Storage.deleteItem('user_token');
         await Storage.deleteItem('refresh_token');
         await Storage.deleteItem('user_data');
-        
-        if (!isLoggingOut) {
-          DeviceEventEmitter.emit('showToast', { message: 'Session Expired. Please log in again.', type: 'error' });
-        }
+        if (!isLoggingOut) DeviceEventEmitter.emit('showToast', { message: 'Session Expired. Please log in again.', type: 'error' });
         return Promise.resolve({ data: { success: false, message: 'Session expired' } });
       }
     }
 
-    // Generic Network/Server Error handling
-    const isSyncRoute = originalRequest.url?.includes('action=syncTenantData') || originalRequest.url?.includes('action=syncLandlordData');
+    // Show friendly toast message
+    const isSyncRoute = originalRequest?.url?.includes('action=syncTenantData') || originalRequest?.url?.includes('action=syncLandlordData') || originalRequest?.url?.includes('action=syncState') || originalRequest?.data?.action === 'syncState' || originalRequest?.data?.includes?.('syncState');
     if (!isLoggingOut && !isAuthRoute && !isSyncRoute) {
-      if (error.message === 'Network Error' || error.code === 'ECONNABORTED' || error.response?.status >= 500) {
-        DeviceEventEmitter.emit('showToast', { message: 'Network connection issue. Please check your internet.', type: 'error', duration: 4000 });
-      }
+        DeviceEventEmitter.emit('showToast', { message: error.message, type: 'error', duration: 4000 });
     }
 
     return Promise.reject(error);

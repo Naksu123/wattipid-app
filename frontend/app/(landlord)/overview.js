@@ -34,7 +34,11 @@ export default function OverviewScreen() {
         }
         
         // Also fetch unread count
-        const unreadRes = await apiClient.post('/api.php', { action: 'getUnreadCount' });
+        const unreadRes = await apiClient.post('/api.php', { 
+          action: 'getUnreadNotificationCount',
+          userId: user?.id,
+          role: user?.role
+        });
         if (unreadRes.data.success) {
           setUnreadCount(unreadRes.data.data);
         }

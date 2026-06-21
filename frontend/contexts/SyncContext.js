@@ -61,7 +61,8 @@ export const SyncProvider = ({ children }) => {
         last_sync_timestamp: lastSyncTimeRef.current
       });
 
-      if (res && res.success) {
+      // apiCall bridge returns response.data.data, so there is no .success property here
+      if (res) {
         lastSyncTimeRef.current = res.server_timestamp;
         
         if (res.new_notifications_count > 0) {

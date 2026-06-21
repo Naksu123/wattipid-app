@@ -1,3 +1,8 @@
+// --- WATTIPID ESP32 HARDWARE SOURCE ---
+// Place this code in your Arduino IDE
+// Folder: hardware/esp32_monitor/esp32_monitor.ino
+
+#include "EmonLib.h"
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 #include <Arduino.h>
@@ -27,6 +32,8 @@ const float CURRENT_NOISE_GATE = 0.01; // Min Amps to consider real load
 const float VOLTAGE_NOISE_GATE = 50.0; // Min Volts to consider valid AC
 
 // --- SENSORS & DISPLAY ---
+EnergyMonitor emonCT; // We will use EmonLib ONLY for current
+
 Adafruit_SSD1306 display(128, 64, &Wire, -1);
 float totalKWh = 0;
 unsigned long lastMillis = 0;
@@ -83,6 +90,15 @@ void setup() {
   // midpoint.
   analogSetPinAttenuation(CT_PIN, ADC_11db);
   analogSetPinAttenuation(ZMPT_PIN, ADC_11db);
+
+  // Initialize EmonLib for current ONLY
+  emonCT.current(CT_PIN, CT_CALIBRATION);
+
+  // Warm up EmonLib's internal filters
+  for (int i = 0; i < 3; i++) {
+    emonCT.calcIrms(1480);
+    delay(100);
+  }
 
   Serial.println("Sensors ready!");
   Serial.println("CT pin: " + String(CT_PIN) +

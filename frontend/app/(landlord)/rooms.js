@@ -436,7 +436,7 @@ export default function RoomsScreen() {
         </GlassCard>
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
-          {['All', 'Vacant', 'Occupied', 'Under Maintenance', 'Archived'].map(f => (
+          {['All', 'Vacant', 'Occupied', 'Under Maintenance', 'Not Available', 'Archived'].map(f => (
             <TouchableOpacity
               key={f}
               style={{

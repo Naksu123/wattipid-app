@@ -2,6 +2,7 @@
   "compilerOptions": {
     "strict": true,
     "jsx": "react-native",
+    "module": "esnext",
     "moduleResolution": "bundler",
     "allowJs": true,
     "paths": {
@@ -18,7 +19,10 @@
     "expo-env.d.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "dist",
+    "build",
+    ".expo"
   ],
   "extends": "expo/tsconfig.base"
 }

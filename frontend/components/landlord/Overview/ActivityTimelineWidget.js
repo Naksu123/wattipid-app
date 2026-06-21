@@ -6,17 +6,19 @@ import { COLORS, RADIUS, FONT_WEIGHT, SPACING } from '@/styles/theme';
 
 export default function ActivityTimelineWidget({ activities = [] }) {
   const getIconForType = (type) => {
-    if (type.includes('payment')) return 'cash-outline';
-    if (type.includes('room')) return 'bed-outline';
-    if (type.includes('tenant')) return 'person-outline';
-    if (type.includes('billing')) return 'document-text-outline';
+    const safeType = type || '';
+    if (safeType.includes('payment')) return 'cash-outline';
+    if (safeType.includes('room')) return 'bed-outline';
+    if (safeType.includes('tenant')) return 'person-outline';
+    if (safeType.includes('billing')) return 'document-text-outline';
     return 'information-circle-outline';
   };
 
   const getColorForType = (type) => {
-    if (type.includes('payment')) return COLORS.success;
-    if (type.includes('room') || type.includes('tenant')) return COLORS.primary;
-    if (type.includes('alert')) return COLORS.danger;
+    const safeType = type || '';
+    if (safeType.includes('payment')) return COLORS.success;
+    if (safeType.includes('room') || safeType.includes('tenant')) return COLORS.primary;
+    if (safeType.includes('alert')) return COLORS.danger;
     return COLORS.info;
   };
 
@@ -45,7 +47,8 @@ export default function ActivityTimelineWidget({ activities = [] }) {
         <View style={styles.timeline}>
           {activities.map((act, index) => {
             const isLast = index === activities.length - 1;
-            const color = getColorForType(act.action_type);
+            const safeType = act.action_type || 'activity';
+            const color = getColorForType(safeType);
             return (
               <View key={act.id || index} style={styles.itemRow}>
                 <View style={styles.nodeCol}>
@@ -58,8 +61,8 @@ export default function ActivityTimelineWidget({ activities = [] }) {
                 <View style={[styles.contentCol, isLast && { paddingBottom: 0 }]}>
                   <View style={styles.actHeader}>
                     <View style={styles.actTypeRow}>
-                      <Ionicons name={getIconForType(act.action_type)} size={14} color={color} />
-                      <Text style={[styles.actType, { color }]}>{act.action_type.replace('_', ' ').toUpperCase()}</Text>
+                      <Ionicons name={getIconForType(safeType)} size={14} color={color} />
+                      <Text style={[styles.actType, { color }]}>{safeType.replace('_', ' ').toUpperCase()}</Text>
                     </View>
                     <Text style={styles.time}>{timeAgo(act.created_at)}</Text>
                   </View>

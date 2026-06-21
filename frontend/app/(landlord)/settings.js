@@ -3,6 +3,9 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, TextInput,
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system';
 import { useAuth } from '../../contexts/AuthContext';
 import { getSetting, setSetting } from '../../services/database';
 import { updatePenaltySettings, getPenaltySettings } from '../../services/penaltyService';
@@ -178,7 +181,6 @@ export default function LandlordSettings() {
 
   const pickImage = async (setter) => {
     try {
-      const ImagePicker = await import('expo-image-picker');
       const requestPermissions = ImagePicker.requestMediaLibraryPermissionsAsync || ImagePicker.default?.requestMediaLibraryPermissionsAsync;
       const launchLibrary = ImagePicker.launchImageLibraryAsync || ImagePicker.default?.launchImageLibraryAsync;
       
@@ -198,8 +200,23 @@ export default function LandlordSettings() {
           setter(`data:image/jpeg;base64,${result.assets[0].base64}`);
       }
     } catch (err) {
-      console.warn('Image picker error:', err);
-      Alert.alert('Error', 'Image upload is not supported in this environment.');
+      console.warn('Image picker error, attempting DocumentPicker fallback:', err);
+      try {
+          const result = await DocumentPicker.getDocumentAsync({
+              type: ['image/*'],
+              copyToCacheDirectory: true,
+          });
+          
+          if (!result.canceled && result.assets?.[0]) {
+              const file = result.assets[0];
+              const base64 = await FileSystem.readAsStringAsync(file.uri, { encoding: FileSystem.EncodingType.Base64 });
+              const mimeType = file.mimeType || 'image/jpeg';
+              setter(`data:${mimeType};base64,${base64}`);
+          }
+      } catch (fallbackErr) {
+          console.warn('DocumentPicker Error:', fallbackErr);
+          Alert.alert('Error', 'Unable to open file picker. This device may not support file selection.');
+      }
     }
   };
 

@@ -87,9 +87,21 @@ export default function DashboardScreen() {
         }
       }
 
-      if (cycle) {
-        setBillingCycle(cycle);
-        setBudgetData(cycle.budget || null);
+      // Fetch actual billing cycles to get the latest invoice data
+      const cyclesRes = await apiClient.post('/api.php', { action: 'getAvailableBillingCycles', roomId });
+      if (cyclesRes.data && cyclesRes.data.success && cyclesRes.data.data.length > 0) {
+        const cycles = cyclesRes.data.data;
+        // Prioritize finding the latest UNPAID completed invoice, otherwise fallback to the most recent one
+        let latestInvoice = cycles.find(c => c.status === 'completed' && ['unpaid', 'pending_verification', 'overdue', 'partially_paid'].includes(c.payment_status));
+        if (!latestInvoice) {
+            latestInvoice = cycles.find(c => c.status === 'completed') || cycles[0];
+        }
+        setBillingCycle(latestInvoice);
+        setBudgetData(cycle?.budget || null); // Note: Budget still comes from getBillingCycle user data if needed, but we can also fetch it directly. Let's just keep cycle for budget.
+      }
+      
+      if (cycle && cycle.budget) {
+        setBudgetData(cycle.budget);
       }
 
       const insights = await getPaymentInsights(roomId);
@@ -231,8 +243,26 @@ export default function DashboardScreen() {
     setRefreshing(false);
   };
 
-  // Use the accurate total cost from the current active billing cycle
-  const amountDue = monthUsage.totalCost || 0;
+  // Use the accurate total cost from the current active billing cycle for LIVE, but the Invoice Amount for the Bill card
+  const activeMonthCost = monthUsage.totalCost || 0;
+  
+  // For the "Current Bill" Card, use the billing cycle's grand total if it's a completed invoice
+  let invoiceAmountDue = activeMonthCost;
+  if (billingCycle && billingCycle.status === 'completed') {
+       let grandTotal = parseFloat(billingCycle.grand_total || 0);
+       if (grandTotal === 0) {
+           grandTotal = parseFloat(billingCycle.electricity_charge || 0) + 
+                        parseFloat(billingCycle.penalty_amount || 0) + 
+                        parseFloat(billingCycle.monthly_rent || 0) + 
+                        parseFloat(billingCycle.previous_balance || 0) + 
+                        parseFloat(billingCycle.additional_charges || 0) - 
+                        parseFloat(billingCycle.discounts || 0);
+       }
+       if (grandTotal === 0) grandTotal = parseFloat(billingCycle.total_cost || 0) + parseFloat(billingCycle.penalty_amount || 0);
+       
+       invoiceAmountDue = grandTotal - parseFloat(billingCycle.amount_paid || 0);
+  }
+
   const budgetPct = budget && budget.daily_allowance > 0 ? (todayUsage.totalCost / budget.daily_allowance) * 100 : 0;
 
   // GHOST FIX: Use our tracked deviceOnline state instead of guessing from lastSeen
@@ -420,7 +450,7 @@ export default function DashboardScreen() {
           <MetricCard icon="flash" label="Voltage" value={offline ? '0.0' : Number(data.voltage || 0).toFixed(1)} unit="V" color={COLORS.accent} />
           <MetricCard icon="water" label="Current" value={offline ? '0.00' : Number(data.current || 0).toFixed(2)} unit="A" color={COLORS.info} />
           <MetricCard icon="battery-charging" label="Energy Today" value={Number(todayUsage.totalEnergy || 0).toFixed(2)} unit="kWh" color={COLORS.primary} />
-          <MetricCard icon="cash" label="Amount Due" value={`₱${Number(amountDue || 0).toFixed(2)}`} unit="" color={COLORS.warning} />
+          <MetricCard icon="cash" label="Live Bill" value={`₱${Number(activeMonthCost || 0).toFixed(2)}`} unit="" color={COLORS.warning} />
         </View>
 
         {/* Consumption Totals (Moved from Analytics) */}
@@ -515,7 +545,9 @@ export default function DashboardScreen() {
         </GlassCard>
 
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: SPACING.lg, marginBottom: SPACING.md }}>
-          <Text style={[ms.sectionTitle, { marginTop: 0, marginBottom: 0 }]}>Current Bill</Text>
+          <Text style={[ms.sectionTitle, { marginTop: 0, marginBottom: 0 }]}>
+              {billingCycle?.status === 'active' ? 'Live Consumption (Ongoing)' : 'Latest Invoice'}
+          </Text>
           <StatusBadge status={billingCycle?.payment_status || 'unpaid'} />
         </View>
         <GlassCard style={ms.soaCard}>
@@ -523,7 +555,7 @@ export default function DashboardScreen() {
           <View style={ms.soaAmountRow}>
             <View>
               <Text style={ms.soaLabel}>Amount Due</Text>
-              <Text style={ms.soaAmount}>₱{Number(amountDue || 0).toFixed(2)}</Text>
+              <Text style={ms.soaAmount}>₱{Number(invoiceAmountDue || 0).toFixed(2)}</Text>
             </View>
             <View style={{ alignItems: 'flex-end' }}>
               <Text style={ms.soaLabel}>Due Date</Text>
@@ -536,13 +568,13 @@ export default function DashboardScreen() {
           <View style={ms.soaRow}>
             <Text style={ms.soaLabel}>Invoice No.</Text>
             <Text style={[ms.soaValue, !billingCycle?.invoice_number && { fontStyle: 'italic', color: COLORS.textMuted, fontSize: 12 }]}>
-              {billingCycle?.invoice_number || 'Pending'}
+              {billingCycle?.invoice_number || 'Pending Generation'}
             </Text>
           </View>
           <View style={ms.soaRow}>
             <Text style={ms.soaLabel}>Billing Period</Text>
             <Text style={[ms.soaValue, { fontSize: 13 }]}>
-              {monthUsage.cycle_start ? new Date(monthUsage.cycle_start).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '--'} - {monthUsage.cycle_end ? new Date(monthUsage.cycle_end).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '--'}
+              {billingCycle?.cycle_start ? new Date(billingCycle.cycle_start).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '--'} - {billingCycle?.cycle_end ? new Date(billingCycle.cycle_end).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '--'}
             </Text>
           </View>
           {daysUntilDue !== null && daysUntilDue < 0 && (
@@ -556,15 +588,33 @@ export default function DashboardScreen() {
 
           <View style={ms.soaActions}>
             <TouchableOpacity style={ms.soaBtnSecondary} onPress={() => router.push('/(tenant)/billing')}>
-              <Text style={ms.soaBtnText}>View Details</Text>
+              <Text style={ms.soaBtnText}>View History</Text>
             </TouchableOpacity>
-            <TouchableOpacity 
-              style={[ms.soaBtnPrimary, { opacity: (billingCycle?.payment_status === 'paid' || billingCycle?.payment_status === 'pending_verification') ? 0.5 : 1 }]} 
-              disabled={billingCycle?.payment_status === 'paid' || billingCycle?.payment_status === 'pending_verification'}
-              onPress={() => router.push('/(tenant)/payment')}
-            >
-              <Text style={ms.soaBtnText}>Pay Now</Text>
-            </TouchableOpacity>
+            {billingCycle?.status === 'completed' && billingCycle?.payment_status !== 'paid' && billingCycle?.payment_status !== 'pending_verification' && (
+                <TouchableOpacity 
+                  style={ms.soaBtnPrimary} 
+                  onPress={() => router.push('/(tenant)/payment')}
+                >
+                  <Text style={ms.soaBtnText}>Pay Now</Text>
+                </TouchableOpacity>
+            )}
+            {(billingCycle?.payment_status === 'paid' || billingCycle?.payment_status === 'pending_verification') && (
+                <TouchableOpacity 
+                  style={[ms.soaBtnPrimary, { opacity: 0.5 }]} 
+                  disabled={true}
+                >
+                  <Text style={ms.soaBtnText}>{billingCycle?.payment_status === 'paid' ? 'Paid' : 'Pending Verification'}</Text>
+                </TouchableOpacity>
+            )}
+            {billingCycle?.status === 'active' && (
+                 <TouchableOpacity 
+                  style={[ms.soaBtnPrimary, { opacity: 0.5 }]} 
+                  disabled={true}
+                  onPress={() => {}}
+                >
+                  <Text style={ms.soaBtnText}>Live Cycle</Text>
+                </TouchableOpacity>
+            )}
           </View>
         </GlassCard>
 

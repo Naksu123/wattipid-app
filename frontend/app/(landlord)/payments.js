@@ -8,12 +8,15 @@ import { COLORS, SPACING, FONT_WEIGHT, RADIUS } from '@/styles/theme';
 import PaymentStatusWidget from '../../components/landlord/Overview/PaymentStatusWidget';
 import PendingPaymentsWidget from '../../components/landlord/Overview/PendingPaymentsWidget';
 import RecentTransactionsWidget from '../../components/landlord/Overview/RecentTransactionsWidget';
+import UnpaidTenantsWidget from '../../components/landlord/Overview/UnpaidTenantsWidget';
+import PaymentHistoryModal from '../../components/landlord/Overview/PaymentHistoryModal';
 
 export default function PaymentsDashboard() {
   const [data, setData] = useState(null);
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [historyModalVisible, setHistoryModalVisible] = useState(false);
 
   // Initial Load
   useEffect(() => {
@@ -69,6 +72,7 @@ export default function PaymentsDashboard() {
 
   const paymentSummary = data?.paymentSummary || null;
   const pendingPayments = data?.pendingPayments || [];
+  const unpaidBills = data?.unpaidBills || [];
 
   return (
     <SafeAreaView style={styles.container}>
@@ -100,11 +104,22 @@ export default function PaymentsDashboard() {
 
         <View style={{ height: 16 }} />
 
+        {/* Pending Collections / Unpaid Tenants */}
+        <UnpaidTenantsWidget unpaidBills={unpaidBills} />
+
+        <View style={{ height: 16 }} />
+
         {/* Payment Ledger (Recent Transactions) */}
-        <RecentTransactionsWidget history={history} />
+        <RecentTransactionsWidget history={history} onViewAll={() => setHistoryModalVisible(true)} />
 
         <View style={{ height: 100 }} />
       </ScrollView>
+
+      <PaymentHistoryModal 
+        visible={historyModalVisible} 
+        onClose={() => setHistoryModalVisible(false)} 
+        history={history} 
+      />
     </SafeAreaView>
   );
 }

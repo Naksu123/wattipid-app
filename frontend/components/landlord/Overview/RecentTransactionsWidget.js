@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING, RADIUS, FONT_WEIGHT, SHADOWS } from '@/styles/theme';
 
-export default function RecentTransactionsWidget({ history }) {
+export default function RecentTransactionsWidget({ history, onViewAll }) {
   if (!history || history.length === 0) {
     return (
       <View style={styles.card}>
@@ -59,7 +59,7 @@ export default function RecentTransactionsWidget({ history }) {
     <View style={styles.card}>
       <View style={styles.header}>
         <Text style={styles.title}>Payment Ledger</Text>
-        <TouchableOpacity>
+        <TouchableOpacity onPress={onViewAll}>
           <Text style={styles.viewAllBtn}>View All</Text>
         </TouchableOpacity>
       </View>

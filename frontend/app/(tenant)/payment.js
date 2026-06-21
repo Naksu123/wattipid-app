@@ -5,6 +5,9 @@ import { getAvailableBillingCycles, getSetting } from '../../services/database';
 import { submitPayment } from '../../services/paymentService';
 import { useAuth } from '../../contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system';
 import GlassCard from '../../components/ui/GlassCard';
 import { COLORS, FONT_SIZE, FONT_WEIGHT, SPACING, RADIUS } from '../../styles/theme';
 
@@ -76,7 +79,6 @@ export default function TenantPaymentScreen() {
 
     const pickImage = async () => {
         try {
-            const ImagePicker = await import('expo-image-picker');
             const requestPermissions = ImagePicker.requestMediaLibraryPermissionsAsync || ImagePicker.default?.requestMediaLibraryPermissionsAsync;
             const launchLibrary = ImagePicker.launchImageLibraryAsync || ImagePicker.default?.launchImageLibraryAsync;
 
@@ -96,12 +98,30 @@ export default function TenantPaymentScreen() {
 
             if (!result.canceled && result.assets?.[0]) {
                 setProofUri(result.assets[0].uri);
+                // ImagePicker provides raw base64 without prefix
                 setProofBase64(result.assets[0].base64);
             }
         } catch (err) {
-            console.warn('[TenantPayment] Image picker error:', err);
-            Alert.alert('Unavailable', 'Image upload is not supported in this environment.');
-            setProofBase64('fallback_no_image');
+            console.warn('[TenantPayment] ImagePicker Error, attempting DocumentPicker fallback:', err);
+            try {
+                const result = await DocumentPicker.getDocumentAsync({
+                    type: ['image/*', 'application/pdf'],
+                    copyToCacheDirectory: true,
+                });
+                
+                if (!result.canceled && result.assets?.[0]) {
+                    const file = result.assets[0];
+                    setProofUri(file.uri);
+                    
+                    const base64 = await FileSystem.readAsStringAsync(file.uri, { encoding: FileSystem.EncodingType.Base64 });
+                    const mimeType = file.mimeType || 'image/jpeg';
+                    // Store WITH prefix so we know it's already formatted
+                    setProofBase64(`data:${mimeType};base64,${base64}`);
+                }
+            } catch (fallbackErr) {
+                 console.warn('[TenantPayment] DocumentPicker Error:', fallbackErr);
+                 Alert.alert('Error', 'Unable to open file picker. This device may not support file selection.');
+            }
         }
     };
 
@@ -116,15 +136,8 @@ export default function TenantPaymentScreen() {
             return;
         }
 
-        if (paymentMethod !== 'Cash' && proofBase64 === 'fallback_no_image' && !referenceNumber) {
-             Alert.alert('Error', 'Reference number is required when not uploading an image.');
-             return;
-        }
-
         setSubmitting(true);
         try {
-            const proofUrl = proofBase64 === 'fallback_no_image' ? null : (proofBase64 ? `data:image/jpeg;base64,${proofBase64}` : null);
-            
             // Determine amount due (grand_total - amount_paid)
             let grandTotal = parseFloat(billingCycle.grand_total || 0);
             if (grandTotal === 0) {
@@ -140,7 +153,16 @@ export default function TenantPaymentScreen() {
             const remainingBalance = grandTotal - parseFloat(billingCycle.amount_paid || 0);
             const amountToPay = remainingBalance > 0 ? remainingBalance : grandTotal;
 
-            const finalRef = referenceNumber || (paymentMethod === 'Cash' ? `CASH-${Date.now()}` : `REF-${Date.now()}`);
+            const finalRef = referenceNumber || (paymentMethod === 'Cash' ? `CASH-${Math.random().toString(36).substring(2, 10).toUpperCase()}` : null);
+            
+            let proofUrl = null;
+            if (proofBase64) {
+                if (proofBase64.startsWith('data:')) {
+                    proofUrl = proofBase64;
+                } else {
+                    proofUrl = `data:image/jpeg;base64,${proofBase64}`;
+                }
+            }
 
             await submitPayment(
                 billingCycle.id, 
