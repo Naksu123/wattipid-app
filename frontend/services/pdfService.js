@@ -266,7 +266,7 @@ export async function generateCycleReport({ roomId, tenantName, startDate, endDa
   
   // If no due date is provided in the database (older records), default to 7 days after the billing cycle ended
   const fallbackDueDate = new Date(endDate);
-  fallbackDueDate.setDate(fallbackDueDate.getDate() + 7);
+  fallbackDueDate.setDate(fallbackDueDate.getDate() + 3);
 
   const amountPaid = billingCycle ? parseFloat(billingCycle.amount_paid || 0) : 0;
   const remainingBalance = Math.max(totalDue - amountPaid, 0);
@@ -309,7 +309,8 @@ export async function generateCycleReport({ roomId, tenantName, startDate, endDa
 
   const vatableSales = sub1 + sub2;
   const electricitySubtotal = vatableSales + sub3; 
-  const estimatedPenalty = totalDue * 0.02;
+  const penaltyRatePercent = 2; // Configurable penalty rate
+  const estimatedPenalty = totalDue * (penaltyRatePercent / 100);
   const totalAfterDueDate = totalDue + estimatedPenalty;
   
   const dueDateStr = billingCycle && billingCycle.due_date 
@@ -422,7 +423,7 @@ export async function generateCycleReport({ roomId, tenantName, startDate, endDa
       </div>
       <div class="notice-box">
         <div class="strong">NOTICE TO CUSTOMER</div>
-        Once due date has lapsed, please ensure to pay within 48 hours the total amount due to avoid disconnection of service.
+        Payment must be settled within 3 calendar days from billing date. Failure to pay on or before the due date will result in automatic penalty charges.
       </div>
     </div>
 
@@ -607,8 +608,10 @@ export async function generateCycleReport({ roomId, tenantName, startDate, endDa
       ${isPaid 
         ? `<div class="overdue-row total" style="color:#16A34A; border-color: #BBF7D0;"><span>FULLY PAID</span></div>`
         : penaltyFee > 0 
-            ? `<div class="overdue-row total" style="color:red;"><span>ACCOUNT IS PAST DUE</span></div>`
-            : `<div class="overdue-row"><span>Penalty if paid after Due Date (2%)</span><span>${estimatedPenalty.toFixed(2)}</span></div>
+            ? `<div class="overdue-row"><span>Original Amount Due</span><span>${(totalDue - penaltyFee).toFixed(2)}</span></div>
+               <div class="overdue-row" style="color:#DC2626;"><span>Penalty Applied (${penaltyRatePercent}%)</span><span>+ ${penaltyFee.toFixed(2)}</span></div>
+               <div class="overdue-row total" style="color:red;"><span>TOTAL OUTSTANDING</span><span>${totalDue.toFixed(2)}</span></div>`
+            : `<div class="overdue-row"><span>Penalty if paid after Due Date (${penaltyRatePercent}%)</span><span>${estimatedPenalty.toFixed(2)}</span></div>
                <div class="overdue-row total"><span>Amount Due After ${dueDateStr}</span><span>${(remainingBalance + estimatedPenalty).toFixed(2)}</span></div>`
       }
     </div>

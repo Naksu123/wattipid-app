@@ -110,7 +110,8 @@ export default StyleSheet.create({
     textAlign: 'center', 
     fontSize: FONT_SIZE.xxl,
     fontWeight: FONT_WEIGHT.bold, 
-    color: COLORS.textPrimary 
+    color: COLORS.textPrimary,
+    padding: 0
   },
   codeInputFilled: { 
     borderColor: COLORS.primary, 

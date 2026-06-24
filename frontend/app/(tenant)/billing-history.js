@@ -93,7 +93,7 @@ export default function TenantBillingHistoryScreen() {
         let computedDueDate = item.due_date;
         if (!computedDueDate && item.cycle_end) {
             const dateObj = new Date(item.cycle_end);
-            dateObj.setDate(dateObj.getDate() + 7);
+            dateObj.setDate(dateObj.getDate() + 3);
             computedDueDate = dateObj;
         }
         const dueDate = computedDueDate ? new Date(computedDueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A';

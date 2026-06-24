@@ -111,52 +111,7 @@ export default StyleSheet.create({
     fontSize: FONT_SIZE.md, 
     fontWeight: FONT_WEIGHT.semibold 
   },
-  confirmCard: { 
-    marginBottom: SPACING.lg, 
-    borderLeftWidth: 4, 
-    borderLeftColor: COLORS.primary 
-  },
-  confirmHeader: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    gap: SPACING.sm, 
-    marginBottom: SPACING.md 
-  },
-  confirmTitle: { 
-    flex: 1, 
-    fontSize: FONT_SIZE.md, 
-    fontWeight: FONT_WEIGHT.semibold, 
-    color: COLORS.primary 
-  },
-  confirmGrid: { 
-    flexDirection: 'row', 
-    alignItems: 'center' 
-  },
-  confirmItem: { 
-    flex: 1, 
-    alignItems: 'center' 
-  },
-  confirmLabel: { 
-    fontSize: FONT_SIZE.xs, 
-    color: COLORS.textMuted, 
-    marginBottom: 4 
-  },
-  confirmValue: { 
-    fontSize: FONT_SIZE.md, 
-    fontWeight: FONT_WEIGHT.bold, 
-    color: COLORS.textPrimary 
-  },
-  confirmDivider: { 
-    width: 1, 
-    height: 28, 
-    backgroundColor: 'rgba(255,255,255,0.1)' 
-  },
-  confirmSub: { 
-    fontSize: FONT_SIZE.xs, 
-    color: COLORS.textMuted, 
-    textAlign: 'center', 
-    marginTop: SPACING.md 
-  },
+
   tabRow: { 
     flexDirection: 'row', 
     gap: SPACING.sm, 

@@ -78,7 +78,7 @@ export default function VerifyScreen() {
         setCodeExpired(true);
         Alert.alert(
           'Code Expired',
-          'This verification code has expired.\n\nPlease contact your landlord to request a new code. The system does not auto-generate new codes.',
+          'This verification code has expired.\n\nPlease click Resend Verification Code below to get a new one.',
           [{ text: 'OK' }]
         );
       } else {
@@ -155,14 +155,14 @@ export default function VerifyScreen() {
           ))}
         </View>
 
-        {/* Verify Button */}
-        {!codeExpired ? (
-          <TouchableOpacity onPress={handleVerify} activeOpacity={0.8} disabled={isLoading} style={s.btnWrap}>
-            <LinearGradient colors={GRADIENTS.primary} start={{x:0,y:0}} end={{x:1,y:0}} style={s.btn}>
+        {/* Buttons */}
+        <View style={{ marginTop: 20, width: '100%' }}>
+          <TouchableOpacity onPress={handleVerify} activeOpacity={0.8} disabled={isLoading || codeExpired} style={[s.btnWrap, { marginBottom: 15 }]}>
+            <LinearGradient colors={codeExpired ? ['#ccc', '#bbb'] : GRADIENTS.primary} start={{x:0,y:0}} end={{x:1,y:0}} style={s.btn}>
               {isLoading ? <ActivityIndicator color="#fff" /> : <Text style={s.btnText}>Verify & Create Account</Text>}
             </LinearGradient>
           </TouchableOpacity>
-        ) : (
+
           <TouchableOpacity onPress={handleResendCode} activeOpacity={0.8} disabled={isLoading} style={s.btnWrap}>
             <LinearGradient colors={GRADIENTS.accent} start={{x:0,y:0}} end={{x:1,y:0}} style={s.btn}>
               {isLoading ? <ActivityIndicator color="#fff" /> : (
@@ -173,7 +173,7 @@ export default function VerifyScreen() {
               )}
             </LinearGradient>
           </TouchableOpacity>
-        )}
+        </View>
 
         {/* Info about manual process */}
         <View style={s.infoBox}>

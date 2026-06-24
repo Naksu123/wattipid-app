@@ -125,12 +125,7 @@ export default function PenaltyCenterScreen() {
                 <Text style={styles.finTotalValue}>₱{Number(acc.total_amount_due).toFixed(2)}</Text>
               </View>
 
-              <View style={styles.cardActions}>
-                <TouchableOpacity style={styles.actionBtn}>
-                  <Ionicons name="paper-plane-outline" size={16} color={COLORS.primary} />
-                  <Text style={styles.actionText}>Remind</Text>
-                </TouchableOpacity>
-              </View>
+
             </View>
           ))
         )}

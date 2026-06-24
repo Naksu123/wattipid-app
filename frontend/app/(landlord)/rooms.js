@@ -193,7 +193,8 @@ export default function RoomsScreen() {
   const handleConfirmRegenerate = async () => {
     if (!regenRoom) return;
     setRegenConfirmVisible(false);
-    const newCode = await generateNewTenantCode(regenRoom.room_id);
+    const result = await generateNewTenantCode(regenRoom.room_id);
+    const newCode = result?.data?.code || result?.code || result; // Fallback just in case
     setRegenSuccessMsg(`Room: ${regenRoom.room_id}\nNew Code: ${newCode}`);
     setRegenSuccessVisible(true);
     loadRooms();
@@ -211,7 +212,7 @@ export default function RoomsScreen() {
       if (!codeToSend) {
         const generateRes = await generateNewTenantCode(selectedRoom.room_id);
         if (generateRes && generateRes.success) {
-          codeToSend = generateRes.code;
+          codeToSend = generateRes.data?.tenant_code || generateRes.code;
         } else {
           Alert.alert('Error', 'Failed to generate an access code automatically. Please try again.');
           setSending(false);

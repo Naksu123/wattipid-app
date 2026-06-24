@@ -415,16 +415,18 @@ export default function LandlordSettings() {
           <View style={styles.modalContent}>
             <View style={[styles.modalIconBox, { backgroundColor: 'rgba(239,68,68,0.1)' }]}><Ionicons name="warning" size={32} color={COLORS.danger} /></View>
             <Text style={styles.modalTitle}>Penalty Settings</Text>
-            <Text style={styles.modalDesc}>Configure automated late fees.</Text>
+            <Text style={styles.modalDesc}>3-Day Payment Policy: Tenants must settle within 3 calendar days after receiving the billing statement.</Text>
             
             <View style={[styles.form, { marginTop: 10 }]}>
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>GRACE PERIOD (DAYS)</Text>
-                <TextInput style={styles.input} value={penaltyGrace} onChangeText={setPenaltyGrace} keyboardType="numeric" placeholder="3" placeholderTextColor={COLORS.textMuted} />
+                <Text style={styles.label}>PAYMENT DUE PERIOD (DAYS)</Text>
+                <TextInput style={[styles.input, { opacity: 0.5 }]} value="3" editable={false} keyboardType="numeric" />
+                <Text style={{ color: COLORS.textMuted, fontSize: 11, marginTop: 4 }}>Fixed at 3 days per billing policy</Text>
               </View>
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>PENALTY RATE (% OF TOTAL BILL)</Text>
                 <TextInput style={styles.input} value={penaltyRate} onChangeText={setPenaltyRate} keyboardType="numeric" placeholder="2.00" placeholderTextColor={COLORS.textMuted} />
+                <Text style={{ color: COLORS.textMuted, fontSize: 11, marginTop: 4 }}>One-time flat penalty applied after due date</Text>
               </View>
             </View>
 

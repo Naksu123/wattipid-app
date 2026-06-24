@@ -552,6 +552,41 @@ export default function DashboardScreen() {
         </View>
         <GlassCard style={ms.soaCard}>
           
+          {/* 3-Day Policy Status Banner */}
+          {billingCycle?.status === 'completed' && billingCycle?.payment_status !== 'paid' && daysUntilDue !== null && (
+            <View style={{
+              flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+              paddingVertical: 8, paddingHorizontal: 12, borderRadius: 10, marginBottom: 12,
+              backgroundColor: daysUntilDue < 0 
+                ? 'rgba(239,68,68,0.12)' 
+                : daysUntilDue === 0 
+                  ? 'rgba(239,68,68,0.1)' 
+                  : daysUntilDue <= 1 
+                    ? 'rgba(245,158,11,0.1)' 
+                    : 'rgba(16,185,129,0.1)',
+            }}>
+              <Ionicons 
+                name={daysUntilDue < 0 ? 'alert-circle' : daysUntilDue === 0 ? 'alarm' : 'time'} 
+                size={16} 
+                color={daysUntilDue < 0 ? '#DC2626' : daysUntilDue === 0 ? '#DC2626' : daysUntilDue <= 1 ? '#F59E0B' : COLORS.success}
+                style={{ marginRight: 6 }} 
+              />
+              <Text style={{
+                fontSize: 12, fontWeight: '700',
+                color: daysUntilDue < 0 ? '#DC2626' : daysUntilDue === 0 ? '#DC2626' : daysUntilDue <= 1 ? '#F59E0B' : COLORS.success,
+              }}>
+                {daysUntilDue < 0 
+                  ? (parseFloat(billingCycle?.penalty_amount || 0) > 0 ? '⚠️ PENALTY APPLIED' : `OVERDUE BY ${Math.abs(daysUntilDue)} DAY${Math.abs(daysUntilDue) !== 1 ? 'S' : ''}`)
+                  : daysUntilDue === 0 
+                    ? '🚨 DUE TODAY - Pay now to avoid penalty'
+                    : daysUntilDue === 1 
+                      ? '⏰ DUE TOMORROW'
+                      : `${daysUntilDue} DAYS REMAINING`
+                }
+              </Text>
+            </View>
+          )}
+
           <View style={ms.soaAmountRow}>
             <View>
               <Text style={ms.soaLabel}>Amount Due</Text>
@@ -572,19 +607,17 @@ export default function DashboardScreen() {
             </Text>
           </View>
           <View style={ms.soaRow}>
+            <Text style={ms.soaLabel}>Billing Issue Date</Text>
+            <Text style={[ms.soaValue, { fontSize: 13 }]}>
+              {billingCycle?.cycle_end ? new Date(billingCycle.cycle_end).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '--'}
+            </Text>
+          </View>
+          <View style={ms.soaRow}>
             <Text style={ms.soaLabel}>Billing Period</Text>
             <Text style={[ms.soaValue, { fontSize: 13 }]}>
               {billingCycle?.cycle_start ? new Date(billingCycle.cycle_start).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '--'} - {billingCycle?.cycle_end ? new Date(billingCycle.cycle_end).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '--'}
             </Text>
           </View>
-          {daysUntilDue !== null && daysUntilDue < 0 && (
-            <View style={ms.soaRow}>
-              <Text style={ms.soaLabel}>Penalty Applied</Text>
-              <Text style={[ms.soaValue, { color: COLORS.danger, fontWeight: 'bold' }]}>
-                ₱{Number(billingCycle?.penalty_amount || 0).toFixed(2)}
-              </Text>
-            </View>
-          )}
 
           <View style={ms.soaActions}>
             <TouchableOpacity style={ms.soaBtnSecondary} onPress={() => router.push('/(tenant)/billing')}>

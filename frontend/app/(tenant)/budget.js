@@ -123,13 +123,15 @@ export default function BudgetScreen() {
 
   const formatDate = (ts) => {
     if (!ts) return '';
-    const d = new Date(ts);
+    const safeTs = typeof ts === 'string' ? ts.replace(' ', 'T') : ts;
+    const d = new Date(safeTs);
     const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
     return `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
   };
   const formatTime = (ts) => {
     if (!ts) return '';
-    const d = new Date(ts);
+    const safeTs = typeof ts === 'string' ? ts.replace(' ', 'T') : ts;
+    const d = new Date(safeTs);
     return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
@@ -351,7 +353,7 @@ export default function BudgetScreen() {
               <View style={s.remainingInfo}>
                 <Ionicons name="time-outline" size={14} color={COLORS.textMuted} />
                 <Text style={s.remainingText}>
-                  {billingCycle ? Math.max(0, Math.ceil((new Date(billingCycle.billing_end_date) - new Date()) / (1000 * 60 * 60 * 24))) : (budgetData?.remaining_days || 0)} days remaining this cycle
+                  {billingCycle?.cycle_end ? Math.max(0, Math.ceil((new Date(billingCycle.cycle_end.replace(' ', 'T')) - new Date()) / (1000 * 60 * 60 * 24))) : (budgetData?.remaining_days || 0)} days remaining this cycle
                 </Text>
               </View>
             </GlassCard>

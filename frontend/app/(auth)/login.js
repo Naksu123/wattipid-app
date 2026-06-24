@@ -46,7 +46,18 @@ export default function LoginScreen() {
         router.replace(role === 'landlord' ? '/(landlord)/overview' : '/(tenant)/dashboard');
       }
     } else {
-      Alert.alert('Login Failed', result?.message || 'Server returned an invalid response.');
+      if (result?.message === 'Account not verified') {
+        Alert.alert(
+          'Account Not Verified',
+          'You have not verified your email address yet.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Verify Now', onPress: () => router.push({ pathname: '/(auth)/verify', params: { email: email.trim() } }) }
+          ]
+        );
+      } else {
+        Alert.alert('Login Failed', result?.message || 'Server returned an invalid response.');
+      }
     }
   };
 

@@ -151,6 +151,15 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const resendVerificationCode = async (email) => {
+    try {
+      const response = await apiClient.post('/api.php?action=sendVerificationCode', { email });
+      return response.data;
+    } catch (error) {
+      return { success: false, message: 'Failed to resend code' };
+    }
+  };
+
   return (
     <AuthContext.Provider value={{ 
       user, 
@@ -161,6 +170,7 @@ export const AuthProvider = ({ children }) => {
       logout, 
       register, 
       verifyEmail,
+      resendVerificationCode,
       updateProfile,
       changePassword
     }}>
