@@ -4,8 +4,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING, RADIUS, FONT_WEIGHT, SHADOWS } from '@/styles/theme';
 import apiClient from '../../services/apiClient';
 import { router } from 'expo-router';
+import { useNotification } from '../../contexts/NotificationContext';
 
 export default function NotificationCenter() {
+  const { refreshUnreadCount } = useNotification();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -35,8 +37,9 @@ export default function NotificationCenter() {
 
   const handleMarkAllRead = async () => {
     try {
-      await apiClient.post('/api.php', { action: 'markAllAsRead' });
+      await apiClient.post('/api.php', { action: 'markAllNotificationsRead' });
       setNotifications(prev => prev.map(n => ({ ...n, is_read: 1 })));
+      refreshUnreadCount();
     } catch (err) {
       console.error('Failed to mark all as read:', err);
     }
@@ -44,8 +47,9 @@ export default function NotificationCenter() {
 
   const handleMarkRead = async (id) => {
     try {
-      await apiClient.post('/api.php', { action: 'markAsRead', notificationId: id });
+      await apiClient.post('/api.php', { action: 'markNotificationRead', notificationId: id });
       setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: 1 } : n));
+      refreshUnreadCount();
     } catch (err) {
       console.error('Failed to mark as read:', err);
     }

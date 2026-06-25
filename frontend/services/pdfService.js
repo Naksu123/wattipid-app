@@ -317,6 +317,12 @@ export async function generateCycleReport({ roomId, tenantName, startDate, endDa
     ? new Date(billingCycle.due_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).replace(/ /g, '-')
     : fallbackDueDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).replace(/ /g, '-');
 
+  const actualDueDate = billingCycle && billingCycle.due_date ? new Date(billingCycle.due_date) : fallbackDueDate;
+  const now = new Date();
+  const diffTime = now - actualDueDate;
+  const daysOverdueCalc = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  const daysOverdue = daysOverdueCalc > 0 ? daysOverdueCalc : 0;
+
   const html = `
 <!DOCTYPE html>
 <html>
@@ -608,9 +614,16 @@ export async function generateCycleReport({ roomId, tenantName, startDate, endDa
       ${isPaid 
         ? `<div class="overdue-row total" style="color:#16A34A; border-color: #BBF7D0;"><span>FULLY PAID</span></div>`
         : penaltyFee > 0 
-            ? `<div class="overdue-row"><span>Original Amount Due</span><span>${(totalDue - penaltyFee).toFixed(2)}</span></div>
-               <div class="overdue-row" style="color:#DC2626;"><span>Penalty Applied (${penaltyRatePercent}%)</span><span>+ ${penaltyFee.toFixed(2)}</span></div>
-               <div class="overdue-row total" style="color:red;"><span>TOTAL OUTSTANDING</span><span>${totalDue.toFixed(2)}</span></div>`
+            ? (() => {
+                 const originalAmountForPenalty = totalDue - penaltyFee;
+                 const dailyPenaltyAmountCalc = (originalAmountForPenalty * (penaltyRatePercent / 100)).toFixed(2);
+                 return `<div class="overdue-row"><span>Original Amount Due</span><span>${originalAmountForPenalty.toFixed(2)}</span></div>
+               <div class="overdue-row"><span>Daily Penalty Rate</span><span>${penaltyRatePercent}%</span></div>
+               <div class="overdue-row"><span>Daily Penalty</span><span>${dailyPenaltyAmountCalc}</span></div>
+               <div class="overdue-row"><span>Days Overdue</span><span>${daysOverdue}</span></div>
+               <div class="overdue-row" style="color:#DC2626;"><span>Total Penalty</span><span>+ ${penaltyFee.toFixed(2)}</span></div>
+               <div class="overdue-row total" style="color:red;"><span>CURRENT BALANCE</span><span>${totalDue.toFixed(2)}</span></div>`;
+               })()
             : `<div class="overdue-row"><span>Penalty if paid after Due Date (${penaltyRatePercent}%)</span><span>${estimatedPenalty.toFixed(2)}</span></div>
                <div class="overdue-row total"><span>Amount Due After ${dueDateStr}</span><span>${(remainingBalance + estimatedPenalty).toFixed(2)}</span></div>`
       }

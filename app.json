@@ -58,6 +58,10 @@
       "typedRoutes": true,
       "reactCompiler": true
     },
+    "notification": {
+      "icon": "./frontend/assets/images/android-icon-monochrome.png",
+      "color": "#10B981"
+    },
     "extra": {
       "router": {
         "root": "./frontend/app"

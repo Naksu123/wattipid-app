@@ -11,12 +11,15 @@ import PowerGauge from '../../components/ui/PowerGauge';
 import GlassCard from '../../components/ui/GlassCard';
 import StatusBadge from '../../components/ui/StatusBadge';
 import AlertModal from '../../components/modals/AlertModal';
+import DashboardAlertCard from '../../components/ui/DashboardAlertCard';
 import { COLORS, SPACING } from '@/styles/theme';
 import ms from '@/styles/tenant/dashboard.styles';
 import { getDashboardSummary, getForecast } from '../../services/consumptionService';
 import apiClient from '../../services/apiClient';
-import { getBillingCycle, getPaymentInsights, getNotifications } from '../../services/database';
+import { getBillingCycle, getPaymentInsights } from '../../services/database';
+import { getNotificationHistory } from '../../services/notificationApi';
 import { tipsService } from '../../services/tipsService';
+import { useNotification } from '@/contexts/NotificationContext';
 
 export default function DashboardScreen() {
   const { user, isAuthenticated } = useAuth();
@@ -46,10 +49,12 @@ export default function DashboardScreen() {
   const roomId = user?.room_id || 'Room 1';
 
   const { globalRefreshTick, unreadCount: globalUnreadCount, isOnline } = useSync();
+  const { showBanner } = useNotification();
   const [billingCycle, setBillingCycle] = useState(null);
   const [unreadCount, setUnreadCount] = useState(0); // We will sync this with globalUnreadCount
   const [paymentInsights, setPaymentInsights] = useState(null);
   const [activities, setActivities] = useState([]);
+  const [activeAlerts, setActiveAlerts] = useState([]);
 
   // Sync Global Refresh
   useEffect(() => {
@@ -109,9 +114,16 @@ export default function DashboardScreen() {
         setPaymentInsights(insights.data);
       }
 
-      const notifs = await getNotifications(roomId, user?.id);
+      const notifs = await getNotificationHistory(null, 10);
       if (notifs) {
         setActivities(notifs.slice(0, 3)); // Get top 3 recent activities
+        
+        // Extract unread critical/warning alerts for the DashboardAlertCards
+        const criticalAlerts = notifs.filter(n => 
+          n.is_read == 0 && 
+          (n.severity === 'critical' || n.category === 'penalty' || n.category === 'overdue' || (n.category === 'budget' && n.severity === 'danger'))
+        );
+        setActiveAlerts(criticalAlerts.slice(0, 2)); // Limit to top 2 to save space
       }
 
       const tipResult = await tipsService.getSmartRecommendation();
@@ -339,6 +351,12 @@ export default function DashboardScreen() {
           </View>
         </View>
 
+          {/* Global Dashboard Alert Cards (Critical Notifications) */}
+        {activeAlerts.map(alert => (
+          <View key={alert.id} style={{ marginHorizontal: SPACING.lg }}>
+            <DashboardAlertCard alert={alert} />
+          </View>
+        ))}
 
         {/* GHOST FIX: Only show budget warning banner when device is ONLINE and real data exists */}
         {!offline && budget && budgetPct >= 80 && todayUsage.totalCost > 0 && (
@@ -576,7 +594,7 @@ export default function DashboardScreen() {
                 color: daysUntilDue < 0 ? '#DC2626' : daysUntilDue === 0 ? '#DC2626' : daysUntilDue <= 1 ? '#F59E0B' : COLORS.success,
               }}>
                 {daysUntilDue < 0 
-                  ? (parseFloat(billingCycle?.penalty_amount || 0) > 0 ? '⚠️ PENALTY APPLIED' : `OVERDUE BY ${Math.abs(daysUntilDue)} DAY${Math.abs(daysUntilDue) !== 1 ? 'S' : ''}`)
+                  ? (Math.abs(daysUntilDue) >= 15 ? '⛔ IMMEDIATE ACTION REQUIRED - ' : Math.abs(daysUntilDue) >= 8 ? '💀 CRITICAL OVERDUE - ' : Math.abs(daysUntilDue) >= 4 ? '🚨 HIGH PRIORITY - ' : '⚠️ WARNING - ') + `OVERDUE BY ${Math.abs(daysUntilDue)} DAY${Math.abs(daysUntilDue) !== 1 ? 'S' : ''} (PENALTY ACCUMULATING)`
                   : daysUntilDue === 0 
                     ? '🚨 DUE TODAY - Pay now to avoid penalty'
                     : daysUntilDue === 1 
@@ -599,6 +617,38 @@ export default function DashboardScreen() {
               </Text>
             </View>
           </View>
+
+          {/* Daily Penalty Breakdown */}
+          {daysUntilDue !== null && daysUntilDue < 0 && parseFloat(billingCycle?.penalty_amount || 0) > 0 && (() => {
+            const originalAmount = Number(billingCycle.grand_total) - Number(billingCycle.penalty_amount);
+            const dailyPenalty = (originalAmount * 0.02).toFixed(2);
+            return (
+              <View style={{ backgroundColor: 'rgba(239,68,68,0.05)', borderRadius: 8, padding: 10, marginBottom: 12, borderWidth: 1, borderColor: 'rgba(239,68,68,0.2)' }}>
+                <Text style={{ fontSize: 12, fontWeight: '600', color: COLORS.danger, marginBottom: 8 }}>Penalty Computation Breakdown</Text>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                  <Text style={{ fontSize: 11, color: COLORS.textMuted }}>Original Amount Due</Text>
+                  <Text style={{ fontSize: 11, color: COLORS.textPrimary }}>₱{originalAmount.toFixed(2)}</Text>
+                </View>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                  <Text style={{ fontSize: 11, color: COLORS.textMuted }}>Daily Penalty Rate</Text>
+                  <Text style={{ fontSize: 11, color: COLORS.textPrimary }}>2%</Text>
+                </View>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                  <Text style={{ fontSize: 11, color: COLORS.textMuted }}>Daily Penalty Amount</Text>
+                  <Text style={{ fontSize: 11, color: COLORS.textPrimary }}>₱{dailyPenalty}</Text>
+                </View>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <Text style={{ fontSize: 11, color: COLORS.textMuted }}>Days Overdue</Text>
+                  <Text style={{ fontSize: 11, color: COLORS.textPrimary }}>{Math.abs(daysUntilDue)}</Text>
+                </View>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingTop: 6, borderTopWidth: 1, borderTopColor: 'rgba(239,68,68,0.2)' }}>
+                  <Text style={{ fontSize: 11, color: COLORS.danger, fontWeight: '600' }}>Total Penalty</Text>
+                  <Text style={{ fontSize: 11, color: COLORS.danger, fontWeight: '700' }}>+ ₱{Number(billingCycle.penalty_amount).toFixed(2)}</Text>
+                </View>
+              </View>
+            );
+          })()}
+
 
           <View style={ms.soaRow}>
             <Text style={ms.soaLabel}>Invoice No.</Text>

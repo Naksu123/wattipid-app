@@ -5,6 +5,7 @@ import { useFocusEffect } from 'expo-router';
 import { COLORS, SPACING, RADIUS, FONT_WEIGHT } from '@/styles/theme';
 import apiClient from '../../services/apiClient';
 import { router } from 'expo-router';
+import { useNotification } from '../../contexts/NotificationContext';
 
 const CATEGORIES = [
   { key: 'all', label: 'All', icon: 'notifications-outline' },
@@ -49,6 +50,7 @@ function timeAgo(dateStr) {
 }
 
 export default function TenantNotificationCenter() {
+  const { unreadCount, refreshUnreadCount } = useNotification();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -122,6 +124,7 @@ export default function TenantNotificationCenter() {
     try {
       await apiClient.post('/api.php', { action: 'markAllNotificationsRead' });
       setNotifications(prev => prev.map(n => ({ ...n, is_read: 1 })));
+      refreshUnreadCount();
     } catch (err) {
       console.error('Failed to mark all as read:', err.message);
     }
@@ -134,6 +137,7 @@ export default function TenantNotificationCenter() {
       if (searchResults) {
         setSearchResults(prev => prev.map(n => n.id === id ? { ...n, is_read: 1 } : n));
       }
+      refreshUnreadCount();
     } catch (err) {
       console.error('Failed to mark as read:', err.message);
     }
@@ -146,12 +150,12 @@ export default function TenantNotificationCenter() {
       if (searchResults) {
         setSearchResults(prev => prev.filter(n => n.id !== id));
       }
+      refreshUnreadCount();
     } catch (err) {
       console.error('Failed to delete notification:', err.message);
     }
   };
-
-  const unreadCount = notifications.filter(n => parseInt(n.is_read) === 0).length;
+  const unreadCountLocal = notifications.filter(n => parseInt(n.is_read) === 0).length;
   const displayList = searchResults !== null ? searchResults : notifications;
 
   const renderNotificationCard = (notif) => {

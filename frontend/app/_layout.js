@@ -11,6 +11,7 @@ import { ThemeProvider, DarkTheme } from '@react-navigation/native';
 import { COLORS } from '@/styles/theme';
 import { SyncProvider } from '@/contexts/SyncContext';
 import GlobalToast from '@/components/ui/GlobalToast';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 // Custom dark theme to match Wattipid brand
 const WattipidTheme = {
@@ -88,6 +89,9 @@ function RootLayoutContent() {
   );
 }
 
+import { NotificationProvider } from '@/contexts/NotificationContext';
+import NotificationBanner from '@/components/ui/NotificationBanner';
+
 export default function RootLayout() {
   const [ready, setReady] = useState(false);
 
@@ -109,14 +113,19 @@ export default function RootLayout() {
   if (!ready) return null;
 
   return (
-    <ThemeProvider value={WattipidTheme}>
-      <AuthProvider>
-        <StatusBar style="light" />
-        <SyncProvider>
-          <RootLayoutContent />
-        </SyncProvider>
-      </AuthProvider>
-    </ThemeProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ThemeProvider value={WattipidTheme}>
+        <AuthProvider>
+          <NotificationProvider>
+            <StatusBar style="light" />
+            <SyncProvider>
+              <RootLayoutContent />
+              <NotificationBanner />
+            </SyncProvider>
+          </NotificationProvider>
+        </AuthProvider>
+      </ThemeProvider>
+    </GestureHandlerRootView>
   );
 }
 
