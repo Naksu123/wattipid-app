@@ -15,11 +15,6 @@ export const NotificationProvider = ({ children }) => {
   useEffect(() => {
     try {
       notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
-        const { title, body, data } = notification.request.content;
-        
-        // Show our custom animated banner
-        showBanner(title, body, data?.severity || 'info', data);
-        
         // Force a sync to update the unread count immediately
         forceSync();
       });

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Alert, BackHandler } from 'react-native';
+import { View, Text, ActivityIndicator, TouchableOpacity, Alert, BackHandler } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,6 +8,7 @@ import { generateCycleReport } from '../../services/pdfService';
 import { useAuth } from '../../contexts/AuthContext';
 import GlassCard from '../../components/ui/GlassCard';
 import { COLORS, FONT_SIZE, FONT_WEIGHT, SPACING, RADIUS } from '../../styles/theme';
+import styles from '../../styles/tenant/pdf-viewer.styles';
 
 export default function PDFViewerScreen() {
     const { id, invoice_number } = useLocalSearchParams();
@@ -100,12 +101,12 @@ export default function PDFViewerScreen() {
                     headerTintColor: COLORS.textPrimary,
                     headerShadowVisible: false,
                     headerLeft: () => (
-                        <TouchableOpacity onPress={handleGoBack} style={{ marginLeft: 15, marginRight: 15 }}>
+                        <TouchableOpacity onPress={handleGoBack} style={styles.headerIconBtnLeft}>
                             <Ionicons name="arrow-back" size={24} color={COLORS.textPrimary} />
                         </TouchableOpacity>
                     ),
                     headerRight: () => (
-                        <TouchableOpacity onPress={handleShare} disabled={!pdfUri} style={{ marginRight: 15 }}>
+                        <TouchableOpacity onPress={handleShare} disabled={!pdfUri} style={styles.headerIconBtnRight}>
                             <Ionicons name="share-outline" size={24} color={pdfUri ? COLORS.primary : COLORS.textMuted} />
                         </TouchableOpacity>
                     )
@@ -156,22 +157,4 @@ export default function PDFViewerScreen() {
     );
 }
 
-const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: COLORS.background },
-    centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: SPACING.xl },
-    loadingText: { marginTop: SPACING.lg, fontSize: FONT_SIZE.md, color: COLORS.textMuted },
-    
-    successCard: { padding: SPACING.xxl, alignItems: 'center', width: '100%', maxWidth: 400 },
-    iconCircle: { width: 80, height: 80, borderRadius: 40, backgroundColor: 'rgba(16, 185, 129, 0.1)', justifyContent: 'center', alignItems: 'center', marginBottom: SPACING.xl },
-    successTitle: { fontSize: FONT_SIZE.xl, fontWeight: FONT_WEIGHT.heavy, color: COLORS.textPrimary, marginBottom: SPACING.sm, textAlign: 'center' },
-    successDesc: { fontSize: FONT_SIZE.sm, color: COLORS.textSecondary, textAlign: 'center', marginBottom: SPACING.xxl, lineHeight: 22 },
-    
-    primaryButton: { flexDirection: 'row', backgroundColor: COLORS.primary, borderRadius: RADIUS.md, paddingVertical: 14, paddingHorizontal: 24, width: '100%', justifyContent: 'center', alignItems: 'center', marginBottom: SPACING.md },
-    primaryButtonText: { color: COLORS.white, fontSize: FONT_SIZE.md, fontWeight: FONT_WEIGHT.bold, marginLeft: 8 },
-    
-    secondaryButton: { backgroundColor: 'transparent', borderRadius: RADIUS.md, paddingVertical: 14, paddingHorizontal: 24, width: '100%', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
-    secondaryButtonText: { color: COLORS.textPrimary, fontSize: FONT_SIZE.md, fontWeight: FONT_WEIGHT.bold },
-    
-    errorText: { marginTop: SPACING.lg, fontSize: FONT_SIZE.lg, color: COLORS.danger, fontWeight: FONT_WEIGHT.bold, marginBottom: SPACING.xs },
-    errorSubtext: { color: COLORS.textSecondary, fontSize: FONT_SIZE.sm, textAlign: 'center', marginBottom: SPACING.xl, paddingHorizontal: 20 }
-});
+

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Stack, useRouter, useSegments, Slot } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, ActivityIndicator } from 'react-native';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { getDatabase } from '../services/database';
 import { initNotifications, setupNotificationResponseHandler } from '../services/notificationService';
@@ -11,7 +11,9 @@ import { ThemeProvider, DarkTheme } from '@react-navigation/native';
 import { COLORS } from '@/styles/theme';
 import { SyncProvider } from '@/contexts/SyncContext';
 import GlobalToast from '@/components/ui/GlobalToast';
+import NotificationBanner from '@/components/ui/NotificationBanner';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { globalStyles } from '../styles/global.styles';
 
 // Custom dark theme to match Wattipid brand
 const WattipidTheme = {
@@ -74,9 +76,9 @@ function RootLayoutContent() {
 
   if (isLoading) {
     return (
-      <View style={styles.loading}>
-        <ActivityIndicator size="large" color="#22C55E" />
-        <Text style={styles.text}>Loading Wattipid...</Text>
+      <View style={globalStyles.loading}>
+        <ActivityIndicator size="large" color={COLORS.primary} />
+        <Text style={globalStyles.loadingText}>Loading Wattipid...</Text>
       </View>
     );
   }
@@ -85,12 +87,12 @@ function RootLayoutContent() {
     <>
       <Slot />
       <GlobalToast />
+      <NotificationBanner />
     </>
   );
 }
 
 import { NotificationProvider } from '@/contexts/NotificationContext';
-import NotificationBanner from '@/components/ui/NotificationBanner';
 
 export default function RootLayout() {
   const [ready, setReady] = useState(false);
@@ -116,29 +118,16 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ThemeProvider value={WattipidTheme}>
         <AuthProvider>
-          <NotificationProvider>
-            <StatusBar style="light" />
-            <SyncProvider>
+          <SyncProvider>
+            <NotificationProvider>
+              <StatusBar style="light" />
               <RootLayoutContent />
-              <NotificationBanner />
-            </SyncProvider>
-          </NotificationProvider>
+            </NotificationProvider>
+          </SyncProvider>
         </AuthProvider>
       </ThemeProvider>
     </GestureHandlerRootView>
   );
 }
 
-const styles = StyleSheet.create({
-  loading: {
-    flex: 1,
-    backgroundColor: '#0F172A',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  text: {
-    color: '#94A3B8',
-    marginTop: 16,
-    fontSize: 14,
-  },
-});
+

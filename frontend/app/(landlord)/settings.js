@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, TextInput, Modal, Switch, SafeAreaView, StatusBar, Platform, Image } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Alert, TextInput, Modal, Switch, SafeAreaView, StatusBar, Platform, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -12,7 +12,8 @@ import { updatePenaltySettings, getPenaltySettings } from '../../services/penalt
 import { setESP32BaseUrl, getConnectionStatus } from '../../services/esp32Api';
 import GlassCard from '../../components/ui/GlassCard';
 import { BaseModal, ModalHeader, ModalBody, ModalFooter } from '../../components/modals/BaseModal';
-import { COLORS, GRADIENTS, SPACING, RADIUS, FONT_SIZE, FONT_WEIGHT, SHADOWS } from '@/styles/theme';
+import { COLORS, GRADIENTS } from '../../styles/theme';
+import styles from '../../styles/landlord/settings.styles';
 
 export default function LandlordSettings() {
   const router = useRouter();
@@ -511,72 +512,3 @@ export default function LandlordSettings() {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  scroll: { padding: SPACING.lg },
-  title: { fontSize: 28, fontWeight: FONT_WEIGHT.bold, color: COLORS.textPrimary },
-  subtitle: { fontSize: 14, color: COLORS.textMuted, marginBottom: SPACING.xl },
-  profileCard: { padding: 20, marginBottom: SPACING.xl, borderRadius: RADIUS.xxl },
-  profileTop: { flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 16 },
-  avatar: { width: 60, height: 60, borderRadius: 30, backgroundColor: 'rgba(34,197,94,0.1)', alignItems: 'center', justifyContent: 'center' },
-  profileInfo: { flex: 1 },
-  profileName: { fontSize: 18, fontWeight: FONT_WEIGHT.bold, color: COLORS.textPrimary },
-  profileEmail: { fontSize: 13, color: COLORS.textSecondary, marginBottom: 4 },
-  roleBadge: { alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.05)' },
-  roleText: { fontSize: 9, fontWeight: '800', color: COLORS.primary, letterSpacing: 1 },
-  editProfileBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingTop: 12, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)' },
-  editProfileText: { fontSize: 12, color: COLORS.primary, fontWeight: '600' },
-  rateCard: { padding: 20, marginBottom: SPACING.xl },
-  rateHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 },
-  rateIcon: { width: 32, height: 32, borderRadius: 8, backgroundColor: 'rgba(245,158,11,0.1)', alignItems: 'center', justifyContent: 'center' },
-  rateTitle: { fontSize: 16, fontWeight: '700', color: COLORS.textPrimary },
-  rateDesc: { fontSize: 13, color: COLORS.textMuted, marginBottom: 16 },
-  rateInputRow: { flexDirection: 'row', gap: 12 },
-  currencyInput: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: RADIUS.md, paddingHorizontal: 12, borderWidth: 1, borderColor: COLORS.border },
-  currency: { fontSize: 18, color: COLORS.textSecondary, marginRight: 4 },
-  rateInput: { flex: 1, height: 48, color: COLORS.textPrimary, fontSize: 18, fontWeight: '600' },
-  updateBtn: { flex: 0.6 },
-  updateBtnGradient: { height: 48, borderRadius: RADIUS.md, alignItems: 'center', justifyContent: 'center' },
-  updateBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 14 },
-  groupTitle: { fontSize: 11, fontWeight: '800', color: COLORS.textMuted, letterSpacing: 1.5, marginBottom: 8, marginLeft: 4 },
-  menuCard: { padding: 8, marginBottom: SPACING.xl, borderRadius: RADIUS.xl },
-  menuItem: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: RADIUS.lg },
-  highlightedItem: { backgroundColor: 'rgba(34,197,94,0.05)' },
-  menuIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center', marginRight: 14 },
-  menuContent: { flex: 1 },
-  menuLabel: { fontSize: 15, fontWeight: '600', color: COLORS.textPrimary },
-  menuValue: { fontSize: 12, color: COLORS.textMuted, marginTop: 2 },
-  logoutBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, marginTop: 10, paddingVertical: 16 },
-  logoutText: { fontSize: 15, fontWeight: '700', color: COLORS.danger },
-  footerVersion: { textAlign: 'center', fontSize: 11, color: COLORS.textMuted, marginTop: 20 },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', alignItems: 'center', justifyContent: 'center', padding: 30 },
-  modalContent: { backgroundColor: COLORS.surface, width: '100%', borderRadius: 24, padding: 24, alignItems: 'center' },
-  modalIconBox: { width: 64, height: 64, borderRadius: 20, backgroundColor: 'rgba(34,197,94,0.1)', alignItems: 'center', justifyContent: 'center', marginBottom: 20 },
-  modalTitle: { fontSize: 20, fontWeight: 'bold', color: COLORS.textPrimary, marginBottom: 8 },
-  modalDesc: { fontSize: 14, color: COLORS.textMuted, textAlign: 'center', marginBottom: 24 },
-  modalInput: { width: '100%', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12, padding: 14, color: COLORS.textPrimary, fontSize: 16, textAlign: 'center', borderWidth: 1, borderColor: COLORS.border },
-  errorText: { color: COLORS.danger, fontSize: 12, marginTop: 8 },
-  modalFooter: { flexDirection: 'row', gap: 12, marginTop: 32, width: '100%' },
-  modalCancel: { flex: 1, height: 48, alignItems: 'center', justifyContent: 'center' },
-  modalCancelText: { color: COLORS.textMuted, fontWeight: '600' },
-  modalSave: { flex: 1, height: 48, backgroundColor: COLORS.primary, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  modalSaveText: { color: '#fff', fontWeight: 'bold' },
-  confirmMsg: { fontSize: 15, color: COLORS.textSecondary, textAlign: 'center', lineHeight: 22 },
-  modalMenuItem: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', width: '100%' },
-  modalMenuText: { fontSize: 14, color: COLORS.textPrimary, fontWeight: '600' },
-  aboutBox: { padding: 16, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 12, borderWidth: 1, borderColor: COLORS.border },
-  aboutText: { fontSize: 13, color: COLORS.textSecondary, lineHeight: 20, textAlign: 'center' },
-  form: { gap: 16, width: '100%' },
-  inputGroup: { gap: 8 },
-  label: { fontSize: 12, fontWeight: FONT_WEIGHT.heavy, color: COLORS.textMuted, letterSpacing: 1 },
-  input: { backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12, padding: 14, color: COLORS.textPrimary, borderWidth: 1, borderColor: COLORS.border },
-  toggleList: { width: '100%', gap: 12 },
-  toggleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8 },
-  toggleContent: { flex: 1 },
-  toggleLabel: { fontSize: 15, color: COLORS.textPrimary, fontWeight: '600' },
-  toggleDesc: { fontSize: 12, color: COLORS.textMuted, marginTop: 2 },
-  qrUploadBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: 'rgba(34,197,94,0.1)', padding: 12, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(34,197,94,0.3)', borderStyle: 'dashed' },
-  qrUploadText: { color: COLORS.primary, fontWeight: '600', fontSize: 14 },
-  qrPreview: { width: '100%', height: 120, borderRadius: 8, marginTop: 8, backgroundColor: 'rgba(255,255,255,0.02)' }
-});

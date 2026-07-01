@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, RefreshControl, ActivityIndicator, SafeAreaView, StatusBar, TouchableOpacity, Platform } from 'react-native';
+import { View, Text, ScrollView, RefreshControl, ActivityIndicator, SafeAreaView, StatusBar, TouchableOpacity, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
 import { getLiveOverview } from '../../services/database';
 import apiClient from '../../services/apiClient';
-import { COLORS, SPACING, FONT_WEIGHT, RADIUS } from '@/styles/theme';
+import { COLORS } from '../../styles/theme';
+import styles from '../../styles/landlord/overview.styles';
 
 import StatCard from '../../components/landlord/Overview/StatCard';
 import LiveConsumptionWidget from '../../components/landlord/Overview/LiveConsumptionWidget';
@@ -83,9 +84,9 @@ export default function OverviewScreen() {
 
   if (loading) {
     return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+      <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={{ color: COLORS.textMuted, marginTop: 12 }}>Syncing Live Dashboard...</Text>
+        <Text style={styles.loadingText}>Syncing Live Dashboard...</Text>
       </View>
     );
   }
@@ -154,122 +155,4 @@ export default function OverviewScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: SPACING.lg,
-    paddingTop: Platform.OS === 'android' ? 20 : SPACING.lg,
-    paddingBottom: SPACING.lg,
-    backgroundColor: COLORS.background,
-  },
-  headerLeft: {
-    flex: 1,
-  },
-  greeting: {
-    fontSize: 24,
-    fontWeight: FONT_WEIGHT.heavy,
-    color: '#ffffff',
-    letterSpacing: -0.5,
-  },
-  subtitle: {
-    fontSize: 13,
-    color: COLORS.primary,
-    fontWeight: FONT_WEIGHT.bold,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginTop: 4,
-  },
-  profileBtn: {
-    marginLeft: 16,
-  },
-  headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  iconBtn: {
-    position: 'relative',
-    padding: 4,
-  },
-  badge: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    backgroundColor: COLORS.danger,
-    borderRadius: 10,
-    minWidth: 18,
-    height: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 4,
-    borderWidth: 1.5,
-    borderColor: COLORS.background,
-  },
-  badgeText: {
-    color: '#fff',
-    fontSize: 9,
-    fontWeight: 'bold',
-  },
-  profileIconWrapper: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(59, 130, 246, 0.1)', // Primary tint
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(59, 130, 246, 0.2)',
-  },
-  scroll: {
-    paddingHorizontal: SPACING.lg,
-    paddingTop: SPACING.sm,
-  },
-  gridRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 12,
-    marginBottom: 12,
-  },
-  totalBanner: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: 'rgba(59, 130, 246, 0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(59, 130, 246, 0.15)',
-    borderRadius: 16,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    marginBottom: 12,
-  },
-  totalLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  totalLabel: {
-    fontSize: 15,
-    fontWeight: FONT_WEIGHT.bold,
-    color: COLORS.textPrimary,
-  },
-  totalValue: {
-    fontSize: 28,
-    fontWeight: FONT_WEIGHT.heavy,
-    color: COLORS.primary,
-  },
-  sectionTitle: {
-    fontSize: 14,
-    fontWeight: FONT_WEIGHT.bold,
-    color: '#94a3b8',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginBottom: 12,
-    marginLeft: 4,
-  }
-});
+

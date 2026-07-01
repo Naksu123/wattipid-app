@@ -24,6 +24,25 @@ export async function getNotificationHistory(category = null, limit = 50, offset
 }
 
 /**
+ * Create a new notification from the frontend.
+ */
+export async function createFrontendAlert(roomId, type, category, severity, title, message, dataPayload = {}) {
+  try {
+    await apiCall('createNotification', {
+      roomId,
+      type,
+      category,
+      severity,
+      title,
+      message,
+      data: dataPayload
+    });
+  } catch (err) {
+    console.warn('[API Bridge Error] createFrontendAlert:', err.message);
+  }
+}
+
+/**
  * Get unread notification count.
  * GHOST FIX: Returns 0 on error to prevent badge count spam.
  */
@@ -108,6 +127,6 @@ export async function registerPushToken(pushToken, userId = null, deviceName = n
       platform: 'android'
     });
   } catch (e) {
-    console.log('ℹ️ Push registration skipped or delayed:', e.message);
+    console.log('Push registration skipped or delayed:', e.message);
   }
 }

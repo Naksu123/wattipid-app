@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, RefreshControl, ActivityIndicator, SafeAreaView, StatusBar, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, RefreshControl, ActivityIndicator, SafeAreaView, StatusBar, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { getLiveOverview } from '../../services/database';
 import { getPaymentHistory } from '../../services/paymentService';
-import { COLORS, SPACING, FONT_WEIGHT, RADIUS } from '@/styles/theme';
+import { COLORS } from '../../styles/theme';
+import styles from '../../styles/landlord/payments.styles';
 
 import PaymentStatusWidget from '../../components/landlord/Overview/PaymentStatusWidget';
 import PendingPaymentsWidget from '../../components/landlord/Overview/PendingPaymentsWidget';
@@ -63,9 +64,9 @@ export default function PaymentsDashboard() {
 
   if (loading) {
     return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+      <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={{ color: COLORS.textMuted, marginTop: 12 }}>Syncing Finances...</Text>
+        <Text style={styles.loadingText}>Syncing Finances...</Text>
       </View>
     );
   }
@@ -124,41 +125,4 @@ export default function PaymentsDashboard() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: SPACING.lg,
-    paddingTop: SPACING.xl,
-    paddingBottom: SPACING.md,
-  },
-  headerLeft: {
-    flex: 1,
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: FONT_WEIGHT.heavy,
-    color: COLORS.textPrimary,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: COLORS.textMuted,
-    marginTop: 2,
-  },
-  headerIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: 'rgba(14, 165, 233, 0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  scroll: {
-    padding: SPACING.lg,
-  }
-});
+

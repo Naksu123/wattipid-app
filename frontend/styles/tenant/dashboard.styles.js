@@ -36,33 +36,6 @@ export default StyleSheet.create({
     fontSize: FONT_SIZE.xs, 
     fontWeight: FONT_WEIGHT.semibold 
   },
-  alertBanner: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    gap: SPACING.md, 
-    padding: SPACING.md, 
-    marginBottom: SPACING.lg, 
-    borderLeftWidth: 4 
-  },
-  alertBannerIcon: { 
-    width: 44, 
-    height: 44, 
-    borderRadius: RADIUS.md, 
-    alignItems: 'center', 
-    justifyContent: 'center' 
-  },
-  alertBannerContent: { 
-    flex: 1 
-  },
-  alertBannerTitle: { 
-    fontSize: FONT_SIZE.md, 
-    fontWeight: FONT_WEIGHT.bold 
-  },
-  alertBannerSub: { 
-    fontSize: FONT_SIZE.sm, 
-    color: COLORS.textSecondary, 
-    marginTop: 4 
-  },
   compChip: { 
     flexDirection: 'row', 
     alignItems: 'center', 

@@ -144,14 +144,11 @@ void loop() {
     rawCurrent = 0.0;
   }
 
-  // Smoothly glide the needle on the dashboard so it looks professional (85%
-  // old, 15% new)
-  static float smoothedCurrent = 0.0;
-  smoothedCurrent = (smoothedCurrent * 0.85) + (rawCurrent * 0.15);
+  // Removed all mathematical smoothing so the value jumps instantly (zero delay)
+  float current = rawCurrent;
 
-  if (smoothedCurrent < 0.05)
-    smoothedCurrent = 0.0;
-  float current = smoothedCurrent;
+  if (current < 0.05)
+    current = 0.0;
 
   delay(10); // let ADC settle
 
@@ -211,16 +208,12 @@ void loop() {
   display.printf("E: %.4fkWh", totalKWh);
   display.display();
 
-  // --- SEND TO API every 5 seconds ---
-  if (now - lastSendMillis >= 5000) {
-    sendToApp(voltage, current, power, totalKWh);
-    lastSendMillis = now;
-  }
+  // --- SEND TO API (NO DELAY - INSTANT REALTIME) ---
+  sendToApp(voltage, current, power, totalKWh);
 
-  // The entire loop pauses here for exactly 2 seconds before the next reading.
-  // This makes the Serial Monitor and OLED screen slow down for easy
-  // presentation.
-  delay(2000);
+  // Removed the 2-second presentation delay so the dashboard gets data instantly!
+  // (We use a very tiny 50ms delay just to prevent WiFi stack crashes)
+  delay(50);
 }
 
 void sendToApp(float v, float i, float p, float e) {

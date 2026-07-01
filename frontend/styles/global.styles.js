@@ -21,4 +21,15 @@ export const globalStyles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  loading: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    color: COLORS.textMuted,
+    marginTop: 16,
+    fontSize: 14,
+  },
 });

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, RefreshControl, TouchableOpacity } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRef } from 'react';
@@ -10,16 +10,18 @@ import { fetchRealtimeData, isDeviceConnected } from '../../services/esp32Api';
 import PowerGauge from '../../components/ui/PowerGauge';
 import GlassCard from '../../components/ui/GlassCard';
 import StatusBadge from '../../components/ui/StatusBadge';
-import AlertModal from '../../components/modals/AlertModal';
-import DashboardAlertCard from '../../components/ui/DashboardAlertCard';
 import { COLORS, SPACING } from '@/styles/theme';
 import ms from '@/styles/tenant/dashboard.styles';
 import { getDashboardSummary, getForecast } from '../../services/consumptionService';
 import apiClient from '../../services/apiClient';
 import { getBillingCycle, getPaymentInsights } from '../../services/database';
-import { getNotificationHistory } from '../../services/notificationApi';
+import { getNotificationHistory, createFrontendAlert } from '../../services/notificationApi';
 import { tipsService } from '../../services/tipsService';
 import { useNotification } from '@/contexts/NotificationContext';
+
+let globalLastAlertKey = null;
+let globalLastTipKey = null;
+let globalTipDismissed = false;
 
 export default function DashboardScreen() {
   const { user, isAuthenticated } = useAuth();
@@ -36,12 +38,14 @@ export default function DashboardScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [lastSeen, setLastSeen] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [lastAlertKey, setLastAlertKey] = useState(null);
-  const [alertData, setAlertData] = useState(null);
-  const [alertVisible, setAlertVisible] = useState(false);
+  const [lastAlertKey, setLastAlertKeyState] = useState(globalLastAlertKey);
+  const [lastTipKey, setLastTipKeyState] = useState(globalLastTipKey);
+  const setLastAlertKey = (key) => { globalLastAlertKey = key; setLastAlertKeyState(key); };
+  const setLastTipKey = (key) => { globalLastTipKey = key; setLastTipKeyState(key); };
   const [smartTip, setSmartTip] = useState(null);
   const [randomTip, setRandomTip] = useState(null);
-  const [tipDismissed, setTipDismissed] = useState(false);
+  const [tipDismissed, setTipDismissedState] = useState(globalTipDismissed);
+  const setTipDismissed = (val) => { globalTipDismissed = val; setTipDismissedState(val); };
   // GHOST FIX: Track whether we have REAL device data
   const [deviceOnline, setDeviceOnline] = useState(false);
   const lastNotifyTime = useRef(0);
@@ -51,10 +55,9 @@ export default function DashboardScreen() {
   const { globalRefreshTick, unreadCount: globalUnreadCount, isOnline } = useSync();
   const { showBanner } = useNotification();
   const [billingCycle, setBillingCycle] = useState(null);
-  const [unreadCount, setUnreadCount] = useState(0); // We will sync this with globalUnreadCount
+  const [unreadCount, setUnreadCount] = useState(0); 
   const [paymentInsights, setPaymentInsights] = useState(null);
   const [activities, setActivities] = useState([]);
-  const [activeAlerts, setActiveAlerts] = useState([]);
 
   // Sync Global Refresh
   useEffect(() => {
@@ -117,13 +120,6 @@ export default function DashboardScreen() {
       const notifs = await getNotificationHistory(null, 10);
       if (notifs) {
         setActivities(notifs.slice(0, 3)); // Get top 3 recent activities
-        
-        // Extract unread critical/warning alerts for the DashboardAlertCards
-        const criticalAlerts = notifs.filter(n => 
-          n.is_read == 0 && 
-          (n.severity === 'critical' || n.category === 'penalty' || n.category === 'overdue' || (n.category === 'budget' && n.severity === 'danger'))
-        );
-        setActiveAlerts(criticalAlerts.slice(0, 2)); // Limit to top 2 to save space
       }
 
       const tipResult = await tipsService.getSmartRecommendation();
@@ -150,6 +146,7 @@ export default function DashboardScreen() {
   const budgetRef = useRef(budget);
   const lastSeenRef = useRef(lastSeen);
   const lastAlertKeyRef = useRef(lastAlertKey);
+  const lastTipKeyRef = useRef(lastTipKey);
   const deviceOnlineRef = useRef(deviceOnline);
 
   useEffect(() => {
@@ -157,8 +154,9 @@ export default function DashboardScreen() {
     budgetRef.current = budget;
     lastSeenRef.current = lastSeen;
     lastAlertKeyRef.current = lastAlertKey;
+    lastTipKeyRef.current = lastTipKey;
     deviceOnlineRef.current = deviceOnline;
-  }, [todayUsage, budget, lastSeen, lastAlertKey, deviceOnline]);
+  }, [todayUsage, budget, lastSeen, lastAlertKey, lastTipKey, deviceOnline]);
 
 
   const fetchRealtimeDataLoop = useCallback(async () => {
@@ -196,10 +194,19 @@ export default function DashboardScreen() {
 
       setRelayOn(sensorData.relayState !== false);
 
-      // GHOST FIX: Only generate smart tips from REAL, validated data when online
+      // Generate smart tips from REAL, validated data when online
       if (sensorData.online) {
         const tip = getSmartPopupTip(sensorData.power, todayUsageRef.current?.totalCost || 0, budgetRef.current);
         setSmartTip(tip);
+
+        if (tip && (tip.color === COLORS.danger || tip.color === COLORS.warning)) {
+          const tipAlertKey = `tip-${tip.title}`;
+          if (tipAlertKey !== lastTipKeyRef.current) {
+            showBanner(tip.title, tip.message, tip.color === COLORS.danger ? 'critical' : 'warning', { route: '/(tenant)/analytics' });
+            createFrontendAlert(roomId, 'smart_tip', 'consumption', tip.color === COLORS.danger ? 'critical' : 'warning', tip.title, tip.message, { route: '/(tenant)/analytics' });
+            setLastTipKey(tipAlertKey);
+          }
+        }
       } else {
         setSmartTip(null);
       }
@@ -211,14 +218,12 @@ export default function DashboardScreen() {
         if (alert) {
           const alertKey = `${alert.title}-${alert.type}`;
           if (alertKey !== lastAlertKeyRef.current) {
-            setAlertData(alert);
-            setAlertVisible(true);
+            showBanner(alert.title, alert.message, alert.type === 'danger' ? 'critical' : 'warning', { route: '/(tenant)/analytics' });
+            createFrontendAlert(roomId, 'high_consumption', 'consumption', alert.type === 'danger' ? 'critical' : 'warning', alert.title, alert.message, { route: '/(tenant)/analytics' });
             setLastAlertKey(alertKey);
 
-            // Cooldown: only send push every 5 minutes
             const now = Date.now();
             if (now - lastNotifyTime.current > 300000) {
-              sendLocalNotification(alert.title, alert.message);
               lastNotifyTime.current = now;
             }
           }
@@ -240,8 +245,8 @@ export default function DashboardScreen() {
     // 1. Initial fetch of everything
     fetchStaticData().then(() => fetchRealtimeDataLoop());
 
-    // 2. Real-time loop (5 seconds for ESP32 consumption)
-    const realtimeInterval = setInterval(fetchRealtimeDataLoop, 5000);
+    // 2. Real-time loop (1 second for instant UI updates when ESP32 sends data)
+    const realtimeInterval = setInterval(fetchRealtimeDataLoop, 1000);
 
     return () => {
       clearInterval(realtimeInterval);
@@ -351,39 +356,7 @@ export default function DashboardScreen() {
           </View>
         </View>
 
-          {/* Global Dashboard Alert Cards (Critical Notifications) */}
-        {activeAlerts.map(alert => (
-          <View key={alert.id} style={{ marginHorizontal: SPACING.lg }}>
-            <DashboardAlertCard alert={alert} />
-          </View>
-        ))}
 
-        {/* GHOST FIX: Only show budget warning banner when device is ONLINE and real data exists */}
-        {!offline && budget && budgetPct >= 80 && todayUsage.totalCost > 0 && (
-          <TouchableOpacity activeOpacity={0.8} onPress={() => {
-            setAlertData({
-              type: budgetPct >= 100 ? 'danger' : 'warning',
-              title: budgetPct >= 100 ? 'Budget Exceeded!' : 'Budget Warning',
-              message: `Daily spending at ${Number(budgetPct || 0).toFixed(0)}% (₱${Number(todayUsage.totalCost || 0).toFixed(2)} / ₱${Number(budget.daily_allowance || 0).toFixed(2)}).`,
-              tip: 'Reduce your power usage now. Turn off lights, unplug chargers, and avoid using high-wattage appliances.',
-            });
-            setAlertVisible(true);
-          }}>
-            <GlassCard style={[ms.alertBanner, { borderLeftColor: budgetPct >= 100 ? COLORS.danger : COLORS.warning }]}>
-              <View style={[ms.alertBannerIcon, { backgroundColor: budgetPct >= 100 ? 'rgba(239,68,68,0.12)' : 'rgba(245,158,11,0.12)' }]}>
-                <Ionicons name={budgetPct >= 100 ? 'alert-circle' : 'warning'} size={22}
-                  color={budgetPct >= 100 ? COLORS.danger : COLORS.warning} />
-              </View>
-              <View style={ms.alertBannerContent}>
-                <Text style={[ms.alertBannerTitle, { color: budgetPct >= 100 ? COLORS.danger : COLORS.warning }]}>
-                  {budgetPct >= 100 ? 'Budget Exceeded' : 'Approaching Limit'}
-                </Text>
-                <Text style={ms.alertBannerSub}>{Number(budgetPct || 0).toFixed(0)}% of daily budget used • Tap for tips</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={16} color={COLORS.textMuted} />
-            </GlassCard>
-          </TouchableOpacity>
-        )}
 
         {/* Comparison Chip — only show if device has real data */}
         {!offline && comparison && comparison.costPctChange !== 0 && (
@@ -440,13 +413,12 @@ export default function DashboardScreen() {
               <TouchableOpacity
                 style={{ marginTop: 12, paddingVertical: 8, paddingHorizontal: 20, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}
                 onPress={() => {
-                  setAlertData({
-                    type: 'info',
-                    title: 'Troubleshooting Offline Device',
-                    message: "1. Ensure your WiFi router is on.\n2. Check if the submeter LED is blinking.\n3. Try unplugging and re-plugging the submeter.\n4. If the issue persists, contact your landlord.",
-                    tip: 'Monitoring will resume automatically once the device reconnects.'
-                  });
-                  setAlertVisible(true);
+                  showBanner(
+                    'Troubleshooting Offline Device',
+                    "1. Ensure your WiFi router is on.\n2. Check if the submeter LED is blinking.\n3. Try unplugging and re-plugging the submeter.\n4. If the issue persists, contact your landlord.",
+                    'info',
+                    { route: '/(tenant)/dashboard' }
+                  );
                 }}
               >
                 <Text style={{ color: COLORS.primary, fontWeight: '500' }}>How to fix this?</Text>
@@ -570,41 +542,6 @@ export default function DashboardScreen() {
         </View>
         <GlassCard style={ms.soaCard}>
           
-          {/* 3-Day Policy Status Banner */}
-          {billingCycle?.status === 'completed' && billingCycle?.payment_status !== 'paid' && daysUntilDue !== null && (
-            <View style={{
-              flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-              paddingVertical: 8, paddingHorizontal: 12, borderRadius: 10, marginBottom: 12,
-              backgroundColor: daysUntilDue < 0 
-                ? 'rgba(239,68,68,0.12)' 
-                : daysUntilDue === 0 
-                  ? 'rgba(239,68,68,0.1)' 
-                  : daysUntilDue <= 1 
-                    ? 'rgba(245,158,11,0.1)' 
-                    : 'rgba(16,185,129,0.1)',
-            }}>
-              <Ionicons 
-                name={daysUntilDue < 0 ? 'alert-circle' : daysUntilDue === 0 ? 'alarm' : 'time'} 
-                size={16} 
-                color={daysUntilDue < 0 ? '#DC2626' : daysUntilDue === 0 ? '#DC2626' : daysUntilDue <= 1 ? '#F59E0B' : COLORS.success}
-                style={{ marginRight: 6 }} 
-              />
-              <Text style={{
-                fontSize: 12, fontWeight: '700',
-                color: daysUntilDue < 0 ? '#DC2626' : daysUntilDue === 0 ? '#DC2626' : daysUntilDue <= 1 ? '#F59E0B' : COLORS.success,
-              }}>
-                {daysUntilDue < 0 
-                  ? (Math.abs(daysUntilDue) >= 15 ? '⛔ IMMEDIATE ACTION REQUIRED - ' : Math.abs(daysUntilDue) >= 8 ? '💀 CRITICAL OVERDUE - ' : Math.abs(daysUntilDue) >= 4 ? '🚨 HIGH PRIORITY - ' : '⚠️ WARNING - ') + `OVERDUE BY ${Math.abs(daysUntilDue)} DAY${Math.abs(daysUntilDue) !== 1 ? 'S' : ''} (PENALTY ACCUMULATING)`
-                  : daysUntilDue === 0 
-                    ? '🚨 DUE TODAY - Pay now to avoid penalty'
-                    : daysUntilDue === 1 
-                      ? '⏰ DUE TOMORROW'
-                      : `${daysUntilDue} DAYS REMAINING`
-                }
-              </Text>
-            </View>
-          )}
-
           <View style={ms.soaAmountRow}>
             <View>
               <Text style={ms.soaLabel}>Amount Due</Text>
@@ -737,16 +674,6 @@ export default function DashboardScreen() {
         </GlassCard>
       </ScrollView>
 
-      {/* Alert Pop-up Modal */}
-      <AlertModal
-        visible={alertVisible}
-        type={alertData?.type || 'warning'}
-        title={alertData?.title || 'Alert'}
-        message={alertData?.message || ''}
-        customTip={alertData?.tip}
-        onAcknowledge={() => setAlertVisible(false)}
-        showTip
-      />
     </View>
   );
 }
@@ -762,10 +689,12 @@ function detectHighConsumption(currentPower, budget, todayUsage) {
   // First, check if the daily budget is exceeded (regardless of current power load)
   if (budget && budget.daily_allowance > 0 && todayUsage && todayUsage.totalCost > 0) {
     if (todayUsage.totalCost >= budget.daily_allowance) {
+      const todayCostNum = parseFloat(todayUsage.totalCost) || 0;
+      const budgetNum = parseFloat(budget.daily_allowance) || 0;
       return {
         type: 'danger',
         title: 'Daily Budget Exceeded!',
-        message: `You have hit your daily limit! Your total cost today is ₱${todayUsage.totalCost.toFixed(2)} (Budget: ₱${budget.daily_allowance.toFixed(2)}).`,
+        message: `You have hit your daily limit! Your total cost today is ₱${todayCostNum.toFixed(2)} (Budget: ₱${budgetNum.toFixed(2)}).`,
         tip: 'Minimize non-essential appliances for the rest of the day to avoid high bills.'
       };
     }
@@ -781,7 +710,7 @@ function detectHighConsumption(currentPower, budget, todayUsage) {
     return null;
   }
 
-  if (currentPower >= 700) {
+  if (currentPower >= 750) {
     return {
       type: 'danger',
       title: '⚠️ Critical Power Usage!',
@@ -790,7 +719,7 @@ function detectHighConsumption(currentPower, budget, todayUsage) {
     };
   }
 
-  if (currentPower >= 240) {
+  if (currentPower >= 500) {
     return {
       type: 'warning',
       title: 'High Consumption Alert',
@@ -815,16 +744,25 @@ function getSmartPopupTip(power, todayCost, budget) {
       icon: 'alert-circle',
       color: COLORS.danger,
       title: 'Budget Exhausted',
-      message: 'You have reached your daily limit. Try to minimize usage until tomorrow.'
+      message: 'You hit your daily limit! To avoid extra costs, unplug idle electronics, turn off unnecessary lights, and avoid using heavy appliances like irons or heaters for the rest of the day.'
     };
   }
 
-  if (power > 1000) {
+  if (power >= 750) {
     return {
       icon: 'flash',
+      color: COLORS.danger,
+      title: 'Critical Power Usage!',
+      message: 'Extremely high power draw detected! To prevent rapid budget depletion, immediately unplug heavy appliances like heaters or irons that you aren\'t actively using.'
+    };
+  }
+
+  if (power >= 500) {
+    return {
+      icon: 'warning',
       color: COLORS.warning,
-      title: 'Heavy Appliance Detected',
-      message: 'A high-power device is running. Keep track of how long it stays on!'
+      title: 'High Consumption Alert',
+      message: 'Your current usage is higher than normal. Consider turning off unused lights, fans, or appliances to conserve your daily budget.'
     };
   }
 
@@ -841,9 +779,4 @@ function getSmartPopupTip(power, todayCost, budget) {
   return null;
 }
 
-/**
- * Local Notification sender (Integration point for expo-notifications)
- */
-function sendLocalNotification(title, message) {
-  console.log(`[PUSH] ${title}: ${message}`);
-}
+

@@ -1,8 +1,8 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-
+import styles from '../../styles/components/ui/DashboardAlertCard.styles';
 export default function DashboardAlertCard({ alert }) {
   const router = useRouter();
   const { title, message, severity, category } = alert;
@@ -33,30 +33,4 @@ export default function DashboardAlertCard({ alert }) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    borderRadius: 16,
-    borderWidth: 1,
-    marginBottom: 16,
-  },
-  iconWrapper: {
-    marginRight: 16,
-  },
-  content: {
-    flex: 1,
-    marginRight: 8,
-  },
-  title: {
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  message: {
-    fontSize: 13,
-    color: '#E2E8F0',
-    lineHeight: 18,
-  }
-});
+

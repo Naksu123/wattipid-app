@@ -32,11 +32,11 @@ apiClient.interceptors.request.use(
     // Silence aggressive polling logs
     const isPolling = config.url?.includes('syncState') || config.url?.includes('getLatestConsumption') || config.data?.action === 'syncState' || config.data?.action === 'getLatestConsumption';
     
-    // Robust Logging (Phase 1)
-    if (!isPolling) {
-        console.log("Request URL:", config.baseURL + config.url);
-        if (config.data) console.log("Request Data:", config.data);
-    }
+    // Robust Logging (Phase 1) - DISABLED FOR SECURITY
+    // if (!isPolling) {
+    //     console.log("Request URL:", config.baseURL + config.url);
+    //     if (config.data) console.log("Request Data:", config.data);
+    // }
 
     // Skip injecting tokens if we're logging out
     if (isLoggingOut) return config;
@@ -55,10 +55,10 @@ apiClient.interceptors.response.use(
   (response) => {
     const isPolling = response.config.url?.includes('syncState') || response.config.url?.includes('getLatestConsumption') || response.config.data?.includes('syncState') || response.config.data?.includes('getLatestConsumption');
 
-    // Robust Logging (Phase 1)
-    if (!isPolling) {
-        console.log("Response:", response.status, response.config.url);
-    }
+    // Robust Logging (Phase 1) - DISABLED FOR SECURITY
+    // if (!isPolling) {
+    //     console.log("Response:", response.status, response.config.url);
+    // }
 
     // Basic JSON check
     if (typeof response.data === 'string' && (response.data.includes('<?php') || response.data.includes('require_once'))) {

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, Image, ActivityIndicator, ScrollView, TextInput, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, Alert, Image, ActivityIndicator, ScrollView, TextInput, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { getAvailableBillingCycles, getSetting } from '../../services/database';
 import { submitPayment } from '../../services/paymentService';
@@ -10,6 +10,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
 import GlassCard from '../../components/ui/GlassCard';
 import { COLORS, FONT_SIZE, FONT_WEIGHT, SPACING, RADIUS } from '../../styles/theme';
+import styles from '../../styles/tenant/payment.styles';
 
 export default function TenantPaymentScreen() {
     const { user } = useAuth();
@@ -192,7 +193,7 @@ export default function TenantPaymentScreen() {
         return (
             <View style={[styles.container, styles.center]}>
                 <ActivityIndicator size="large" color={COLORS.primary} />
-                <Text style={{ color: COLORS.textMuted, marginTop: 12 }}>Loading billing info...</Text>
+                <Text style={styles.loadingText}>Loading billing info...</Text>
             </View>
         );
     }
@@ -201,9 +202,9 @@ export default function TenantPaymentScreen() {
         return (
             <View style={[styles.container, styles.center]}>
                 <Ionicons name="alert-circle-outline" size={48} color={COLORS.danger} />
-                <Text style={{ color: COLORS.textMuted, marginTop: 12, textAlign: 'center', paddingHorizontal: 40 }}>{error}</Text>
+                <Text style={styles.errorText}>{error}</Text>
                 <TouchableOpacity style={styles.retryBtn} onPress={() => { setError(null); setLoading(true); fetchData(); }}>
-                    <Text style={{ color: COLORS.white, fontWeight: '700' }}>Retry</Text>
+                    <Text style={styles.retryBtnText}>Retry</Text>
                 </TouchableOpacity>
             </View>
         );
@@ -213,7 +214,7 @@ export default function TenantPaymentScreen() {
         return (
             <View style={[styles.container, styles.center]}>
                 <Ionicons name="checkmark-circle-outline" size={48} color={COLORS.primary} />
-                <Text style={{ color: COLORS.textMuted, marginTop: 12 }}>No pending invoices found.</Text>
+                <Text style={styles.noPendingText}>No pending invoices found.</Text>
             </View>
         );
     }
@@ -254,7 +255,7 @@ export default function TenantPaymentScreen() {
                     {amountPaid > 0 && (
                         <View style={styles.row}>
                             <Text style={styles.label}>Amount Paid So Far</Text>
-                            <Text style={[styles.value, {color: COLORS.success}]}>- ₱{amountPaid.toFixed(2)}</Text>
+                            <Text style={[styles.value, styles.valueSuccess]}>- ₱{amountPaid.toFixed(2)}</Text>
                         </View>
                     )}
                     <View style={[styles.row, styles.totalRow]}>
@@ -262,9 +263,9 @@ export default function TenantPaymentScreen() {
                         <Text style={styles.totalValue}>₱{totalDue.toFixed(2)}</Text>
                     </View>
 
-                    <View style={[styles.statusBox, isPaid && {backgroundColor: 'rgba(16, 185, 129, 0.15)'}, isPending && {backgroundColor: 'rgba(245, 158, 11, 0.15)'}]}>
-                        <Text style={[styles.statusText, isPaid && {color: COLORS.success}, isPending && {color: COLORS.warning}]}>
-                            Status: <Text style={{fontWeight: 'bold', textTransform: 'uppercase'}}>{billingCycle.payment_status || 'unpaid'}</Text>
+                    <View style={[styles.statusBox, isPaid && styles.statusBoxPaid, isPending && styles.statusBoxPending]}>
+                        <Text style={[styles.statusText, isPaid && styles.statusTextPaid, isPending && styles.statusTextPending]}>
+                            Status: <Text style={styles.statusBold}>{billingCycle.payment_status || 'unpaid'}</Text>
                         </Text>
                     </View>
                 </GlassCard>
@@ -286,15 +287,15 @@ export default function TenantPaymentScreen() {
                                 <Text style={styles.stepTitle}>Select Payment Method</Text>
                                 <TouchableOpacity style={[styles.methodBtn, paymentMethod === 'GCash' && styles.methodBtnActive]} onPress={() => setPaymentMethod('GCash')}>
                                     <Ionicons name="phone-portrait-outline" size={24} color={paymentMethod === 'GCash' ? COLORS.primary : COLORS.textMuted} />
-                                    <Text style={[styles.methodBtnText, paymentMethod === 'GCash' && {color: COLORS.primary}]}>GCash</Text>
+                                    <Text style={[styles.methodBtnText, paymentMethod === 'GCash' && styles.methodBtnTextActive]}>GCash</Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity style={[styles.methodBtn, paymentMethod === 'Maya' && styles.methodBtnActive]} onPress={() => setPaymentMethod('Maya')}>
                                     <Ionicons name="card-outline" size={24} color={paymentMethod === 'Maya' ? COLORS.primary : COLORS.textMuted} />
-                                    <Text style={[styles.methodBtnText, paymentMethod === 'Maya' && {color: COLORS.primary}]}>Maya</Text>
+                                    <Text style={[styles.methodBtnText, paymentMethod === 'Maya' && styles.methodBtnTextActive]}>Maya</Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity style={[styles.methodBtn, paymentMethod === 'Cash' && styles.methodBtnActive]} onPress={() => setPaymentMethod('Cash')}>
                                     <Ionicons name="cash-outline" size={24} color={paymentMethod === 'Cash' ? COLORS.primary : COLORS.textMuted} />
-                                    <Text style={[styles.methodBtnText, paymentMethod === 'Cash' && {color: COLORS.primary}]}>Cash / Hand-Over</Text>
+                                    <Text style={[styles.methodBtnText, paymentMethod === 'Cash' && styles.methodBtnTextActive]}>Cash / Hand-Over</Text>
                                 </TouchableOpacity>
 
                                 <TouchableOpacity 
@@ -315,7 +316,7 @@ export default function TenantPaymentScreen() {
                                 
                                 {paymentMethod === 'Cash' && (
                                     <View style={styles.instructionsBox}>
-                                        <Ionicons name="cash-outline" size={48} color={COLORS.primary} style={{alignSelf: 'center', marginBottom: 16}} />
+                                        <Ionicons name="cash-outline" size={48} color={COLORS.primary} style={styles.instructionsIcon} />
                                         <Text style={styles.instructionsText}>Please hand over your cash payment directly to the landlord or facility manager.</Text>
                                         <Text style={styles.instructionsText}>After handing over the cash, proceed to the next step to log your payment date for our records.</Text>
                                     </View>
@@ -425,14 +426,14 @@ export default function TenantPaymentScreen() {
                 )}
 
                 {isPending && (
-                    <GlassCard style={[styles.pendingBox, { borderColor: 'rgba(245, 158, 11, 0.3)', borderWidth: 1 }]}>
+                    <GlassCard style={styles.pendingBox}>
                         <Ionicons name="time-outline" size={48} color={COLORS.warning} />
                         <Text style={styles.pendingText}>Your payment is currently under review by the landlord. We will notify you once verified.</Text>
                     </GlassCard>
                 )}
 
                 {isPaid && (
-                    <GlassCard style={[styles.paidBox, { borderColor: 'rgba(16, 185, 129, 0.3)', borderWidth: 1 }]}>
+                    <GlassCard style={styles.paidBox}>
                         <Ionicons name="checkmark-circle-outline" size={48} color={COLORS.success} />
                         <Text style={styles.paidText}>This invoice has been fully paid and verified!</Text>
                     </GlassCard>
@@ -442,72 +443,3 @@ export default function TenantPaymentScreen() {
     );
 }
 
-const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: COLORS.background },
-    scroll: { padding: SPACING.lg, paddingBottom: 100, paddingTop: SPACING.xl },
-    center: { justifyContent: 'center', alignItems: 'center' },
-    
-    headerTitle: { fontSize: FONT_SIZE.xl, fontWeight: FONT_WEIGHT.bold, color: COLORS.textPrimary, marginBottom: SPACING.lg },
-
-    invoiceCard: { padding: SPACING.lg, marginBottom: SPACING.lg },
-    invoiceHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: SPACING.md },
-    title: { fontSize: FONT_SIZE.lg, fontWeight: FONT_WEIGHT.bold, color: COLORS.textPrimary },
-    
-    row: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
-    label: { fontSize: FONT_SIZE.sm, color: COLORS.textSecondary },
-    value: { fontSize: FONT_SIZE.sm, fontWeight: FONT_WEIGHT.bold, color: COLORS.textPrimary },
-    
-    totalRow: { borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.1)', paddingTop: 16, marginTop: 8 },
-    totalLabel: { fontSize: FONT_SIZE.md, fontWeight: FONT_WEIGHT.bold, color: COLORS.textPrimary },
-    totalValue: { fontSize: 20, fontWeight: FONT_WEIGHT.heavy, color: COLORS.primary },
-    
-    statusBox: { marginTop: SPACING.lg, padding: 10, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: RADIUS.md, alignItems: 'center' },
-    statusText: { fontSize: FONT_SIZE.xs, color: COLORS.textSecondary, letterSpacing: 0.5 },
-    
-    wizardCard: { padding: SPACING.lg, marginTop: SPACING.sm },
-    wizardProgress: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 30 },
-    stepCircle: { width: 30, height: 30, borderRadius: 15, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' },
-    stepCircleActive: { backgroundColor: COLORS.primary },
-    stepText: { color: COLORS.white, fontWeight: 'bold', fontSize: 12 },
-    stepLine: { height: 2, width: 40, backgroundColor: 'rgba(255,255,255,0.1)', marginHorizontal: 8 },
-    stepLineActive: { backgroundColor: COLORS.primary },
-    
-    stepTitle: { fontSize: FONT_SIZE.md, fontWeight: FONT_WEIGHT.bold, color: COLORS.textPrimary, marginBottom: SPACING.lg, textAlign: 'center' },
-    
-    methodBtn: { flexDirection: 'row', alignItems: 'center', gap: 16, backgroundColor: 'rgba(255,255,255,0.05)', padding: 16, borderRadius: RADIUS.lg, marginBottom: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
-    methodBtnActive: { borderColor: COLORS.primary, backgroundColor: 'rgba(34,197,94,0.05)' },
-    methodBtnText: { fontSize: 16, fontWeight: '600', color: COLORS.textPrimary },
-    
-    instructionsBox: { backgroundColor: 'rgba(255,255,255,0.02)', padding: 20, borderRadius: RADIUS.lg, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
-    instructionsText: { color: COLORS.textSecondary, fontSize: 14, textAlign: 'center', marginBottom: 12, lineHeight: 22 },
-    accountLabel: { fontSize: 12, color: COLORS.textMuted, marginBottom: 4, marginTop: 12, textTransform: 'uppercase', letterSpacing: 1 },
-    accountValue: { fontSize: 16, color: COLORS.textPrimary, fontWeight: 'bold' },
-    qrContainer: { marginTop: 20, alignItems: 'center' },
-    qrImage: { width: 200, height: 200, borderRadius: RADIUS.md, marginTop: 12 },
-    
-    wizardFooter: { flexDirection: 'row', justifyContent: 'space-between', gap: 12, marginTop: 30 },
-    backBtn: { flex: 1, padding: 16, borderRadius: RADIUS.md, alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.05)' },
-    backBtnText: { color: COLORS.textPrimary, fontWeight: FONT_WEIGHT.bold },
-    nextBtn: { flex: 1, flexDirection: 'row', padding: 16, borderRadius: RADIUS.md, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.primary, gap: 8, marginTop: 12 },
-    nextBtnText: { color: COLORS.white, fontWeight: FONT_WEIGHT.bold },
-    btnDisabled: { opacity: 0.5 },
-    
-    inputContainer: { marginBottom: SPACING.lg },
-    inputLabel: { fontSize: FONT_SIZE.xs, color: COLORS.textSecondary, marginBottom: 8 },
-    input: { backgroundColor: 'rgba(255,255,255,0.05)', color: COLORS.textPrimary, padding: 14, borderRadius: RADIUS.md, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
-    
-    uploadBtn: { borderWidth: 1, borderColor: 'rgba(16, 185, 129, 0.4)', borderStyle: 'dashed', borderRadius: RADIUS.lg, padding: 24, alignItems: 'center', backgroundColor: 'rgba(16, 185, 129, 0.05)', marginBottom: SPACING.lg },
-    uploadText: { marginTop: 8, color: COLORS.primary, fontWeight: FONT_WEIGHT.semibold },
-    previewImage: { width: '100%', height: 200, borderRadius: RADIUS.md, marginBottom: SPACING.lg, backgroundColor: 'rgba(0,0,0,0.2)' },
-    
-    submitBtn: { marginTop: 0 },
-    submitBtnText: { color: COLORS.white, fontWeight: FONT_WEIGHT.bold, fontSize: FONT_SIZE.md },
-    
-    pendingBox: { backgroundColor: 'rgba(245, 158, 11, 0.05)', padding: 24, borderRadius: RADIUS.xl, alignItems: 'center', marginTop: SPACING.md },
-    pendingText: { color: COLORS.warning, textAlign: 'center', marginTop: 12, fontWeight: FONT_WEIGHT.medium, lineHeight: 22 },
-    
-    paidBox: { backgroundColor: 'rgba(16, 185, 129, 0.05)', padding: 24, borderRadius: RADIUS.xl, alignItems: 'center', marginTop: SPACING.md },
-    paidText: { color: COLORS.success, textAlign: 'center', marginTop: 12, fontWeight: FONT_WEIGHT.medium, lineHeight: 22 },
-
-    retryBtn: { marginTop: 16, padding: 12, paddingHorizontal: 24, backgroundColor: COLORS.primary, borderRadius: RADIUS.md }
-});

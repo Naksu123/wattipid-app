@@ -1,133 +1,132 @@
-import { StyleSheet } from 'react-native';
-import { COLORS, FONT_SIZE, FONT_WEIGHT, RADIUS, SPACING } from '../theme';
+import { StyleSheet, Platform } from 'react-native';
+import { COLORS, SPACING, FONT_WEIGHT, RADIUS } from '../theme';
 
 export default StyleSheet.create({
-  container: { 
-    flex: 1, 
-    backgroundColor: COLORS.background 
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.background,
   },
-  scroll: { 
-    padding: SPACING.lg, 
-    paddingTop: SPACING.xxl + 10, 
-    paddingBottom: SPACING.xxl 
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.lg,
+    paddingTop: Platform.OS === 'android' ? 20 : SPACING.lg,
+    paddingBottom: SPACING.lg,
+    backgroundColor: COLORS.background,
   },
-  greeting: { 
-    fontSize: FONT_SIZE.xxl, 
-    fontWeight: FONT_WEIGHT.bold, 
-    color: COLORS.textPrimary 
+  headerLeft: {
+    flex: 1,
   },
-  subtitle: { 
-    fontSize: FONT_SIZE.md, 
-    color: COLORS.textSecondary, 
-    marginBottom: SPACING.lg 
+  greeting: {
+    fontSize: 24,
+    fontWeight: FONT_WEIGHT.heavy,
+    color: '#ffffff',
+    letterSpacing: -0.5,
   },
-  grid: { 
-    flexDirection: 'row', 
-    flexWrap: 'wrap', 
-    gap: SPACING.sm, 
-    marginBottom: SPACING.lg 
+  subtitle: {
+    fontSize: 13,
+    color: COLORS.primary,
+    fontWeight: FONT_WEIGHT.bold,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginTop: 4,
   },
-  summaryCard: { 
-    width: '48%', 
-    flexGrow: 1, 
-    flexBasis: '47%', 
-    padding: SPACING.md, 
-    borderRadius: RADIUS.lg, 
-    borderWidth: 1, 
-    borderColor: COLORS.border 
+  profileBtn: {
+    marginLeft: 16,
   },
-  summaryIcon: { 
-    width: 40, 
-    height: 40, 
-    borderRadius: 12, 
-    alignItems: 'center', 
-    justifyContent: 'center', 
-    marginBottom: SPACING.sm 
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
-  summaryValue: { 
-    fontSize: FONT_SIZE.xl, 
-    fontWeight: FONT_WEIGHT.bold, 
-    color: COLORS.textPrimary 
+  iconBtn: {
+    position: 'relative',
+    padding: 4,
   },
-  summaryLabel: { 
-    fontSize: FONT_SIZE.xs, 
+  badge: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    backgroundColor: COLORS.danger,
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+    borderWidth: 1.5,
+    borderColor: COLORS.background,
+  },
+  badgeText: {
+    color: '#fff',
+    fontSize: 9,
+    fontWeight: 'bold',
+  },
+  profileIconWrapper: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(59, 130, 246, 0.1)', // Primary tint
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(59, 130, 246, 0.2)',
+  },
+  scroll: {
+    paddingHorizontal: SPACING.lg,
+    paddingTop: SPACING.sm,
+  },
+  gridRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginBottom: 12,
+  },
+  totalBanner: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: 'rgba(59, 130, 246, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(59, 130, 246, 0.15)',
+    borderRadius: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    marginBottom: 12,
+  },
+  totalLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  totalLabel: {
+    fontSize: 15,
+    fontWeight: FONT_WEIGHT.bold,
+    color: COLORS.textPrimary,
+  },
+  totalValue: {
+    fontSize: 28,
+    fontWeight: FONT_WEIGHT.heavy,
+    color: COLORS.primary,
+  },
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: FONT_WEIGHT.bold,
+    color: '#94a3b8',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 12,
+    marginLeft: 4,
+  },
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  loadingText: { 
     color: COLORS.textMuted, 
-    marginTop: 2 
-  },
-  facilityCard: { 
-    marginBottom: SPACING.lg, 
-    paddingVertical: SPACING.xl 
-  },
-  facilityTitle: { 
-    fontSize: FONT_SIZE.md, 
-    fontWeight: FONT_WEIGHT.semibold, 
-    color: COLORS.textPrimary, 
-    marginBottom: SPACING.lg, 
-    textAlign: 'center' 
-  },
-  facilityRow: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-around', 
-    alignItems: 'center' 
-  },
-  facilityStat: { 
-    alignItems: 'center' 
-  },
-  facilityValue: { 
-    fontSize: FONT_SIZE.lg, 
-    fontWeight: FONT_WEIGHT.bold, 
-    color: COLORS.primary 
-  },
-  facilityLabel: { 
-    fontSize: FONT_SIZE.xs, 
-    color: COLORS.textMuted, 
-    marginTop: 2 
-  },
-  divider: { 
-    width: 1, 
-    height: 40, 
-    backgroundColor: COLORS.border 
-  },
-  sectionTitle: { 
-    fontSize: FONT_SIZE.lg, 
-    fontWeight: FONT_WEIGHT.bold, 
-    color: COLORS.textPrimary, 
-    marginBottom: SPACING.md 
-  },
-  roomItem: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    alignItems: 'center', 
-    marginBottom: SPACING.sm, 
-    padding: SPACING.md 
-  },
-  roomLeft: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    gap: SPACING.md 
-  },
-  roomDot: { 
-    width: 10, 
-    height: 10, 
-    borderRadius: 5 
-  },
-  roomId: { 
-    fontSize: FONT_SIZE.md, 
-    fontWeight: FONT_WEIGHT.semibold, 
-    color: COLORS.textPrimary 
-  },
-  roomTenant: { 
-    fontSize: FONT_SIZE.sm, 
-    color: COLORS.textSecondary 
-  },
-  roomEnergy: { 
-    fontSize: FONT_SIZE.sm, 
-    fontWeight: FONT_WEIGHT.bold, 
-    color: COLORS.primary 
-  },
-  roomStatusText: { 
-    fontSize: FONT_SIZE.xs, 
-    color: COLORS.textMuted, 
-    textTransform: 'capitalize' 
-  },
+    marginTop: 12 
+  }
 });

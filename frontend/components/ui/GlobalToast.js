@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, DeviceEventEmitter, TouchableOpacity } from 'react-native';
+import { View, Text, DeviceEventEmitter, TouchableOpacity } from 'react-native';
 import Animated, { FadeInUp, FadeOutUp } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, FONT_SIZE } from '@/styles/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import styles from '../../styles/components/ui/GlobalToast.styles';
 
 export default function GlobalToast() {
   const [toast, setToast] = useState(null);
@@ -50,27 +51,4 @@ export default function GlobalToast() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    position: 'absolute',
-    left: 20,
-    right: 20,
-    zIndex: 9999,
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 12,
-    borderRadius: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 6,
-  },
-  message: {
-    color: COLORS.white,
-    fontSize: FONT_SIZE.sm,
-    fontWeight: '500',
-    marginLeft: 8,
-    flex: 1,
-  }
-});
+
