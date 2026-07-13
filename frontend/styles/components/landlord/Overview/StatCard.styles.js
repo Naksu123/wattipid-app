@@ -5,7 +5,7 @@ export default StyleSheet.create({
   card: {
     flex: 1,
     minWidth: '46%', // Ensures 2 columns with gap
-    minHeight: 110,
+    minHeight: 100,
     padding: 16,
     borderRadius: RADIUS.xl,
     borderWidth: 1,
@@ -27,19 +27,28 @@ export default StyleSheet.create({
   },
   title: {
     flex: 1,
-    fontSize: 12,
-    color: COLORS.textMuted,
-    fontWeight: FONT_WEIGHT.bold,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    lineHeight: 16,
+    fontSize: 14,
+    color: '#fff',
+    fontWeight: FONT_WEIGHT.semibold,
+    letterSpacing: 0.25,
+    lineHeight: 18,
   },
   valueContainer: {
     marginTop: 12,
   },
   value: {
-    fontSize: 28,
-    fontWeight: FONT_WEIGHT.heavy,
-    color: COLORS.textPrimary,
+    fontSize: 20,
+    fontWeight: FONT_WEIGHT.bold,
+    color: '#fff',
+  },
+  prefix: {
+    fontSize: 14,
+    color: '#fff',
+    fontWeight: FONT_WEIGHT.medium,
+  },
+  suffix: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    fontWeight: FONT_WEIGHT.regular,
   }
 });

@@ -8,8 +8,8 @@ export default StyleSheet.create({
     borderRadius: RADIUS.xl,
   },
   title: {
-    fontSize: 14,
-    fontWeight: FONT_WEIGHT.bold,
+    fontSize: 15,
+    fontWeight: FONT_WEIGHT.semibold,
     color: COLORS.textPrimary,
     marginBottom: 16,
   },
@@ -49,9 +49,8 @@ export default StyleSheet.create({
     color: COLORS.textPrimary,
   },
   legendLabel: {
-    fontSize: 10,
+    fontSize: 11,
     color: COLORS.textMuted,
-    textTransform: 'uppercase',
   },
   legendAmount: {
     fontSize: 12,

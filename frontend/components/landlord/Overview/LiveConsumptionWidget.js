@@ -34,12 +34,12 @@ export default function LiveConsumptionWidget({ todayEnergyKwh, livePeakPowerW }
 
       <View style={styles.dataRow}>
         <View style={styles.dataBlock}>
-          <Text style={styles.label}>TODAY'S USAGE</Text>
+          <Text style={styles.label}>Today's Usage</Text>
           <Text style={styles.value}>{todayEnergyKwh?.toFixed(2) || '0.00'} <Text style={styles.unit}>kWh</Text></Text>
         </View>
         <View style={styles.divider} />
         <View style={styles.dataBlock}>
-          <Text style={styles.label}>5-MIN PEAK LOAD</Text>
+          <Text style={styles.label}>5-Min Peak Load</Text>
           <Text style={styles.value}>{livePeakPowerW?.toFixed(1) || '0.0'} <Text style={styles.unit}>W</Text></Text>
         </View>
       </View>

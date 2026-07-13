@@ -137,11 +137,11 @@ export default function OverviewScreen() {
         <Text style={styles.sectionTitle}>System Analytics</Text>
         <View style={styles.gridRow}>
           <StatCard title="Total Tenants" value={statistics.totalTenants || 0} icon="person-outline" color="#8b5cf6" />
-          <StatCard title="Total Collection" value={statistics.monthlyRevenue?.toFixed(2) || '0.00'} prefix="₱" icon="checkmark-circle-outline" color="#22c55e" />
+          <StatCard title="Total Collection" value={statistics.monthlyRevenue?.toFixed(2) || '0.00'} prefix="₱ " icon="checkmark-circle-outline" color="#22c55e" />
         </View>
         <View style={styles.gridRow}>
-          <StatCard title="Outstanding Balance" value={statistics.outstandingRevenue?.toFixed(2) || '0.00'} prefix="₱" icon="time-outline" color="#f97316" />
-          <StatCard title="Total Revenue" value={statistics.totalBilled?.toFixed(2) || '0.00'} prefix="₱" icon="cash-outline" color={COLORS.primary} />
+          <StatCard title="Outstanding Balance" value={statistics.outstandingRevenue?.toFixed(2) || '0.00'} prefix="₱ " icon="time-outline" color="#f97316" />
+          <StatCard title="Total Revenue" value={statistics.totalBilled?.toFixed(2) || '0.00'} prefix="₱ " icon="cash-outline" color={COLORS.primary} />
         </View>
 
         <View style={{ height: 24 }} />

@@ -35,7 +35,8 @@ export default function RecentTransactionsWidget({ history, onViewAll }) {
       iconName = 'close-circle-outline';
     }
 
-    const dateStr = item.paid_at ? new Date(item.paid_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Unknown Date';
+    const transactionDate = item.paid_at || item.payment_date || item.created_at;
+    const dateStr = transactionDate ? new Date(transactionDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Unknown Date';
 
     return (
       <View style={styles.transactionRow}>
@@ -49,7 +50,7 @@ export default function RecentTransactionsWidget({ history, onViewAll }) {
         <View style={styles.amountBox}>
           <Text style={styles.amountText}>₱{parseFloat(item.amount || 0).toFixed(2)}</Text>
           <Text style={[styles.statusBadge, { color: statusColor, backgroundColor: `${statusColor}10` }]}>
-            {item.status.toUpperCase()}
+            {item.status ? item.status.charAt(0).toUpperCase() + item.status.slice(1).toLowerCase() : ''}
           </Text>
         </View>
       </View>

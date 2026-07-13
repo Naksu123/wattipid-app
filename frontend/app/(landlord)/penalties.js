@@ -87,7 +87,7 @@ export default function PenaltyCenterScreen() {
 
         <View style={styles.gridRow}>
           <StatCard title="Overdue Accounts" value={analytics.totalOverdueAccounts} icon="warning-outline" color={COLORS.danger} />
-          <StatCard title="Active Penalties" value={Number(analytics.totalActivePenalties).toFixed(2)} prefix="₱" icon="alert-circle-outline" color="#f97316" />
+          <StatCard title="Active Penalties" value={Number(analytics.totalActivePenalties).toFixed(2)} prefix="₱ " icon="alert-circle-outline" color="#f97316" />
         </View>
 
         <Text style={styles.sectionTitle}>Overdue Accounts</Text>

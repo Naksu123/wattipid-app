@@ -9,7 +9,7 @@ export default StyleSheet.create({
   subtitle: { fontSize: 13, color: COLORS.textSecondary, marginTop: 4 },
   calcButton: { backgroundColor: COLORS.primary, width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center', shadowColor: COLORS.primary, shadowOpacity: 0.3, shadowRadius: 8, shadowOffset: { width: 0, height: 4 } },
   gridRow: { flexDirection: 'row', gap: 12, marginBottom: 24 },
-  sectionTitle: { fontSize: 16, fontWeight: '700', color: COLORS.textPrimary, marginBottom: 12, textTransform: 'uppercase', letterSpacing: 0.5 },
+  sectionTitle: { fontSize: 15, fontWeight: '600', color: COLORS.textPrimary, marginBottom: 12, letterSpacing: 0.5 },
   emptyState: { alignItems: 'center', justifyContent: 'center', padding: 40, backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
   emptyStateText: { fontSize: 16, fontWeight: 'bold', color: COLORS.textPrimary, marginBottom: 4 },
   emptyStateSubtext: { fontSize: 13, color: COLORS.textMuted, textAlign: 'center' },

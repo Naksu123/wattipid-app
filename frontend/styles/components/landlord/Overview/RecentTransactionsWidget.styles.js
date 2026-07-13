@@ -15,8 +15,8 @@ export default StyleSheet.create({
     marginBottom: SPACING.lg,
   },
   title: {
-    fontSize: 16,
-    fontWeight: FONT_WEIGHT.bold,
+    fontSize: 15,
+    fontWeight: FONT_WEIGHT.semibold,
     color: COLORS.textPrimary,
   },
   viewAllBtn: {
@@ -43,8 +43,8 @@ export default StyleSheet.create({
     flex: 1,
   },
   tenantName: {
-    fontSize: 15,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: FONT_WEIGHT.medium,
     color: COLORS.textPrimary,
   },
   metaText: {
@@ -56,8 +56,8 @@ export default StyleSheet.create({
     alignItems: 'flex-end',
   },
   amountText: {
-    fontSize: 15,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: FONT_WEIGHT.bold,
     color: COLORS.textPrimary,
   },
   statusBadge: {

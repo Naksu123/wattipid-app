@@ -3,8 +3,8 @@ import { COLORS, RADIUS, FONT_WEIGHT } from '../../../theme';
 
 export default StyleSheet.create({
   card: {
-    padding: 20,
-    marginBottom: 20,
+    padding: 16,
+    marginBottom: 16,
     borderRadius: RADIUS.xxl,
     borderWidth: 1,
     borderColor: 'rgba(234, 179, 8, 0.2)', // warning color
@@ -69,22 +69,21 @@ export default StyleSheet.create({
     flex: 1,
   },
   label: {
-    fontSize: 11,
+    fontSize: 12,
     color: COLORS.textSecondary,
-    fontWeight: FONT_WEIGHT.heavy,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
+    fontWeight: FONT_WEIGHT.regular,
+    letterSpacing: 0.5,
     marginBottom: 8,
   },
   value: {
-    fontSize: 32,
+    fontSize: 26,
     fontWeight: FONT_WEIGHT.bold,
     color: '#fff',
   },
   unit: {
-    fontSize: 16,
+    fontSize: 14,
     color: COLORS.warning,
-    fontWeight: FONT_WEIGHT.bold,
+    fontWeight: FONT_WEIGHT.medium,
   },
   divider: {
     width: 1,

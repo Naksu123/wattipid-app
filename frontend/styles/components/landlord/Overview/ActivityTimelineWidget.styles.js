@@ -14,8 +14,8 @@ export default StyleSheet.create({
     marginBottom: 20,
   },
   title: {
-    fontSize: 16,
-    fontWeight: FONT_WEIGHT.bold,
+    fontSize: 15,
+    fontWeight: FONT_WEIGHT.semibold,
     color: COLORS.textPrimary,
   },
   empty: {
@@ -77,8 +77,8 @@ export default StyleSheet.create({
     borderRadius: 8,
   },
   actType: {
-    fontSize: 10,
-    fontWeight: FONT_WEIGHT.heavy,
+    fontSize: 11,
+    fontWeight: FONT_WEIGHT.medium,
     letterSpacing: 0.5,
   },
   time: {
@@ -86,7 +86,7 @@ export default StyleSheet.create({
     color: COLORS.textMuted,
   },
   desc: {
-    fontSize: 13,
+    fontSize: 12,
     color: COLORS.textSecondary,
     lineHeight: 18,
   }

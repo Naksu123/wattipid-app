@@ -27,9 +27,8 @@ export default StyleSheet.create({
   subtitle: {
     fontSize: 13,
     color: COLORS.primary,
-    fontWeight: FONT_WEIGHT.bold,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
+    fontWeight: FONT_WEIGHT.regular,
+    letterSpacing: 0.5,
     marginTop: 4,
   },
   profileBtn: {
@@ -111,11 +110,10 @@ export default StyleSheet.create({
     color: COLORS.primary,
   },
   sectionTitle: {
-    fontSize: 14,
-    fontWeight: FONT_WEIGHT.bold,
+    fontSize: 15,
+    fontWeight: FONT_WEIGHT.semibold,
     color: '#94a3b8',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
+    letterSpacing: 0.5,
     marginBottom: 12,
     marginLeft: 4,
   },

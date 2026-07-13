@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, Image, Modal, Alert, ActivityIndicator, T
 import { Ionicons } from '@expo/vector-icons';
 import GlassCard from '../../ui/GlassCard';
 import { verifyPayment } from '../../../services/paymentService';
+import { API_URL } from '../../../services/config';
 import { COLORS } from '@/styles/theme';
 import styles from '../../../styles/components/landlord/Overview/PendingPaymentsWidget.styles';
 
@@ -12,6 +13,16 @@ export default function PendingPaymentsWidget({ payments = [], onRefresh }) {
   const [confirmAction, setConfirmAction] = useState(null);
   const [partialEnabled, setPartialEnabled] = useState(false);
   const [actualAmount, setActualAmount] = useState('');
+  const [rejectionReason, setRejectionReason] = useState('');
+
+  const getImageUrl = (url) => {
+    if (!url) return null;
+    if (url.startsWith('http') || url.startsWith('data:image')) return url;
+    // ensure no double slashes
+    const cleanUrl = url.startsWith('/') ? url.substring(1) : url;
+    const cleanApi = API_URL.endsWith('/') ? API_URL.substring(0, API_URL.length - 1) : API_URL;
+    return `${cleanApi}/${cleanUrl}`;
+  };
 
   useEffect(() => {
     import('../../../services/database').then(({ getSetting }) => {
@@ -28,6 +39,7 @@ export default function PendingPaymentsWidget({ payments = [], onRefresh }) {
 
   const handleAction = (action) => {
     setConfirmAction(action);
+    setRejectionReason('');
   };
 
   const executeAction = async () => {
@@ -38,8 +50,11 @@ export default function PendingPaymentsWidget({ payments = [], onRefresh }) {
       if (confirmAction === 'approve' && (isNaN(parsedAmount) || parsedAmount <= 0)) {
          throw new Error('Please enter a valid actual amount received.');
       }
+      if (confirmAction === 'reject' && !rejectionReason.trim()) {
+         throw new Error('Please provide a reason for rejection.');
+      }
       
-      await verifyPayment(selectedPayment.id, confirmAction, null, parsedAmount);
+      await verifyPayment(selectedPayment.id, confirmAction, confirmAction === 'reject' ? rejectionReason.trim() : null, parsedAmount);
       setSelectedPayment(null);
       setConfirmAction(null);
       if (onRefresh) onRefresh();
@@ -125,9 +140,9 @@ export default function PendingPaymentsWidget({ payments = [], onRefresh }) {
 
                 <Text style={styles.proofLabel}>Proof of Payment:</Text>
                 {selectedPayment.proof_url ? (
-                  <Image source={{ uri: selectedPayment.proof_url }} style={styles.proofImage} resizeMode="contain" />
+                  <Image source={{ uri: getImageUrl(selectedPayment.proof_url) }} style={styles.proofImage} resizeMode="contain" />
                 ) : (
-                  <View style={styles.noProofBox}><Text style={styles.noProofText}>No image provided</Text></View>
+                  <View style={styles.noProofBox}><Text style={styles.noProofText}>No payment proof available</Text></View>
                 )}
 
                 <View style={styles.actionRow}>
@@ -162,15 +177,33 @@ export default function PendingPaymentsWidget({ payments = [], onRefresh }) {
               Are you sure you want to {confirmAction} this payment of ₱{selectedPayment ? parseFloat(selectedPayment.amount).toFixed(2) : '0.00'}?
               {confirmAction === 'approve' ? ' This will update the billing cycle to paid.' : ' The tenant will be notified.'}
             </Text>
+
+            {confirmAction === 'reject' && (
+              <View style={{ width: '100%', marginTop: 16 }}>
+                <Text style={[styles.infoLabel, { marginBottom: 8 }]}>Reason for Rejection <Text style={{ color: COLORS.danger }}>*</Text></Text>
+                <TextInput 
+                  style={[styles.actualInput, { height: 80, textAlignVertical: 'top' }]}
+                  placeholder="e.g. Invalid payment proof, Incorrect amount"
+                  placeholderTextColor={COLORS.textMuted}
+                  value={rejectionReason}
+                  onChangeText={setRejectionReason}
+                  multiline
+                />
+              </View>
+            )}
             
             <View style={styles.confirmActionRow}>
               <TouchableOpacity style={styles.confirmCancelBtn} onPress={() => setConfirmAction(null)} disabled={loading}>
                 <Text style={styles.confirmCancelText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity 
-                style={[styles.confirmExecuteBtn, confirmAction === 'approve' ? styles.approveBtn : styles.rejectSolidBtn]} 
+                style={[
+                  styles.confirmExecuteBtn, 
+                  confirmAction === 'approve' ? styles.approveBtn : styles.rejectSolidBtn,
+                  (confirmAction === 'reject' && !rejectionReason.trim()) ? { opacity: 0.5 } : {}
+                ]} 
                 onPress={executeAction} 
-                disabled={loading}
+                disabled={loading || (confirmAction === 'reject' && !rejectionReason.trim())}
               >
                 {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.actionBtnText}>Yes, {confirmAction}</Text>}
               </TouchableOpacity>
