@@ -236,6 +236,11 @@ export default function TenantPaymentScreen() {
     const isPending = billingCycle.payment_status === 'pending_verification';
     const isPaid = billingCycle.payment_status === 'paid';
 
+    const formatStatus = (status) => {
+        if (!status) return 'Unpaid';
+        return status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+    };
+
     return (
         <View style={styles.container}>
             <ScrollView contentContainerStyle={styles.scroll}>
@@ -265,7 +270,7 @@ export default function TenantPaymentScreen() {
 
                     <View style={[styles.statusBox, isPaid && styles.statusBoxPaid, isPending && styles.statusBoxPending]}>
                         <Text style={[styles.statusText, isPaid && styles.statusTextPaid, isPending && styles.statusTextPending]}>
-                            Status: <Text style={styles.statusBold}>{billingCycle.payment_status || 'unpaid'}</Text>
+                            Status: <Text style={styles.statusBold}>{formatStatus(billingCycle.payment_status)}</Text>
                         </Text>
                     </View>
                 </GlassCard>

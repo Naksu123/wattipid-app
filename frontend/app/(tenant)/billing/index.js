@@ -110,6 +110,11 @@ export default function TenantBillingScreen() {
     const statusConfig = getStatusStyle(safeStatus);
     const computedGrandTotal = parseFloat(grand_total || (parseFloat(electricity_charge || 0) + parseFloat(penalty_amount || 0) + parseFloat(monthly_rent || 0) + parseFloat(previous_balance || 0) + parseFloat(additional_charges || 0) - parseFloat(discounts || 0)));
 
+    const formatStatus = (status) => {
+        if (!status) return 'Unpaid';
+        return status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+    };
+
     let computedDueDate = due_date;
     if (!computedDueDate && cycle_end) {
         const dateObj = new Date(cycle_end);
@@ -141,20 +146,25 @@ export default function TenantBillingScreen() {
                 </GlassCard>
 
                 <GlassCard style={styles.amountDueCard} premium>
-                    <Text style={styles.amountDueLabel}>CURRENT AMOUNT DUE</Text>
-                    <Text style={styles.amountDueValue}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.xs, width: '100%' }}>
+                        <Text style={[styles.amountDueLabel, { marginBottom: 0 }]}>Current Amount Due</Text>
+                        
+                        <View style={[styles.statusBadge, { backgroundColor: statusConfig.bg, paddingHorizontal: 8, paddingVertical: 4, flexShrink: 0, marginRight: -4 }]}>
+                            <Ionicons name={statusConfig.icon} size={10} color={statusConfig.color} style={{ marginRight: 4 }} />
+                            <Text style={[styles.statusText, { color: statusConfig.color, fontSize: 9 }]} numberOfLines={1}>
+                                {formatStatus(safeStatus)}
+                            </Text>
+                        </View>
+                    </View>
+                    
+                    <Text style={[styles.amountDueValue, { marginBottom: SPACING.md }]}>
                         ₱{computedGrandTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </Text>
-                    <View style={styles.dueRow}>
+                    
+                    <View style={[styles.dueRow, { marginTop: 8 }]}>
                         <View>
                             <Text style={styles.dueLabel}>Due Date</Text>
                             <Text style={styles.dueValue}>{computedDueDate ? new Date(computedDueDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'N/A'}</Text>
-                        </View>
-                        <View style={[styles.statusBadge, { backgroundColor: statusConfig.bg }]}>
-                            <Ionicons name={statusConfig.icon} size={14} color={statusConfig.color} style={{ marginRight: 4 }} />
-                            <Text style={[styles.statusText, { color: statusConfig.color }]}>
-                                {safeStatus.replace('_', ' ').toUpperCase()}
-                            </Text>
                         </View>
                     </View>
                     
@@ -343,7 +353,7 @@ const styles = StyleSheet.create({
     amountDueCard: { padding: SPACING.xl, marginBottom: SPACING.lg },
     amountDueLabel: { color: COLORS.textSecondary, fontSize: FONT_SIZE.xs, fontWeight: FONT_WEIGHT.bold, letterSpacing: 1, marginBottom: 8 },
     amountDueValue: { color: COLORS.white, fontSize: 24, fontWeight: FONT_WEIGHT.heavy, marginBottom: SPACING.lg },
-    dueRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
+    dueRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', gap: 12, flexWrap: 'wrap' },
     dueLabel: { color: COLORS.textSecondary, fontSize: FONT_SIZE.xs, marginBottom: 4 },
     dueValue: { color: COLORS.textPrimary, fontSize: FONT_SIZE.sm, fontWeight: FONT_WEIGHT.bold },
     statusBadge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 6, borderRadius: RADIUS.full },

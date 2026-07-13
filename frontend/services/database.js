@@ -194,8 +194,8 @@ export async function logConsumption(roomId, voltage, current, power, energy, co
   await apiCall('logConsumption', { roomId, voltage, current, power, energy, cost });
 }
 
-export async function getConsumptionHistory(roomId, period = 'daily', tenantName = null) {
-  const data = await apiCall('getConsumptionHistory', { roomId, period, tenantName });
+export async function getConsumptionHistory(roomId, period = 'daily', tenantName = null, year = null, month = null, dateStr = null) {
+  const data = await apiCall('getConsumptionHistory', { roomId, period, tenantName, year, month, dateStr });
   return (data || []).map(d => ({
     ...d,
     energy: parseFloat(d.totalEnergy || d.energy || 0),

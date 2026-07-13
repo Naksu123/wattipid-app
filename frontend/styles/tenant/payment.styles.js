@@ -33,7 +33,7 @@ export default StyleSheet.create({
     statusText: { fontSize: FONT_SIZE.xs, color: COLORS.textSecondary, letterSpacing: 0.5 },
     statusTextPaid: { color: COLORS.success },
     statusTextPending: { color: COLORS.warning },
-    statusBold: { fontWeight: 'bold', textTransform: 'uppercase' },
+    statusBold: { fontWeight: '700', fontSize: FONT_SIZE.xs + 1 },
 
     // ============ Wizard ============
     wizardCard: { padding: SPACING.lg, marginTop: SPACING.sm },
