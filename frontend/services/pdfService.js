@@ -285,7 +285,7 @@ export async function generateCycleReport({ roomId, tenantName, startDate, endDa
   const accountNo = `WT-AC-00${String(roomId).replace(/\D/g, '') || '1'}`;
   const serialNo = `GE${generated.getTime().toString().slice(-8)}`;
 
-  // --- Breakdown Math for the simulated visual components (Vatable sales, etc.) ---
+  // --- Breakdown Math for the visual components ---
   const p_dist = rate * 0.15;
   const p_sup = rate * 0.05;
   const p_met = rate * 0.05;
@@ -294,21 +294,24 @@ export async function generateCycleReport({ roomId, tenantName, startDate, endDa
   const p_sys = rate * 0.05;
   const p_vat = rate * 0.10;
 
-  const a_dist = cycleEnergy * p_dist;
-  const a_sup = cycleEnergy * p_sup;
-  const a_met = cycleEnergy * p_met;
+  const a_dist = billingCycle ? parseFloat(billingCycle.distribution_charge || 0) : cycleEnergy * p_dist;
+  const a_sup = billingCycle ? parseFloat(billingCycle.supply_charge || 0) : cycleEnergy * p_sup;
+  const a_met = billingCycle ? parseFloat(billingCycle.metering_charge || 0) : cycleEnergy * p_met;
   const sub1 = a_dist + a_sup + a_met;
 
-  const a_gen = cycleEnergy * p_gen;
-  const a_trans = cycleEnergy * p_trans;
-  const a_sys = cycleEnergy * p_sys;
+  const a_gen = billingCycle ? parseFloat(billingCycle.generation_charge || 0) : cycleEnergy * p_gen;
+  const a_trans = billingCycle ? parseFloat(billingCycle.transmission_charge || 0) : cycleEnergy * p_trans;
+  const a_sys = billingCycle ? parseFloat(billingCycle.system_loss_charge || 0) : cycleEnergy * p_sys;
   const sub2 = a_gen + a_trans + a_sys;
 
-  const a_vat = cycleEnergy * p_vat;
+  const a_vat = billingCycle ? parseFloat(billingCycle.vat_amount || 0) : cycleEnergy * p_vat;
   const sub3 = a_vat;
+  
+  const a_misc = billingCycle ? parseFloat(billingCycle.miscellaneous_fee || 0) : electricityCharge * 0.02;
+  const sub4 = a_misc + additionalCharges;
 
   const vatableSales = sub1 + sub2;
-  const electricitySubtotal = vatableSales + sub3; 
+  const electricitySubtotal = vatableSales + sub3 + sub4;  
   const penaltyRatePercent = 2; // Configurable penalty rate
   const estimatedPenalty = totalDue * (penaltyRatePercent / 100);
   const totalAfterDueDate = totalDue + estimatedPenalty;
@@ -579,10 +582,20 @@ export async function generateCycleReport({ roomId, tenantName, startDate, endDa
         <td class="num">${sub3.toFixed(2)}</td>
       </tr>
 
+      <tr>
+        <td>Miscellaneous Fee (2%)</td>
+        <td class="num">--</td>
+        <td class="num">${a_misc.toFixed(2)}</td>
+      </tr>
+      <tr>
+        <td>Additional Charges</td>
+        <td class="num">--</td>
+        <td class="num">${additionalCharges.toFixed(2)}</td>
+      </tr>
       <tr class="subtotal-row">
         <td>Other Charges</td>
         <td class="num">Subtotal</td>
-        <td class="num">0.00</td>
+        <td class="num">${sub4.toFixed(2)}</td>
       </tr>
     </table>
 

@@ -250,10 +250,51 @@ export default function TenantPaymentScreen() {
                 <GlassCard style={styles.invoiceCard}>
                     <View style={styles.invoiceHeader}>
                         <Ionicons name="receipt-outline" size={20} color={COLORS.primary} />
-                        <Text style={styles.title}>Current Invoice</Text>
+                        <Text style={styles.title}>Current Invoice Breakdown</Text>
                     </View>
                     
                     <View style={styles.row}>
+                        <Text style={styles.label}>Electricity Charge</Text>
+                        <Text style={styles.value}>₱{parseFloat(billingCycle.electricity_charge || 0).toFixed(2)}</Text>
+                    </View>
+                    {parseFloat(billingCycle.miscellaneous_fee || 0) > 0 && (
+                        <View style={styles.row}>
+                            <Text style={styles.label}>Miscellaneous Fee</Text>
+                            <Text style={styles.value}>₱{parseFloat(billingCycle.miscellaneous_fee || 0).toFixed(2)}</Text>
+                        </View>
+                    )}
+                    {parseFloat(billingCycle.monthly_rent || 0) > 0 && (
+                        <View style={styles.row}>
+                            <Text style={styles.label}>Monthly Rent</Text>
+                            <Text style={styles.value}>₱{parseFloat(billingCycle.monthly_rent || 0).toFixed(2)}</Text>
+                        </View>
+                    )}
+                    {parseFloat(billingCycle.previous_balance || 0) > 0 && (
+                        <View style={styles.row}>
+                            <Text style={styles.label}>Previous Balance</Text>
+                            <Text style={styles.value}>₱{parseFloat(billingCycle.previous_balance || 0).toFixed(2)}</Text>
+                        </View>
+                    )}
+                    {parseFloat(billingCycle.additional_charges || 0) > 0 && (
+                        <View style={styles.row}>
+                            <Text style={styles.label}>Additional Charges</Text>
+                            <Text style={styles.value}>₱{parseFloat(billingCycle.additional_charges || 0).toFixed(2)}</Text>
+                        </View>
+                    )}
+                    {parseFloat(billingCycle.penalty_amount || 0) > 0 && (
+                        <View style={styles.row}>
+                            <Text style={[styles.label, { color: COLORS.danger }]}>Penalty Fee</Text>
+                            <Text style={[styles.value, { color: COLORS.danger }]}>₱{parseFloat(billingCycle.penalty_amount || 0).toFixed(2)}</Text>
+                        </View>
+                    )}
+                    {parseFloat(billingCycle.discounts || 0) > 0 && (
+                        <View style={styles.row}>
+                            <Text style={[styles.label, { color: COLORS.success }]}>Discounts</Text>
+                            <Text style={[styles.value, { color: COLORS.success }]}>- ₱{parseFloat(billingCycle.discounts || 0).toFixed(2)}</Text>
+                        </View>
+                    )}
+                    
+                    <View style={[styles.row, { borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.1)', paddingTop: SPACING.sm, marginTop: SPACING.xs }]}>
                         <Text style={styles.label}>Total Bill Amount</Text>
                         <Text style={styles.value}>₱{grandTotal.toFixed(2)}</Text>
                     </View>
