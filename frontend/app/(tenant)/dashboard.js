@@ -99,8 +99,9 @@ export default function DashboardScreen() {
       const cyclesRes = await apiClient.post('/api.php', { action: 'getAvailableBillingCycles', roomId });
       if (cyclesRes.data && cyclesRes.data.success && cyclesRes.data.data.length > 0) {
         const cycles = cyclesRes.data.data;
-        // Prioritize finding the latest UNPAID completed invoice, otherwise fallback to the most recent one
-        let latestInvoice = cycles.find(c => c.status === 'completed' && ['unpaid', 'pending_verification', 'overdue', 'partially_paid'].includes(c.payment_status));
+        // Find the OLDEST unpaid invoice to force chronological payments
+        let unpaidInvoices = cycles.filter(c => c.status === 'completed' && ['unpaid', 'pending_verification', 'overdue', 'partially_paid'].includes(c.payment_status));
+        let latestInvoice = unpaidInvoices.length > 0 ? unpaidInvoices[unpaidInvoices.length - 1] : null;
         if (!latestInvoice) {
             latestInvoice = cycles.find(c => c.status === 'completed') || cycles[0];
         }
