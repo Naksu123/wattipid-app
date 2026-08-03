@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
-  ScrollView, KeyboardAvoidingView, Platform, Alert, ActivityIndicator,
+  ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '@/contexts/AuthContext';
+import { useModal } from '@/contexts/ModalContext';
 import { COLORS, GRADIENTS } from '@/styles/theme';
 import Logo from '@/components/ui/Logo';
 import s from '@/styles/auth/login.styles';
@@ -16,6 +17,7 @@ import { acceptTerms } from '../../services/termsApi';
 export default function LoginScreen() {
   const router = useRouter();
   const { login, logout, isLoading } = useAuth();
+  const { showModal } = useModal();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -47,16 +49,16 @@ export default function LoginScreen() {
       }
     } else {
       if (result?.message === 'Account not verified') {
-        Alert.alert(
-          'Account Not Verified',
-          'You have not verified your email address yet.',
-          [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Verify Now', onPress: () => router.push({ pathname: '/(auth)/verify', params: { email: email.trim() } }) }
-          ]
-        );
+        showModal({
+          type: 'warning',
+          title: 'Account Not Verified',
+          message: 'You have not verified your email address yet.',
+          primaryButtonText: 'Verify Now',
+          onPrimaryPress: () => router.push({ pathname: '/(auth)/verify', params: { email: email.trim() } }),
+          secondaryButtonText: 'Cancel'
+        });
       } else {
-        Alert.alert('Login Failed', result?.message || 'Server returned an invalid response.');
+        showModal({ type: 'error', title: 'Login Failed', message: result?.message || 'Server returned an invalid response.' });
       }
     }
   };
@@ -68,10 +70,10 @@ export default function LoginScreen() {
         setTermsModalVisible(false);
         router.replace(pendingRole === 'landlord' ? '/(landlord)/overview' : '/(tenant)/dashboard');
       } else {
-        Alert.alert('Error', 'Failed to record terms acceptance. Please try again.');
+        showModal({ type: 'error', title: 'Error', message: 'Failed to record terms acceptance. Please try again.' });
       }
     } catch (e) {
-      Alert.alert('Error', 'Network error while accepting terms.');
+      showModal({ type: 'error', title: 'Error', message: 'Network error while accepting terms.' });
     }
   };
 
@@ -80,7 +82,7 @@ export default function LoginScreen() {
     // They declined updated terms, so we force them back to login (they can't proceed)
     // Actually we should log them out via auth context to clear the session
     logout(); // Just clear it out
-    Alert.alert("Terms Required", "You cannot access your account without accepting the updated Terms and Conditions.");
+    showModal({ type: 'warning', title: 'Terms Required', message: 'You cannot access your account without accepting the updated Terms and Conditions.' });
   };
 
   return (

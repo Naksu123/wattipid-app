@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Image, Modal, Alert, ActivityIndicator, TextInput } from 'react-native';
+import { View, Text, TouchableOpacity, Image, Modal, ActivityIndicator, TextInput } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import GlassCard from '../../ui/GlassCard';
 import { verifyPayment } from '../../../services/paymentService';
 import { API_URL } from '../../../services/config';
 import { COLORS } from '@/styles/theme';
+import { useModal } from '../../../contexts/ModalContext';
 import styles from '../../../styles/components/landlord/Overview/PendingPaymentsWidget.styles';
 
 export default function PendingPaymentsWidget({ payments = [], onRefresh }) {
+  const { showModal } = useModal();
   const [selectedPayment, setSelectedPayment] = useState(null);
   const [loading, setLoading] = useState(false);
   const [confirmAction, setConfirmAction] = useState(null);
@@ -60,7 +62,7 @@ export default function PendingPaymentsWidget({ payments = [], onRefresh }) {
       if (onRefresh) onRefresh();
     } catch (error) {
       const errorMsg = typeof error === 'string' ? error : (error?.message || JSON.stringify(error));
-      Alert.alert('Error', errorMsg);
+      showModal({ type: 'error', title: 'Error', message: errorMsg });
     } finally {
       setLoading(false);
     }

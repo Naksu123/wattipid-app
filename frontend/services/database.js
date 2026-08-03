@@ -162,9 +162,9 @@ export async function getVacantRooms() {
 }
 
 // ============ INVITATION OPERATIONS ============
-export async function saveTenantInvitation(email, roomId, tenantCode) {
+export async function saveTenantInvitation(email, roomId) {
   try {
-    const response = await apiClient.post('/api.php', { action: 'saveTenantInvitation', email, roomId, tenantCode });
+    const response = await apiClient.post('/api.php', { action: 'saveTenantInvitation', email, roomId });
     return response.data;
   } catch (error) {
     return { success: false, message: error.response?.data?.message || error.message };
@@ -345,4 +345,16 @@ export async function getBillingDetails(invoiceNumber, id = null, roomId = null)
 
 export async function getPaymentInsights(roomId) {
   return await apiCall('getPaymentInsights', { roomId });
+}
+
+export async function verifyAccessCodeAPI(email, accessCode) {
+  try {
+    // Use apiClient directly (not apiCall) because we need the full response
+    // including success/message fields, not just the nested data property.
+    const response = await apiClient.post('/api.php', { action: 'verifyAccessCode', email, accessCode });
+    return response.data; // { success: true/false, message: '...', data: {...} }
+  } catch (error) {
+    console.error("verifyAccessCode error:", error);
+    return { success: false, message: error.response?.data?.message || error.message };
+  }
 }

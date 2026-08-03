@@ -19,7 +19,9 @@ export default function PaymentHistoryModal({ visible, onClose, history }) {
       iconName = 'close-circle-outline';
     }
 
-    const dateStr = item.paid_at ? new Date(item.paid_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Unknown Date';
+    const transactionDate = item.paid_at || item.payment_date || item.created_at;
+    const safeDate = transactionDate ? (typeof transactionDate === 'string' ? transactionDate.replace(' ', 'T') : transactionDate) : null;
+    const dateStr = safeDate ? new Date(safeDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Unknown Date';
 
     return (
       <View style={styles.transactionRow}>

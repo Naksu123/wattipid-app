@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, TextInput, Switch, Modal } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Switch, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
+import { useModal } from '../../contexts/ModalContext';
 import { getDatabase } from '../../services/database';
 import { getAlertSettings, updateAlertSettings } from '../../services/notificationApi';
 import { getCurrentEnv, setApiEnvironment, ENVIRONMENTS } from '../../services/config';
@@ -15,6 +16,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 export default function TenantSettings() {
   const router = useRouter();
   const { user, logout } = useAuth();
+  const { showModal } = useModal();
   const [logoutVisible, setLogoutVisible] = useState(false);
   const [clearDataVisible, setClearDataVisible] = useState(false);
   const [markReadSuccessVisible, setMarkReadSuccessVisible] = useState(false);
@@ -76,7 +78,7 @@ export default function TenantSettings() {
       await updateAlertSettings(user?.room_id || 'Room 1', currentSettings);
     } catch (error) {
       console.warn('Failed to update alert settings:', error);
-      Alert.alert('Error', 'Could not save your preferences.');
+      showModal({ type: 'error', title: 'Error', message: 'Could not save your preferences.' });
     }
   };
 
@@ -102,7 +104,7 @@ export default function TenantSettings() {
       await markAllNotificationsRead();
       setMarkReadSuccessVisible(true);
     } catch (e) {
-      Alert.alert('Error', 'Could not update notifications.');
+      showModal({ type: 'error', title: 'Error', message: 'Could not update notifications.' });
     }
   };
 
@@ -110,7 +112,7 @@ export default function TenantSettings() {
     setClearDataVisible(false);
     const db = await getDatabase();
     await db.runAsync('DELETE FROM consumption_logs WHERE room_id = ?', [user?.room_id || 'Room 1']);
-    Alert.alert('Cleared', 'Consumption history has been deleted');
+    showModal({ type: 'success', title: 'Cleared', message: 'Consumption history has been deleted' });
   };
 
   const handleSwitchEnv = () => {
@@ -126,11 +128,12 @@ export default function TenantSettings() {
     await AsyncStorage.multiRemove(['@auth_token', '@auth_user']);
     logout(); 
     
-    Alert.alert(
-      'Environment Switched', 
-      `Connected to ${tempEnv === 'local' ? 'Local Server' : 'Production Server'}. Please log in again.`,
-      [{ text: 'OK', onPress: () => router.replace('/(auth)/login') }]
-    );
+    showModal({
+      type: 'success',
+      title: 'Environment Switched', 
+      message: `Connected to ${tempEnv === 'local' ? 'Local Server' : 'Production Server'}. Please log in again.`,
+      onPrimaryPress: () => router.replace('/(auth)/login')
+    });
   };
 
   const ToggleItem = ({ icon, label, desc, value, onToggle, disabled }) => (

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Alert, TextInput, Modal, Switch, SafeAreaView, StatusBar, Platform, Image } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, Modal, Switch, SafeAreaView, StatusBar, Platform, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -7,6 +7,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
 import { useAuth } from '../../contexts/AuthContext';
+import { useModal } from '../../contexts/ModalContext';
 import { getSetting, setSetting } from '../../services/database';
 import { updatePenaltySettings, getPenaltySettings } from '../../services/penaltyService';
 import { setESP32BaseUrl, getConnectionStatus } from '../../services/esp32Api';
@@ -18,6 +19,7 @@ import styles from '../../styles/landlord/settings.styles';
 export default function LandlordSettings() {
   const router = useRouter();
   const { user, logout, updateProfile } = useAuth();
+  const { showModal } = useModal();
   const [rate, setRate] = useState('');
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(user?.name || '');
@@ -117,7 +119,7 @@ export default function LandlordSettings() {
 
   const handleSaveRate = () => {
     const val = parseFloat(rate);
-    if (!val || val <= 0) { Alert.alert('Invalid', 'Please enter a valid rate'); return; }
+    if (!val || val <= 0) { showModal({ type: 'warning', title: 'Invalid', message: 'Please enter a valid rate' }); return; }
     setRateConfirmVisible(true);
   };
 
@@ -130,10 +132,10 @@ export default function LandlordSettings() {
   };
 
   const handleSaveProfile = async () => {
-    if (!name.trim()) { Alert.alert('Error', 'Name cannot be empty'); return; }
+    if (!name.trim()) { showModal({ type: 'error', title: 'Error', message: 'Name cannot be empty' }); return; }
     const r = await updateProfile(name, email);
-    if (r.success) { Alert.alert('Success', 'Profile updated'); setEditing(false); }
-    else Alert.alert('Error', r.message || 'Failed to update');
+    if (r.success) { showModal({ type: 'success', title: 'Success', message: 'Profile updated' }); setEditing(false); }
+    else showModal({ type: 'error', title: 'Error', message: r.message || 'Failed to update' });
   };
 
   const handleLogout = () => setLogoutConfirmVisible(true);
@@ -153,7 +155,7 @@ export default function LandlordSettings() {
     await setSetting('esp32_ip', esp32Ip.trim());
     setESP32BaseUrl(`http://${esp32Ip.trim()}`);
     setEsp32Visible(false);
-    Alert.alert('Saved', `ESP32 IP set to ${esp32Ip.trim()}`);
+    showModal({ type: 'success', title: 'Saved', message: `ESP32 IP set to ${esp32Ip.trim()}` });
   };
 
   const handleSaveNotifications = async () => {
@@ -164,7 +166,7 @@ export default function LandlordSettings() {
       setSetting('landlord_notif_revoke', notifRevoke.toString()),
     ]);
     setNotifVisible(false);
-    Alert.alert('Saved', 'Notification preferences updated.');
+    showModal({ type: 'success', title: 'Saved', message: 'Notification preferences updated.' });
   };
 
   const handleSavePenalty = async () => {
@@ -174,24 +176,21 @@ export default function LandlordSettings() {
         penalty_rate: penaltyRate
       });
       setPenaltyVisible(false);
-      Alert.alert('Saved', 'Penalty configuration updated successfully.');
+      showModal({ type: 'success', title: 'Saved', message: 'Penalty configuration updated successfully.' });
     } catch (e) {
-      Alert.alert('Error', e.message || 'Failed to update penalty config');
+      showModal({ type: 'error', title: 'Error', message: e.message || 'Failed to update penalty config' });
     }
   };
 
   const pickImage = async (setter) => {
     try {
-      const requestPermissions = ImagePicker.requestMediaLibraryPermissionsAsync || ImagePicker.default?.requestMediaLibraryPermissionsAsync;
-      const launchLibrary = ImagePicker.launchImageLibraryAsync || ImagePicker.default?.launchImageLibraryAsync;
-      
-      const { status } = await requestPermissions();
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
-          Alert.alert('Permission Required', 'Please allow access to your photo library to upload QR codes.');
+          showModal({ type: 'warning', title: 'Permission Required', message: 'Please allow access to your photo library to upload QR codes.' });
           return;
       }
 
-      let result = await launchLibrary({
+      let result = await ImagePicker.launchImageLibraryAsync({
           mediaTypes: ImagePicker.MediaTypeOptions.Images,
           quality: 0.5,
           base64: true,
@@ -216,7 +215,7 @@ export default function LandlordSettings() {
           }
       } catch (fallbackErr) {
           console.warn('DocumentPicker Error:', fallbackErr);
-          Alert.alert('Error', 'Unable to open file picker. This device may not support file selection.');
+          showModal({ type: 'error', title: 'Error', message: 'Unable to open file picker. This device may not support file selection.' });
       }
     }
   };
@@ -232,7 +231,7 @@ export default function LandlordSettings() {
       ...(mayaQrBase64 ? [setSetting('maya_qr', mayaQrBase64)] : []),
     ]);
     setPaymentMethodsVisible(false);
-    Alert.alert('Saved', 'Payment method settings updated successfully.');
+    showModal({ type: 'success', title: 'Saved', message: 'Payment method settings updated successfully.' });
   };
 
   const MenuItem = ({ icon, label, value, onPress, danger, highlighted }) => (

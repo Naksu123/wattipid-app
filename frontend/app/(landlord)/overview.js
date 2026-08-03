@@ -102,8 +102,8 @@ export default function OverviewScreen() {
       {/* Premium Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <Text style={styles.greeting}>Hello, {user?.name?.split(' ')[0] || 'Admin'} 👋</Text>
-          <Text style={styles.subtitle}>Real-Time Command Center</Text>
+          <Text style={styles.greeting}>Hello, {user?.name?.split(' ')[0] || 'Admin'} </Text>
+          <Text style={styles.subtitle}>Real-Time Monitoring Dashboard</Text>
         </View>
         <View style={styles.headerRight}>
           <TouchableOpacity style={styles.iconBtn} onPress={() => router.push('/(landlord)/notifications')}>

@@ -10,6 +10,7 @@ import ErrorTracker from '../services/errorTracker';
 import { ThemeProvider, DarkTheme } from '@react-navigation/native';
 import { COLORS } from '@/styles/theme';
 import { SyncProvider } from '@/contexts/SyncContext';
+import { ModalProvider } from '@/contexts/ModalContext';
 import GlobalToast from '@/components/ui/GlobalToast';
 import NotificationBanner from '@/components/ui/NotificationBanner';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -119,10 +120,12 @@ export default function RootLayout() {
       <ThemeProvider value={WattipidTheme}>
         <AuthProvider>
           <SyncProvider>
-            <NotificationProvider>
-              <StatusBar style="light" />
-              <RootLayoutContent />
-            </NotificationProvider>
+            <ModalProvider>
+              <NotificationProvider>
+                <StatusBar style="light" />
+                <RootLayoutContent />
+              </NotificationProvider>
+            </ModalProvider>
           </SyncProvider>
         </AuthProvider>
       </ThemeProvider>

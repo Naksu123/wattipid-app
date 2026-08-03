@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Alert, RefreshControl, Modal, TextInput, ActivityIndicator,
+  RefreshControl, Modal, TextInput, ActivityIndicator,
   Platform, useWindowDimensions
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,6 +10,7 @@ import { getAllRooms, generateNewTenantCode, updateRoomStatus, saveTenantInvitat
 import { sendTenantAccessCode } from '../../services/emailService';
 import { generateMonthlyReport, generateCycleReport, shareReport } from '../../services/pdfService';
 import { submitOfflinePayment } from '../../services/paymentService';
+import { useModal } from '../../contexts/ModalContext';
 import RoomCard from '../../components/ui/RoomCard';
 import RoomHistoryModal from '../../components/landlord/RoomHistoryModal';
 import ArchiveModal from '../../components/RoomManagement/ArchiveModal';
@@ -21,6 +22,7 @@ import s from '@/styles/landlord/rooms.styles';
 export default function RoomsScreen() {
   const { width } = useWindowDimensions();
   const isLargeScreen = width >= 768;
+  const { showModal } = useModal();
 
   const [rooms, setRooms] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
@@ -194,7 +196,7 @@ export default function RoomsScreen() {
     if (!regenRoom) return;
     setRegenConfirmVisible(false);
     const result = await generateNewTenantCode(regenRoom.room_id);
-    const newCode = result?.data?.code || result?.code || result; // Fallback just in case
+    const newCode = result?.data?.tenant_code || result?.data?.code || '—';
     setRegenSuccessMsg(`Room: ${regenRoom.room_id}\nNew Code: ${newCode}`);
     setRegenSuccessVisible(true);
     loadRooms();
@@ -207,43 +209,25 @@ export default function RoomsScreen() {
     }
     setSending(true);
     try {
-      let codeToSend = selectedRoom.tenant_code;
-
-      if (!codeToSend) {
-        const generateRes = await generateNewTenantCode(selectedRoom.room_id);
-        if (generateRes && generateRes.success) {
-          codeToSend = generateRes.data?.tenant_code || generateRes.code;
-        } else {
-          Alert.alert('Error', 'Failed to generate an access code automatically. Please try again.');
-          setSending(false);
-          return;
-        }
-      }
-
-      const saveRes = await saveTenantInvitation(tenantEmail.trim(), selectedRoom.room_id, codeToSend);
+      const saveRes = await saveTenantInvitation(tenantEmail.trim(), selectedRoom.room_id);
       if (saveRes && !saveRes.success) {
-        Alert.alert('Error', saveRes.message || 'Failed to save invitation');
+        showModal({ type: 'error', title: 'Error', message: saveRes.message || 'Failed to save invitation' });
         setSending(false);
         return;
       }
 
-      const result = await sendTenantAccessCode(tenantEmail.trim(), selectedRoom.room_id, codeToSend);
       setSendModalVisible(false);
       setTenantEmail('');
 
-      if (result.success) {
-        setSuccessCodeData({
-          code: result.mockCode || codeToSend,
-          room: selectedRoom.room_id,
-          email: tenantEmail.trim()
-        });
-        setCodeSuccessVisible(true);
-      } else {
-        Alert.alert('Failed', result.message || 'Could not send the access code.');
-      }
+      setSuccessCodeData({
+        code: 'Sent securely via Email',
+        room: selectedRoom.room_id,
+        email: tenantEmail.trim()
+      });
+      setCodeSuccessVisible(true);
       loadRooms();
     } catch (err) {
-      Alert.alert('Email Failed', err.message || 'Something went wrong. Please try again.');
+      showModal({ type: 'error', title: 'Email Failed', message: err.message || 'Something went wrong. Please try again.' });
     } finally {
       setSending(false);
     }
@@ -279,7 +263,7 @@ export default function RoomsScreen() {
       setReportModalVisible(false);
       await shareReport(result.uri);
     } catch (err) {
-      Alert.alert('Error', 'Failed to generate report: ' + err.message);
+      showModal({ type: 'error', title: 'Error', message: 'Failed to generate report: ' + err.message });
     } finally {
       setGeneratingPdf(false);
     }
@@ -302,17 +286,17 @@ export default function RoomsScreen() {
         setRoomModalVisible(false);
         loadRooms();
       } else {
-        Alert.alert('Error', res?.message || 'Operation failed');
+        showModal({ type: 'error', title: 'Error', message: res?.message || 'Operation failed' });
       }
     } catch (e) {
-      Alert.alert('Error', e.message);
+      showModal({ type: 'error', title: 'Error', message: e.message });
     } finally {
       setActionLoading(false);
     }
   };
 
-  const openArchiveModal = (r) => {
-    if (r.status === 'occupied' || r.tenant_name) return Alert.alert("Cannot Archive", "Room currently has an active tenant.");
+  const handleToggleRoomStatus = (r) => {
+    if (r.status === 'occupied' || r.tenant_name) return showModal({ type: 'warning', title: 'Cannot Archive', message: 'Room currently has an active tenant.' });
     setArchiveRoomObj(r);
     setIsRestoreMode(false);
     setArchiveModalVisible(true);
@@ -333,10 +317,10 @@ export default function RoomsScreen() {
         setArchiveModalVisible(false);
         loadRooms();
       } else {
-        Alert.alert('Error', res?.message || 'Failed to update status');
+        showModal({ type: 'error', title: 'Error', message: res?.message || 'Failed to update status' });
       }
     } catch (e) {
-      Alert.alert('Error', e.message);
+      showModal({ type: 'error', title: 'Error', message: e.message });
     } finally {
       setActionLoading(false);
     }
@@ -349,14 +333,23 @@ export default function RoomsScreen() {
     setProcessingCash(true);
     try {
       const res = await submitOfflinePayment(selectedCashCycle.id, cashRoom.room_id, amount);
-      setCashModalVisible(false);
-      setCashRoom(null);
-      setCashCycles([]);
-      setSelectedCashCycle(null);
-      Alert.alert('Payment Recorded', `Successfully marked ${cashRoom.room_id} cycle as paid in cash.`, [{ text: 'OK', onPress: () => loadRooms() }]);
+      if (res.success) {
+        setCashModalVisible(false);
+        setCashRoom(null);
+        setCashCycles([]);
+        setSelectedCashCycle(null);
+        showModal({
+          type: 'success',
+          title: 'Payment Recorded',
+          message: `Successfully marked ${cashRoom.room_id} cycle as paid in cash.`,
+          onPrimaryPress: () => loadRooms()
+        });
+      } else {
+        const errorMsg = res.message || 'Failed to process offline payment.';
+        showModal({ type: 'error', title: 'Payment Error', message: errorMsg });
+      }
     } catch (err) {
-      const errorMsg = typeof err === 'string' ? err : (err?.message || JSON.stringify(err));
-      Alert.alert('Payment Error', errorMsg);
+      showModal({ type: 'error', title: 'Payment Error', message: err.message || JSON.stringify(err) });
     } finally {
       setProcessingCash(false);
     }
@@ -571,15 +564,15 @@ export default function RoomsScreen() {
                           e.stopPropagation && e.stopPropagation();
                           try {
                             const vacant = await getVacantRooms();
-                            if (vacant.length === 0) {
-                              Alert.alert('No Vacant Rooms', 'There are no vacant rooms available for transfer.');
-                              return;
+                            if (vacant && vacant.length > 0) {
+                              setVacantRoomsList(vacant);
+                              setTransferFromRoom(room);
+                              setTransferModalVisible(true);
+                            } else {
+                              showModal({ type: 'warning', title: 'No Vacant Rooms', message: 'There are no vacant rooms available for transfer.' });
                             }
-                            setTransferFromRoom(room);
-                            setVacantRoomsList(vacant);
-                            setTransferModalVisible(true);
                           } catch (err) {
-                            Alert.alert('Error', err.message || 'Failed to fetch vacant rooms');
+                            showModal({ type: 'error', title: 'Error', message: err.message || 'Failed to fetch vacant rooms' });
                           }
                         }}
                       >
@@ -637,7 +630,7 @@ export default function RoomsScreen() {
                           }}
                         >
                           <Ionicons name="mail-outline" size={16} color={COLORS.primary} />
-                          <Text style={[s.actionBtnText, { color: COLORS.primary }]}>Send Code</Text>
+                          <Text style={[s.actionBtnText, { color: COLORS.primary }]}>Invitation</Text>
                         </TouchableOpacity>
                       )}
                       {room.status === 'on_process' && (
@@ -655,7 +648,7 @@ export default function RoomsScreen() {
                               setGeneralSuccessVisible(true);
                               loadRooms();
                             } catch (err) {
-                              Alert.alert('Error', err.message || 'Failed to update room status');
+                              showModal({ type: 'error', title: 'Error', message: err.message || 'Failed to update room status' });
                             }
                           }}
                         >
@@ -694,7 +687,7 @@ export default function RoomsScreen() {
                           <Text style={[s.actionBtnText, { color: COLORS.success }]}>Restore</Text>
                         </TouchableOpacity>
                       ) : (
-                        <TouchableOpacity style={s.actionBtn} activeOpacity={0.7} onPress={() => openArchiveModal(room)}>
+                        <TouchableOpacity style={s.actionBtn} activeOpacity={0.7} onPress={() => handleToggleRoomStatus(room)}>
                           <Ionicons name="archive-outline" size={16} color={COLORS.danger} />
                           <Text style={[s.actionBtnText, { color: COLORS.danger }]}>Archive</Text>
                         </TouchableOpacity>
@@ -716,7 +709,7 @@ export default function RoomsScreen() {
               <View style={s.modalIcon}>
                 <Ionicons name="mail" size={32} color={COLORS.primary} />
               </View>
-              <Text style={s.modalTitle}>Send Access Code</Text>
+              <Text style={s.modalTitle}>Send Invitation</Text>
               <Text style={s.modalDesc}>
                 Enter the tenant's email. They will receive a secure access code for{' '}
                 <Text style={s.modalRoom}>{selectedRoom?.room_id}</Text>.
@@ -733,7 +726,7 @@ export default function RoomsScreen() {
 
               <View style={s.timerNote}>
                 <Ionicons name="time-outline" size={14} color={COLORS.warning} />
-                <Text style={s.timerNoteText}>Access code will expire 5 minutes after sending</Text>
+                <Text style={s.timerNoteText}>Access code will expire 24 hrs after sending</Text>
               </View>
 
               <View style={[s.timerNote, { backgroundColor: 'rgba(239, 68, 68, 0.1)', borderColor: 'rgba(239, 68, 68, 0.2)', marginTop: 8 }]}>
@@ -749,7 +742,7 @@ export default function RoomsScreen() {
                   <LinearGradient colors={GRADIENTS.primary} style={s.sendBtn}>
                     {sending
                       ? <ActivityIndicator color="#fff" size="small" />
-                      : <><Ionicons name="send" size={16} color="#fff" /><Text style={s.sendText}>Send Code</Text></>
+                      : <><Ionicons name="send" size={16} color="#fff" /><Text style={s.sendText}>Send Invitation</Text></>
                     }
                   </LinearGradient>
                 </TouchableOpacity>
@@ -1106,7 +1099,7 @@ export default function RoomsScreen() {
               <View style={s.successDetails}>
                 <View style={s.detailRow}>
                   <Ionicons name="time-outline" size={18} color={COLORS.warning} />
-                  <Text style={s.detailText}>Code expires in <Text style={{ fontWeight: '700', color: COLORS.textPrimary }}>5 minutes</Text>.</Text>
+                  <Text style={s.detailText}>Code expires in <Text style={{ fontWeight: '700', color: COLORS.textPrimary }}>24 hours</Text>.</Text>
                 </View>
                 <View style={s.detailRow}>
                   <Ionicons name="shield-checkmark-outline" size={18} color={COLORS.danger} />
@@ -1205,11 +1198,14 @@ export default function RoomsScreen() {
                 <>
                   <Text style={{ fontSize: 12, fontWeight: '700', color: COLORS.textSecondary, textTransform: 'uppercase', marginBottom: 8, letterSpacing: 1 }}>Room Status</Text>
                   <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
-                    {['vacant', 'not_available', 'under_maintenance'].map(st => (
-                      <TouchableOpacity key={st}
-                        style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: roomFormData.status === st ? COLORS.primary : COLORS.border, backgroundColor: roomFormData.status === st ? 'rgba(16,185,129,0.1)' : 'transparent', opacity: roomFormData.status === 'occupied' ? 0.5 : 1 }}
-                        onPress={() => { if (roomFormData.status !== 'occupied') setRoomFormData({ ...roomFormData, status: st }); else Alert.alert("Cannot change status of an occupied room."); }}
-                        disabled={roomFormData.status === 'occupied'}
+                    {['vacant', 'occupied', 'maintenance'].map((st) => (
+                      <TouchableOpacity
+                        key={st}
+                        style={[s.statusOption, roomFormData.status === st && s.statusOptionActive]}
+                        onPress={() => {
+                          if (roomFormData.status !== 'occupied') setRoomFormData({ ...roomFormData, status: st });
+                          else showModal({ type: 'warning', title: 'Cannot Change Status', message: 'Cannot change status of an occupied room.' });
+                        }}
                       >
                         <Text style={{ fontSize: 12, fontWeight: '600', color: roomFormData.status === st ? COLORS.primary : COLORS.textSecondary }}>{st.replace('_', ' ').toUpperCase()}</Text>
                       </TouchableOpacity>

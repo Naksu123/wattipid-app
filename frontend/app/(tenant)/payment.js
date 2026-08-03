@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Alert, Image, ActivityIndicator, ScrollView, TextInput, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, Image, ActivityIndicator, ScrollView, TextInput, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { getAvailableBillingCycles, getSetting } from '../../services/database';
 import { submitPayment } from '../../services/paymentService';
 import { useAuth } from '../../contexts/AuthContext';
+import { useModal } from '../../contexts/ModalContext';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
@@ -14,6 +15,7 @@ import styles from '../../styles/tenant/payment.styles';
 
 export default function TenantPaymentScreen() {
     const { user } = useAuth();
+    const { showModal } = useModal();
     const router = useRouter();
     const [billingCycle, setBillingCycle] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -89,7 +91,7 @@ export default function TenantPaymentScreen() {
 
             const { status } = await requestPermissions();
             if (status !== 'granted') {
-                Alert.alert('Permission Required', 'Please allow access to your photo library.');
+                showModal({ type: 'warning', title: 'Permission Required', message: 'Please allow access to your photo library.' });
                 return;
             }
 
@@ -123,19 +125,19 @@ export default function TenantPaymentScreen() {
                 }
             } catch (fallbackErr) {
                  console.warn('[TenantPayment] DocumentPicker Error:', fallbackErr);
-                 Alert.alert('Error', 'Unable to open file picker. This device may not support file selection.');
+                 showModal({ type: 'error', title: 'Error', message: 'Unable to open file picker. This device may not support file selection.' });
             }
         }
     };
 
     const handleSubmit = async () => {
         if (!paymentMethod) {
-            Alert.alert('Error', 'Please select a payment method.');
+            showModal({ type: 'error', title: 'Error', message: 'Please select a payment method.' });
             return;
         }
 
         if (paymentMethod !== 'Cash' && !proofBase64 && !proofUri && !referenceNumber) {
-            Alert.alert('Error', 'Please attach a screenshot of your payment receipt or enter a reference number.');
+            showModal({ type: 'error', title: 'Error', message: 'Please attach a screenshot of your payment receipt or enter a reference number.' });
             return;
         }
 
@@ -177,15 +179,15 @@ export default function TenantPaymentScreen() {
                 paymentDate
             );
             
-            Alert.alert('Success', 'Payment submitted for verification!');
+            showModal({ type: 'success', title: 'Success', message: 'Payment submitted for verification!' });
             setProofUri(null);
             setProofBase64(null);
             setReferenceNumber('');
-            setStep(1);
+            setStep(4);
             fetchData();
         } catch (err) {
-            console.warn('[TenantPayment] Submit error:', err);
-            Alert.alert('Error', typeof err === 'string' ? err : (err?.message || 'Failed to submit payment.'));
+            console.error('[TenantPayment] Submit error:', err);
+            showModal({ type: 'error', title: 'Error', message: typeof err === 'string' ? err : (err?.message || 'Failed to submit payment.') });
         } finally {
             setSubmitting(false);
         }

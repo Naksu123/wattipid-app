@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Alert, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { useAuth } from '../../contexts/AuthContext';
+import { useModal } from '../../contexts/ModalContext';
 import {
   getConsumptionHistory, getConsumptionComparison, getDailyBreakdown,
   getHourlyBreakdown, getTransactionHistory, getTotalConsumptionToday,
@@ -24,6 +25,7 @@ const DAY_NAMES = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 
 export default function AnalyticsScreen() {
   const { user } = useAuth();
+  const { showModal } = useModal();
   const [period, setPeriod] = useState('weekly');
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [history, setHistory] = useState([]);
@@ -383,7 +385,7 @@ export default function AnalyticsScreen() {
       const { uri } = await Print.printToFileAsync({ html, base64: false });
       await Sharing.shareAsync(uri, { mimeType: 'application/pdf', dialogTitle: reportType });
     } catch (err) {
-      Alert.alert('Error', 'Failed to generate report: ' + err.message);
+      showModal({ type: 'error', title: 'Error', message: 'Failed to generate report: ' + err.message });
     } finally {
       setGeneratingPdf(false);
     }
@@ -704,7 +706,7 @@ export default function AnalyticsScreen() {
                   setHistoryStartDate(new Date(availableCycles[1].cycle_start));
                   setHistoryEndDate(new Date(availableCycles[1].cycle_end));
                   setHistoryTitle('Previous Billing Cycle');
-                } else { Alert.alert('Not Available', 'No previous billing cycle found.'); }
+                } else { showModal({ type: 'warning', title: 'Not Available', message: 'No previous billing cycle found.' }); }
                 setShowHistoryModal(false);
               }}>
               <Text style={{ color: COLORS.textPrimary, fontWeight: 'bold' }}>Previous Billing Cycle</Text>
@@ -742,7 +744,7 @@ export default function AnalyticsScreen() {
 
             <TouchableOpacity style={{ backgroundColor: COLORS.primary, padding: 14, borderRadius: RADIUS.md, alignItems: 'center', marginTop: 16 }}
               onPress={() => {
-                if (customStart > customEnd) { Alert.alert('Invalid Range', 'Start date cannot be after end date.'); return; }
+                if (customStart > customEnd) { showModal({ type: 'error', title: 'Invalid Range', message: 'Start date cannot be after end date.' }); return; }
                 setHistoryStartDate(customStart); setHistoryEndDate(customEnd);
                 setHistoryTitle(`${customStart.toLocaleDateString('default', { month: 'short', day: 'numeric' })} – ${customEnd.toLocaleDateString('default', { month: 'short', day: 'numeric' })}`);
                 setShowHistoryModal(false);

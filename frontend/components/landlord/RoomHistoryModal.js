@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Modal, Alert, SafeAreaView } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Modal, SafeAreaView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { getTransactionHistory, getAvailableBillingCycles } from '../../services/database';
 import { COLORS, RADIUS, SPACING } from '../../styles/theme';
 import { BaseModal, ModalHeader, ModalBody } from '../modals/BaseModal';
+import { useModal } from '../../contexts/ModalContext';
 import s from '../../styles/components/landlord/RoomHistoryModal.styles';
 
 export default function RoomHistoryModal({ visible, onClose, roomId }) {
+  const { showModal } = useModal();
   const [transactions, setTransactions] = useState([]);
   const [historyLimit, setHistoryLimit] = useState(50);
   const [availableCycles, setAvailableCycles] = useState([]);
@@ -146,7 +148,7 @@ export default function RoomHistoryModal({ visible, onClose, roomId }) {
                   setHistoryEndDate(new Date(availableCycles[1].cycle_end));
                   setHistoryTitle('Previous Billing Cycle');
                 } else {
-                  Alert.alert('Not Available', 'No previous billing cycle found.');
+                  showModal({ type: 'warning', title: 'Not Available', message: 'No previous billing cycle found.' });
                 }
                 setShowFilterModal(false);
               }}>
@@ -189,7 +191,7 @@ export default function RoomHistoryModal({ visible, onClose, roomId }) {
             <TouchableOpacity style={{ backgroundColor: COLORS.primary, padding: 14, borderRadius: RADIUS.md, alignItems: 'center', marginTop: 16 }}
               onPress={() => {
                 if (customStart > customEnd) {
-                  Alert.alert('Invalid Range', 'Start date cannot be after end date.');
+                  showModal({ type: 'error', title: 'Invalid Range', message: 'Start date cannot be after end date.' });
                   return;
                 }
                 setHistoryStartDate(customStart);

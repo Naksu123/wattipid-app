@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ActivityIndicator, TouchableOpacity, Alert, BackHandler } from 'react-native';
+import { View, Text, ActivityIndicator, TouchableOpacity, BackHandler } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import { Ionicons } from '@expo/vector-icons';
 import { getBillingDetails } from '../../services/database';
 import { generateCycleReport } from '../../services/pdfService';
 import { useAuth } from '../../contexts/AuthContext';
+import { useModal } from '../../contexts/ModalContext';
 import GlassCard from '../../components/ui/GlassCard';
 import { COLORS, FONT_SIZE, FONT_WEIGHT, SPACING, RADIUS } from '../../styles/theme';
 import styles from '../../styles/tenant/pdf-viewer.styles';
@@ -14,6 +15,7 @@ export default function PDFViewerScreen() {
     const { id, invoice_number } = useLocalSearchParams();
     const router = useRouter();
     const { user } = useAuth();
+    const { showModal } = useModal();
     
     const [loading, setLoading] = useState(true);
     const [pdfUri, setPdfUri] = useState(null);
@@ -79,7 +81,7 @@ export default function PDFViewerScreen() {
                     UTI: 'com.adobe.pdf'
                 });
             } else {
-                Alert.alert('Sharing Unavailable', 'Sharing is not available on this device.');
+                showModal({ type: 'error', title: 'Sharing Unavailable', message: 'Sharing is not available on this device.' });
             }
         } catch (error) {
             console.error('Sharing error:', error);

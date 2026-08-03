@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform, FlatList } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, FlatList } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../contexts/AuthContext';
+import { useModal } from '../../contexts/ModalContext';
 import { setBudget, getBudget, resetBudget, getBillingCycle, getTotalConsumptionToday, getTotalConsumptionWeek, getTotalConsumptionMonth, getTransactionHistory, getConsumptionComparison, getDatabase } from '../../services/database';
 import BudgetProgressRing from '../../components/ui/BudgetProgressRing';
 import GlassCard from '../../components/ui/GlassCard';
@@ -15,6 +16,7 @@ const BUDGET_TABS = ['daily', 'weekly', 'monthly'];
 
 export default function BudgetScreen() {
   const { user } = useAuth();
+  const { showModal } = useModal();
   const roomId = user?.room_id || 'Room 1';
   const [monthlyBudget, setMonthlyBudgetInput] = useState('');
   const [budgetData, setBudgetData] = useState(null);
@@ -59,7 +61,7 @@ export default function BudgetScreen() {
 
   const handleSetBudget = async () => {
     const val = parseFloat(monthlyBudget);
-    if (!val || val <= 0) { Alert.alert('Invalid', 'Enter a valid budget amount'); return; }
+    if (!val || val <= 0) { showModal({ type: 'warning', title: 'Invalid', message: 'Enter a valid budget amount' }); return; }
     
     try {
       const result = await setBudget(roomId, val);
@@ -84,7 +86,7 @@ export default function BudgetScreen() {
       setTimeout(() => setBudgetConfirm(null), 5000);
     } catch (err) {
       console.warn("Error setting budget:", err);
-      Alert.alert('Error', 'Failed to save budget. Please try again.');
+      showModal({ type: 'error', title: 'Error', message: 'Failed to save budget. Please try again.' });
     }
   };
 

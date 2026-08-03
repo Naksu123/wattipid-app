@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../../contexts/AuthContext';
+import { useModal } from '../../../contexts/ModalContext';
 import { getAvailableBillingCycles, getBillingDetails } from '../../../services/database';
 import GlassCard from '../../../components/ui/GlassCard';
 import { COLORS, FONT_SIZE, FONT_WEIGHT, SPACING, RADIUS } from '../../../styles/theme';
 
 export default function TenantBillingScreen() {
     const { user } = useAuth();
+    const { showModal } = useModal();
     const router = useRouter();
     const [billingDetails, setBillingDetails] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -36,7 +38,7 @@ export default function TenantBillingScreen() {
             }
         } catch (error) {
             console.error('Failed to fetch billing details:', error);
-            Alert.alert('Error', 'Could not load your billing details. Please try again later.');
+            showModal({ type: 'error', title: 'Error', message: 'Could not load your billing details. Please try again later.' });
         } finally {
             setLoading(false);
             setRefreshing(false);

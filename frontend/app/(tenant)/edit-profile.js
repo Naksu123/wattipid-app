@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, Alert, KeyboardAvoidingView, Platform, ActivityIndicator, SafeAreaView, StatusBar } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, ActivityIndicator, SafeAreaView, StatusBar } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
+import { useModal } from '../../contexts/ModalContext';
 import GlassCard from '../../components/ui/GlassCard';
 import { COLORS } from '@/styles/theme';
 import s from '@/styles/tenant/edit-profile.styles';
@@ -55,6 +56,7 @@ const InputField = ({ label, value, onChangeText, icon, placeholder, error, secu
 export default function EditProfile() {
   const router = useRouter();
   const { user, updateProfile, changePassword } = useAuth();
+  const { showModal } = useModal();
   
   // Profile state
   const [name, setName] = useState(user?.name || '');
@@ -110,8 +112,8 @@ export default function EditProfile() {
   };
 
   const handleSave = async () => {
-    if (emailError) { Alert.alert('Invalid Email', 'Please provide a valid email address.'); return; }
-    if (!name.trim()) { Alert.alert('Required', 'Name cannot be empty.'); return; }
+    if (emailError) { showModal({ type: 'error', title: 'Invalid Email', message: 'Please provide a valid email address.' }); return; }
+    if (!name.trim()) { showModal({ type: 'warning', title: 'Required', message: 'Name cannot be empty.' }); return; }
 
     setLoading(true);
     try {
@@ -130,11 +132,14 @@ export default function EditProfile() {
         if (!res.success) throw new Error(res.message);
       }
 
-      Alert.alert('Success', 'Your profile has been updated.', [
-        { text: 'OK', onPress: () => router.navigate('/(tenant)/settings') }
-      ]);
+      showModal({
+        type: 'success',
+        title: 'Success',
+        message: 'Your profile has been updated.',
+        onPrimaryPress: () => router.back()
+      });
     } catch (error) {
-      Alert.alert('Update Failed', error.message);
+      showModal({ type: 'error', title: 'Update Failed', message: error.message });
     } finally {
       setLoading(false);
     }

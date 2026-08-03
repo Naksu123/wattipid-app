@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ScrollView, KeyboardAvoidingView, Platform, Alert, ActivityIndicator,
+  ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '@/contexts/AuthContext';
-import { requestTenantAccessCode } from '../../services/emailService';
+import { useModal } from '@/contexts/ModalContext';
+import { verifyAccessCodeAPI } from '../../services/database';
 import { COLORS, GRADIENTS, FONT_WEIGHT } from '@/styles/theme';
 import s from '@/styles/auth/register.styles';
 import TermsAgreementModal from '../../components/modals/TermsAgreementModal';
@@ -22,6 +23,7 @@ export default function RegisterScreen() {
 
   // Step 1 fields
   const [emailForCode, setEmailForCode] = useState('');
+  const [accessCodeForVerify, setAccessCodeForVerify] = useState('');
   const [emailForCodeError, setEmailForCodeError] = useState('');
   const [requestingCode, setRequestingCode] = useState(false);
   const [mockCodeHint, setMockCodeHint] = useState(''); // Demo only
@@ -41,6 +43,8 @@ export default function RegisterScreen() {
   const [acceptedTermsId, setAcceptedTermsId] = useState(null);
   const [acceptedDeviceInfo, setAcceptedDeviceInfo] = useState(null);
 
+  const { showModal } = useModal();
+
   // Trigger modal immediately when user lands on Registration screen and is a Tenant
   useEffect(() => {
     if (role === 'tenant' && !acceptedTermsId) {
@@ -52,25 +56,37 @@ export default function RegisterScreen() {
   const handleRequestCode = async () => {
     if (!emailForCode.trim()) { setEmailForCodeError('Email is required'); return; }
     if (!/\S+@\S+\.\S+/.test(emailForCode.trim())) { setEmailForCodeError('Enter a valid email'); return; }
+    if (!accessCodeForVerify.trim()) { setEmailForCodeError('Access code is required'); return; }
 
     setRequestingCode(true);
     try {
-      const result = await requestTenantAccessCode(emailForCode.trim());
+      const result = await verifyAccessCodeAPI(emailForCode.trim(), accessCodeForVerify.trim());
       if (result.success) {
-        // Pre-fill email in step 2
+        // Pre-fill email and code in step 2
         setEmail(emailForCode.trim());
-        setMockCodeHint(result.mockCode || '');
+        setTenantCode(accessCodeForVerify.trim());
         setTenantStep('form');
       } else {
-        Alert.alert(
-          result.expired ? 'Code Expired' : 'Not Found',
-          result.expired
-            ? 'Invalid or expired access code. Please contact your landlord.'
-            : result.message
-        );
+        let title = 'Verification Failed';
+        let msg = result.message || 'Invalid access code.';
+        
+        if (msg.includes('expired')) {
+          title = 'Access Code Expired';
+          msg = 'Your Access Code has expired.\n\nFor security purposes, expired Access Codes cannot be reused.\n\nPlease contact your landlord to generate a new invitation.';
+        } else if (msg.includes('incorrect') || msg.toLowerCase().includes('invalid')) {
+          title = 'Verification Failed';
+          msg = 'The Access Code you entered is incorrect.\n\nPlease check the invitation email sent by your landlord and try again.';
+        } else if (msg.includes('No invitation')) {
+          title = 'Invitation Not Found';
+          msg = 'No active invitation was found for this email address.\n\nPlease verify your email or contact your landlord.';
+        } else if (msg.toLowerCase().includes('already')) {
+          title = 'Registration Already Completed';
+          msg = 'This invitation has already been used to create an account.\n\nPlease sign in using your existing account or use the Forgot Password feature if needed.';
+        }
+        showModal({ type: 'error', title, message: msg, primaryButtonText: 'Try Again' });
       }
     } catch {
-      Alert.alert('Error', 'Something went wrong. Please try again.');
+      showModal({ type: 'error', title: 'Error', message: 'Something went wrong. Please try again.' });
     } finally {
       setRequestingCode(false);
     }
@@ -109,7 +125,7 @@ export default function RegisterScreen() {
         router.replace(role === 'landlord' ? '/(landlord)/overview' : '/(tenant)/dashboard');
       }
     } else {
-      Alert.alert('Registration Failed', result.message);
+      showModal({ type: 'error', title: 'Registration Failed', message: result.message || 'Failed to complete registration.' });
     }
   };
 
@@ -189,13 +205,29 @@ export default function RegisterScreen() {
               {emailForCodeError ? <Text style={s.errText}>{emailForCodeError}</Text> : null}
             </View>
 
+            <View style={s.inputGroup}>
+              <Text style={s.label}>Access Code</Text>
+              <View style={[s.inputWrap, emailForCodeError && !accessCodeForVerify && s.inputErr]}>
+                <Ionicons name="key-outline" size={20} color={COLORS.textMuted} />
+                <TextInput
+                  style={s.input}
+                  placeholder="Enter 6-digit access code"
+                  placeholderTextColor={COLORS.textMuted}
+                  value={accessCodeForVerify}
+                  onChangeText={t => { setAccessCodeForVerify(t); setEmailForCodeError(''); }}
+                  keyboardType="numeric"
+                  maxLength={6}
+                />
+              </View>
+            </View>
+
             <TouchableOpacity onPress={handleRequestCode} activeOpacity={0.8} disabled={requestingCode} style={s.btnWrap}>
               <LinearGradient colors={GRADIENTS.primary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s.btn}>
                 {requestingCode
                   ? <ActivityIndicator color="#fff" />
                   : <>
                       <Ionicons name="send-outline" size={18} color="#fff" />
-                      <Text style={s.btnText}>Send My Access Code</Text>
+                      <Text style={s.btnText}>Continue Registration</Text>
                     </>
                 }
               </LinearGradient>

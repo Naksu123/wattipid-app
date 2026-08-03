@@ -36,7 +36,8 @@ export default function RecentTransactionsWidget({ history, onViewAll }) {
     }
 
     const transactionDate = item.paid_at || item.payment_date || item.created_at;
-    const dateStr = transactionDate ? new Date(transactionDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Unknown Date';
+    const safeDate = transactionDate ? (typeof transactionDate === 'string' ? transactionDate.replace(' ', 'T') : transactionDate) : null;
+    const dateStr = safeDate ? new Date(safeDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Unknown Date';
 
     return (
       <View style={styles.transactionRow}>

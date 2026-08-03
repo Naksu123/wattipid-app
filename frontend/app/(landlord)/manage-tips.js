@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Alert, SafeAreaView, Platform, StatusBar } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, SafeAreaView, Platform, StatusBar } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useModal } from '../../contexts/ModalContext';
 import { tipsService } from '../../services/tipsService';
 import GlassCard from '../../components/ui/GlassCard';
 import { BaseModal, ModalHeader, ModalBody, ModalFooter } from '../../components/modals/BaseModal';
@@ -10,6 +11,7 @@ import styles from '../../styles/landlord/manage-tips.styles';
 
 export default function ManageTipsScreen() {
   const router = useRouter();
+  const { showModal } = useModal();
   const [tips, setTips] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -79,7 +81,7 @@ export default function ManageTipsScreen() {
 
   const handleSave = async () => {
     if (!formData.title || !formData.message) {
-      Alert.alert('Required', 'Please fill in all fields');
+      showModal({ type: 'warning', title: 'Required', message: 'Please fill in all fields' });
       return;
     }
 
@@ -96,22 +98,26 @@ export default function ManageTipsScreen() {
         loadTips();
       }
     } catch (err) {
-      Alert.alert('Error', 'Failed to save tip');
+      showModal({ type: 'error', title: 'Error', message: 'Failed to save tip' });
     }
   };
 
   const handleDelete = (id) => {
-    Alert.alert('Delete Tip', 'Are you sure you want to permanently delete this tip?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: async () => {
+    showModal({
+      type: 'confirm',
+      title: 'Delete Tip',
+      message: 'Are you sure you want to permanently delete this tip?',
+      secondaryButtonText: 'Cancel',
+      primaryButtonText: 'Delete',
+      onPrimaryPress: async () => {
         try {
           const res = await tipsService.deleteTip(id);
           if (res.success) loadTips();
         } catch (err) {
-          Alert.alert('Error', 'Failed to delete');
+          showModal({ type: 'error', title: 'Error', message: 'Failed to delete' });
         }
-      }}
-    ]);
+      }
+    });
   };
 
   const toggleStatus = async (tip) => {

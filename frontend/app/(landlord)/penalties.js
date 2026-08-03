@@ -1,15 +1,17 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, RefreshControl, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from 'expo-router';
+import { useModal } from '../../contexts/ModalContext';
 import { getOverdueAccounts, triggerPenaltyCalculation } from '../../services/penaltyService';
 import StatCard from '../../components/landlord/Overview/StatCard';
 import { COLORS } from '../../styles/theme';
 import styles from '../../styles/landlord/penalties.styles';
 
 export default function PenaltyCenterScreen() {
+  const { showModal } = useModal();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [accounts, setAccounts] = useState([]);
@@ -26,7 +28,7 @@ export default function PenaltyCenterScreen() {
       });
     } catch (err) {
       console.error(err);
-      Alert.alert("Error", typeof err === 'string' ? err : err.message || "Failed to load overdue accounts.");
+      showModal({ type: 'error', title: 'Error', message: typeof err === 'string' ? err : err.message || "Failed to load overdue accounts." });
     } finally {
       setLoading(false);
     }
@@ -48,10 +50,10 @@ export default function PenaltyCenterScreen() {
     setCalculating(true);
     try {
       const res = await triggerPenaltyCalculation();
-      Alert.alert("Calculation Complete", res.message);
+      showModal({ type: 'success', title: 'Calculation Complete', message: res.message });
       await loadData();
     } catch (err) {
-      Alert.alert("Error", err.message || "Failed to run calculation");
+      showModal({ type: 'error', title: 'Error', message: err.message || "Failed to run calculation" });
     } finally {
       setCalculating(false);
     }
