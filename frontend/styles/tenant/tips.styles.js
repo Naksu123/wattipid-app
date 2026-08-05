@@ -438,5 +438,84 @@ export default StyleSheet.create({
     color: '#fff',
     fontSize: 12,
     fontWeight: FONT_WEIGHT.bold
+  },
+  // --- BROWSE TAB ADDITIONS ---
+  browseSearchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.surfaceGlass,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.full,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    marginBottom: SPACING.md,
+    gap: SPACING.sm
+  },
+  browseSearchInput: {
+    flex: 1,
+    fontSize: FONT_SIZE.sm,
+    color: COLORS.textPrimary,
+    height: 24,
+    padding: 0
+  },
+  browseSortRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.sm,
+    paddingHorizontal: 4,
+    zIndex: 10
+  },
+  browseCountText: {
+    fontSize: FONT_SIZE.xs,
+    color: COLORS.textMuted,
+    fontWeight: FONT_WEIGHT.medium
+  },
+  browseSortBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(34,197,94,0.1)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: RADIUS.full
+  },
+  browseSortLabel: {
+    fontSize: FONT_SIZE.xs,
+    color: COLORS.primary,
+    fontWeight: FONT_WEIGHT.bold
+  },
+  browseSortDropdown: {
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    overflow: 'hidden',
+    marginBottom: SPACING.md,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 4
+  },
+  browseSortOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: SPACING.md,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border
+  },
+  browseSortOptionActive: {
+    backgroundColor: 'rgba(34,197,94,0.05)'
+  },
+  browseSortOptionText: {
+    fontSize: FONT_SIZE.sm,
+    color: COLORS.textSecondary
+  },
+  browseSortOptionTextActive: {
+    color: COLORS.primary,
+    fontWeight: FONT_WEIGHT.bold
   }
 });
