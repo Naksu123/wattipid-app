@@ -141,7 +141,7 @@ export default function BudgetScreen() {
     <KeyboardAvoidingView style={[s.container, { backgroundColor: COLORS.background }]} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <ScrollView style={s.container} contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
         <View style={s.headerContainer}>
-          <Text style={s.title}>Budget Manager</Text>
+          <Text style={s.title}>Budget Management</Text>
           <Text style={s.subtitle}>Track spending across daily, weekly & monthly</Text>
         </View>
 
@@ -274,7 +274,8 @@ export default function BudgetScreen() {
               <View style={s.alertStatusContainer}>
                 <View style={s.alertStatusHeader}>
                   <Text style={s.alertStatusTitle}>Alert Status</Text>
-                  <Text style={[s.alertStatusLevel, { color: activePct >= 100 ? COLORS.danger : (activePct >= 90 ? COLORS.danger : (activePct >= 75 ? COLORS.warning : (activePct >= 50 ? COLORS.info : COLORS.success))) }]}>
+                  <Text style={[s.alertStatusLevel, { color: activePct >= 100 ? COLORS.danger : (activePct >= 90 ? COLORS.danger : 
+                    (activePct >= 75 ? COLORS.warning : (activePct >= 50 ? COLORS.info : COLORS.success))) }]}>
                     {activePct >= 100 ? 'Exceeded' : (activePct >= 90 ? 'Critical' : (activePct >= 75 ? 'Warning' : (activePct >= 50 ? 'Approaching' : 'Normal')))}
                   </Text>
                 </View>
@@ -282,7 +283,9 @@ export default function BudgetScreen() {
                 {/* Threshold Markers */}
                 <View style={s.thresholdTrack}>
                   {/* Fill bar */}
-                  <View style={[s.thresholdFill, { width: `${Math.min(activePct, 100)}%`, backgroundColor: activePct >= 100 ? COLORS.danger : (activePct >= 90 ? COLORS.danger : (activePct >= 75 ? COLORS.warning : (activePct >= 50 ? COLORS.info : COLORS.success))) }]} />
+                  <View style={[s.thresholdFill, { width: `${Math.min(activePct, 100)}%`, 
+                    backgroundColor: activePct >= 100 ? COLORS.danger : (activePct >= 90 ? COLORS.danger : 
+                    (activePct >= 75 ? COLORS.warning : (activePct >= 50 ? COLORS.info : COLORS.success))) }]} />
                   
                   {/* Markers */}
                   <View style={[s.thresholdMarker, { left: '50%' }]}>

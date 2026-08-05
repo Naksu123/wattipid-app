@@ -375,7 +375,7 @@ export default function RoomsScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
       >
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-          <View style={{ flexShrink: 1, paddingRight: 16 }}>
+          <View style={{ flexShrink: 1, paddingRight: 12 }}>
             <Text style={s.title}>Room Management</Text>
             <Text style={s.subtitle} numberOfLines={2}>Manage tenant access and room assignments</Text>
           </View>

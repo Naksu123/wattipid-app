@@ -131,7 +131,7 @@ export default function TenantBillingScreen() {
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
             >
 
-                <Text style={styles.invoiceTitle}>Statement of Account</Text>
+                <Text style={styles.invoiceTitle}>Billing Overview</Text>
                 
                 <GlassCard style={styles.headerDetails}>
                     <View style={styles.headerItem}>
@@ -191,7 +191,7 @@ export default function TenantBillingScreen() {
                     </TouchableOpacity>
                 </View>
 
-                <Text style={styles.sectionTitle}>BILLING BREAKDOWN</Text>
+                <Text style={styles.sectionTitle}>Billing Breakdown</Text>
                 
                 <GlassCard style={styles.breakdownContainer}>
                     {parseFloat(monthly_rent || 0) > 0 && (

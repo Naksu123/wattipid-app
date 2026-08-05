@@ -51,7 +51,8 @@ export default function TenantPaymentScreen() {
             
             if (cycles && cycles.length > 0) {
                 // Find the OLDEST unpaid invoice to force chronological payments
-                let unpaidInvoices = cycles.filter(c => c.status === 'completed' && ['unpaid', 'pending_verification', 'overdue', 'partially_paid'].includes(c.payment_status));
+                let unpaidInvoices = cycles.filter(c => c.status === 'completed' && 
+                    ['unpaid', 'pending_verification', 'overdue', 'partially_paid'].includes(c.payment_status));
                 let latestInvoice = unpaidInvoices.length > 0 ? unpaidInvoices[unpaidInvoices.length - 1] : null;
                 if (!latestInvoice) {
                     latestInvoice = cycles.find(c => c.status === 'completed');

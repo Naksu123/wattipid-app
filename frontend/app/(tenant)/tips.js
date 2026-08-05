@@ -467,7 +467,7 @@ export default function TipsScreen() {
         /* ================= COMMUNITY & SMART TABS (ScrollView) ================= */
         <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={COLORS.primary} />}>
           <View style={{ marginBottom: 20 }}>
-            <Text style={s.title}>Energy Savings</Text>
+            <Text style={s.title}>Energy Saving Tips</Text>
             <Text style={s.subtitle}>Smart tips to lower your electric bill</Text>
           </View>
 
