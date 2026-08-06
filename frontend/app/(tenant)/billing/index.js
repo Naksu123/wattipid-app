@@ -110,7 +110,7 @@ export default function TenantBillingScreen() {
     
     const safeStatus = payment_status || 'unpaid';
     const statusConfig = getStatusStyle(safeStatus);
-    const computedGrandTotal = parseFloat(grand_total || (parseFloat(electricity_charge || 0) + parseFloat(penalty_amount || 0) + parseFloat(monthly_rent || 0) + parseFloat(previous_balance || 0) + parseFloat(additional_charges || 0) - parseFloat(discounts || 0)));
+    const computedGrandTotal = parseFloat(electricity_charge || 0) + parseFloat(penalty_amount || 0) + parseFloat(monthly_rent || 0) + parseFloat(previous_balance || 0) + parseFloat(additional_charges || 0) - parseFloat(discounts || 0);
 
     const formatStatus = (status) => {
         if (!status) return 'Unpaid';

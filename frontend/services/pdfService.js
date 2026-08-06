@@ -628,7 +628,7 @@ export async function generateCycleReport({ roomId, tenantName, startDate, endDa
         ? `<div class="overdue-row total" style="color:#16A34A; border-color: #BBF7D0;"><span>FULLY PAID</span></div>`
         : penaltyFee > 0 
             ? (() => {
-                 const originalAmountForPenalty = totalDue - penaltyFee;
+                 const originalAmountForPenalty = Number(bc.electricity_charge || bc.total_cost || 0);
                  const dailyPenaltyAmountCalc = (originalAmountForPenalty * (penaltyRatePercent / 100)).toFixed(2);
                  return `<div class="overdue-row"><span>Original Amount Due</span><span>${originalAmountForPenalty.toFixed(2)}</span></div>
                <div class="overdue-row"><span>Daily Penalty Rate</span><span>${penaltyRatePercent}%</span></div>

@@ -558,7 +558,7 @@ export default function DashboardScreen() {
 
           {/* Daily Penalty Breakdown */}
           {daysUntilDue !== null && daysUntilDue < 0 && parseFloat(billingCycle?.penalty_amount || 0) > 0 && (() => {
-            const originalAmount = Number(billingCycle.grand_total) - Number(billingCycle.penalty_amount);
+            const originalAmount = Number(billingCycle.electricity_charge || billingCycle.total_cost || 0);
             const dailyPenalty = (originalAmount * 0.02).toFixed(2);
             return (
               <View style={{ backgroundColor: 'rgba(239,68,68,0.05)', borderRadius: 8, padding: 10, marginBottom: 12, borderWidth: 1, borderColor: 'rgba(239,68,68,0.2)' }}>
