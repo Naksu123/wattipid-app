@@ -1,10 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { View, TouchableOpacity, StyleSheet, Platform, StatusBar } from 'react-native';
+import React from 'react';
+import { View, StyleSheet, Platform, StatusBar } from 'react-native';
 import { Tabs, useRouter, usePathname } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { COLORS, FONT_SIZE } from '@/styles/theme';
-import NotificationBadge from '../../components/ui/NotificationBadge';
 import { useSync } from '@/contexts/SyncContext';
 
 export default function TenantLayout() {

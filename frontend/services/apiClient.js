@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { Alert, DeviceEventEmitter } from 'react-native';
+import { DeviceEventEmitter } from 'react-native';
 import Storage from './storage';
 import { API_URL } from './config';
 

@@ -1,8 +1,9 @@
+import { SafeAreaView } from 'react-native-safe-area-context';
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, SafeAreaView, Platform, KeyboardAvoidingView, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, Platform, KeyboardAvoidingView, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, FONT_SIZE, FONT_WEIGHT, SPACING, RADIUS } from '../styles/theme';
+import { COLORS } from '../styles/theme';
 import GlassCard from '../components/ui/GlassCard';
 import styles from '../styles/terms.styles';
 import { getActiveTerms } from '../services/termsApi';

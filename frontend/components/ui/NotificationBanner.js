@@ -1,5 +1,5 @@
 import React, { useEffect, useCallback } from 'react';
-import { View, Text, Dimensions, Platform } from 'react-native';
+import { View, Text, Dimensions } from 'react-native';
 import Animated, { 
   useSharedValue, 
   useAnimatedStyle, 
@@ -47,7 +47,7 @@ export default function NotificationBanner() {
       isVisible.value = withTiming(0, { duration: 250 });
       translateY.value = withTiming(-200, { duration: 300, easing: Easing.in(Easing.ease) });
     }
-  }, [bannerConfig, insets.top]);
+  }, [bannerConfig, insets.top, dismissBanner, isVisible, translateX, translateY]);
 
   const dismissBanner = useCallback(() => {
     'worklet';

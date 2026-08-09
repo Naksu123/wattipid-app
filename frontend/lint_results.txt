@@ -1,0 +1,333 @@
+﻿
+> wattipid@1.0.0 lint
+> expo lint
+
+env: load .env
+env: export EXPO_ROUTER_APP_ROOT
+
+C:\Wattipid Apps\wattipid\frontend\app\(auth)\forgot-password.js
+  192:44  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+
+C:\Wattipid Apps\wattipid\frontend\app\(auth)\login.js
+  75:14  warning  'e' is defined but never used. Allowed unused caught errors must match /^_/u  no-unused-vars
+
+C:\Wattipid Apps\wattipid\frontend\app\(auth)\register.js
+   3:44  warning  'StyleSheet' is defined but never used                no-unused-vars
+  12:29  warning  'FONT_WEIGHT' is defined but never used               no-unused-vars
+  29:10  warning  'mockCodeHint' is assigned a value but never used     no-unused-vars
+  29:24  warning  'setMockCodeHint' is assigned a value but never used  no-unused-vars
+
+C:\Wattipid Apps\wattipid\frontend\app\(auth)\verify.js
+  3:44  warning  'StyleSheet' is defined but never used  no-unused-vars
+
+C:\Wattipid Apps\wattipid\frontend\app\(landlord)\audit.js
+   3:100  warning  'C:\Wattipid Apps\wattipid\node_modules\react-native\index.js' imported multiple times  import/no-duplicates
+   9:10   warning  'Platform' is defined but never used                                                    no-unused-vars
+   9:26   warning  'C:\Wattipid Apps\wattipid\node_modules\react-native\index.js' imported multiple times  import/no-duplicates
+  10:10   warning  'BlurView' is defined but never used                                                    no-unused-vars
+
+C:\Wattipid Apps\wattipid\frontend\app\(landlord)\manage-tips.js
+    3:82   warning  'Platform' is defined but never used                                            no-unused-vars
+   53:16   warning  'err' is defined but never used. Allowed unused caught errors must match /^_/u  no-unused-vars
+  101:14   warning  'err' is defined but never used. Allowed unused caught errors must match /^_/u  no-unused-vars
+  117:18   warning  'err' is defined but never used. Allowed unused caught errors must match /^_/u  no-unused-vars
+  126:80   warning  Expected '===' and instead saw '=='                                             eqeqeq
+  199:102  warning  Expected '===' and instead saw '=='                                             eqeqeq
+  216:76   warning  Expected '===' and instead saw '=='                                             eqeqeq
+  219:87   warning  Expected '===' and instead saw '=='                                             eqeqeq
+  220:87   warning  Expected '===' and instead saw '=='                                             eqeqeq
+  229:46   warning  Expected '===' and instead saw '=='                                             eqeqeq
+  231:47   warning  Expected '===' and instead saw '=='                                             eqeqeq
+
+C:\Wattipid Apps\wattipid\frontend\app\(landlord)\manual.js
+    3:63  warning  'Platform' is defined but never used                             no-unused-vars
+    3:90  warning  'UIManager' is defined but never used                            no-unused-vars
+  151:65  error    `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  151:79  error    `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+
+C:\Wattipid Apps\wattipid\frontend\app\(landlord)\overview.js
+   3:98  warning  'Platform' is defined but never used                                                                                            no-unused-vars
+  27:6   warning  React Hook useEffect has a missing dependency: 'loadLiveOverview'. Either include it or remove the dependency array             react-hooks/exhaustive-deps
+  47:16  warning  'err' is defined but never used. Allowed unused caught errors must match /^_/u                                                  no-unused-vars
+  52:6   warning  React Hook useEffect has missing dependencies: 'user?.id' and 'user?.role'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Wattipid Apps\wattipid\frontend\app\(landlord)\payments.js
+   3:80  warning  'TouchableOpacity' is defined but never used                                    no-unused-vars
+  38:16  warning  'err' is defined but never used. Allowed unused caught errors must match /^_/u  no-unused-vars
+
+C:\Wattipid Apps\wattipid\frontend\app\(landlord)\penalties.js
+   1:27  warning  'useEffect' is defined but never used                                                                          no-unused-vars
+   5:10  warning  'LinearGradient' is defined but never used                                                                     no-unused-vars
+  40:8   warning  React Hook useCallback has a missing dependency: 'loadData'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Wattipid Apps\wattipid\frontend\app\(landlord)\rooms.js
+    3:15  warning  'StyleSheet' is defined but never used                           no-unused-vars
+    5:3   warning  'Platform' is defined but never used                             no-unused-vars
+    9:10  warning  'getAllRooms' is defined but never used                          no-unused-vars
+    9:86  warning  'getMonthlyConsumptionFiltered' is defined but never used        no-unused-vars
+   10:10  warning  'sendTenantAccessCode' is defined but never used                 no-unused-vars
+   11:10  warning  'generateMonthlyReport' is defined but never used                no-unused-vars
+   14:8   warning  'RoomCard' is defined but never used                             no-unused-vars
+   34:10  warning  'startDate' is assigned a value but never used                   no-unused-vars
+  114:34  warning  'totals' is assigned a value but never used                      no-unused-vars
+  714:33  error    `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  914:22  error    `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  914:48  error    `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+
+C:\Wattipid Apps\wattipid\frontend\app\(landlord)\settings.js
+   3:89  warning  'Platform' is defined but never used                       no-unused-vars
+  43:10  warning  'tenantMgmtVisible' is assigned a value but never used     no-unused-vars
+  43:29  warning  'setTenantMgmtVisible' is assigned a value but never used  no-unused-vars
+  49:10  warning  'rateSuccessVisible' is assigned a value but never used    no-unused-vars
+  50:10  warning  'rateSuccessMsg' is assigned a value but never used        no-unused-vars
+
+C:\Wattipid Apps\wattipid\frontend\app\(tenant)\_layout.js
+   1:17  warning  'useState' is defined but never used                  no-unused-vars
+   1:27  warning  'useEffect' is defined but never used                 no-unused-vars
+   2:16  warning  'TouchableOpacity' is defined but never used          no-unused-vars
+   7:8   warning  'NotificationBadge' is defined but never used         no-unused-vars
+  11:11  warning  'isAuthenticated' is assigned a value but never used  no-unused-vars
+  12:11  warning  'unreadCount' is assigned a value but never used      no-unused-vars
+  13:9   warning  'router' is assigned a value but never used           no-unused-vars
+  14:9   warning  'pathname' is assigned a value but never used         no-unused-vars
+  79:7   warning  'styles' is assigned a value but never used           no-unused-vars
+
+C:\Wattipid Apps\wattipid\frontend\app\(tenant)\analytics.js
+    9:52  warning  'getDailyBreakdown' is defined but never used                                                                                                            no-unused-vars
+   10:3   warning  'getHourlyBreakdown' is defined but never used                                                                                                           no-unused-vars
+   12:15  warning  'getPaymentInsights' is defined but never used                                                                                                           no-unused-vars
+   35:10  warning  'todayUsage' is assigned a value but never used                                                                                                          no-unused-vars
+   36:10  warning  'weekUsage' is assigned a value but never used                                                                                                           no-unused-vars
+   37:10  warning  'monthUsage' is assigned a value but never used                                                                                                          no-unused-vars
+   51:25  warning  'setHistoryFilter' is assigned a value but never used                                                                                                    no-unused-vars
+   53:10  warning  'forecast' is assigned a value but never used                                                                                                            no-unused-vars
+  121:6   warning  React Hook useCallback has missing dependencies: 'historyStartDate', 'selectedPdfCycle', and 'user'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+  130:6   warning  React Hook useCallback has a missing dependency: 'user'. Either include it or remove the dependency array                                                react-hooks/exhaustive-deps
+
+C:\Wattipid Apps\wattipid\frontend\app\(tenant)\billing-history.js
+   2:80  warning  'Platform' is defined but never used                                                                                            no-unused-vars
+   8:18  warning  'FONT_SIZE' is defined but never used                                                                                           no-unused-vars
+   8:29  warning  'FONT_WEIGHT' is defined but never used                                                                                         no-unused-vars
+   8:42  warning  'SPACING' is defined but never used                                                                                             no-unused-vars
+   8:51  warning  'RADIUS' is defined but never used                                                                                              no-unused-vars
+  48:8   warning  React Hook useEffect has missing dependencies: 'fetchHistory' and 'router'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Wattipid Apps\wattipid\frontend\app\(tenant)\billing\index.js
+  50:8  warning  React Hook useEffect has a missing dependency: 'fetchBillingDetails'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  98:9  warning  'grand_total' is assigned a value but never used                                                                        no-unused-vars
+
+C:\Wattipid Apps\wattipid\frontend\app\(tenant)\budget.js
+    2:22   warning  'StyleSheet' is defined but never used                                                                     no-unused-vars
+    2:107  warning  'FlatList' is defined but never used                                                                       no-unused-vars
+    7:188  warning  'getDatabase' is defined but never used                                                                    no-unused-vars
+   28:10   warning  'transactions' is assigned a value but never used                                                          no-unused-vars
+   58:6    warning  React Hook useCallback has a missing dependency: 'user'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  126:9    warning  'formatDate' is assigned a value but never used                                                            no-unused-vars
+  133:9    warning  'formatTime' is assigned a value but never used                                                            no-unused-vars
+  158:17   error    `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`                                            react/no-unescaped-entities
+
+C:\Wattipid Apps\wattipid\frontend\app\(tenant)\dashboard.js
+    1:57  warning  'C:\Wattipid Apps\wattipid\node_modules\react\index.js' imported multiple times                                                                   import/no-duplicates
+    5:24  warning  'C:\Wattipid Apps\wattipid\node_modules\react\index.js' imported multiple times                                                                   import/no-duplicates
+    9:29  warning  'isDeviceConnected' is defined but never used                                                                                                     no-unused-vars
+   15:31  warning  'getForecast' is defined but never used                                                                                                           no-unused-vars
+   32:16  warning  'setRate' is assigned a value but never used                                                                                                      no-unused-vars
+   40:10  warning  'loading' is assigned a value but never used                                                                                                      no-unused-vars
+   67:6   warning  React Hook useEffect has a missing dependency: 'fetchStaticData'. Either include it or remove the dependency array                                react-hooks/exhaustive-deps
+  144:6   warning  React Hook useCallback has a missing dependency: 'user?.id'. Either include it or remove the dependency array                                     react-hooks/exhaustive-deps
+  241:6   warning  React Hook useCallback has a missing dependency: 'showBanner'. Either include it or remove the dependency array                                   react-hooks/exhaustive-deps
+  255:6   warning  React Hook useEffect has missing dependencies: 'fetchRealtimeDataLoop' and 'fetchStaticData'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Wattipid Apps\wattipid\frontend\app\(tenant)\notifications.js
+    2:27   warning  'useEffect' is defined but never used                                                                                    no-unused-vars
+    3:98   warning  'Animated' is defined but never used                                                                                     no-unused-vars
+    5:32   warning  'C:\Wattipid Apps\wattipid\node_modules\expo-router\build\index.js' imported multiple times                              import/no-duplicates
+    6:18   warning  'SPACING' is defined but never used                                                                                      no-unused-vars
+    6:27   warning  'RADIUS' is defined but never used                                                                                       no-unused-vars
+    9:24   warning  'C:\Wattipid Apps\wattipid\node_modules\expo-router\build\index.js' imported multiple times                              import/no-duplicates
+   70:8    warning  React Hook useCallback has a missing dependency: 'fetchNotifications'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  160:9    warning  'unreadCountLocal' is assigned a value but never used                                                                    no-unused-vars
+  307:86   error    `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`                                                          react/no-unescaped-entities
+  307:100  error    `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`                                                          react/no-unescaped-entities
+
+C:\Wattipid Apps\wattipid\frontend\app\(tenant)\payment.js
+   2:89  warning  'Platform' is defined but never used                                                                          no-unused-vars
+  13:18  warning  'FONT_SIZE' is defined but never used                                                                         no-unused-vars
+  13:29  warning  'FONT_WEIGHT' is defined but never used                                                                       no-unused-vars
+  13:51  warning  'RADIUS' is defined but never used                                                                            no-unused-vars
+  19:11  warning  'router' is assigned a value but never used                                                                   no-unused-vars
+  38:8   warning  React Hook useEffect has a missing dependency: 'fetchData'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Wattipid Apps\wattipid\frontend\app\(tenant)\pdf-viewer.js
+  11:18  warning  'FONT_SIZE' is defined but never used    no-unused-vars
+  11:29  warning  'FONT_WEIGHT' is defined but never used  no-unused-vars
+  11:42  warning  'SPACING' is defined but never used      no-unused-vars
+  11:51  warning  'RADIUS' is defined but never used       no-unused-vars
+
+C:\Wattipid Apps\wattipid\frontend\app\(tenant)\settings.js
+    2:22  warning  'StyleSheet' is defined but never used                                                                           no-unused-vars
+    2:64  warning  'TextInput' is defined but never used                                                                            no-unused-vars
+    9:44  warning  'ENVIRONMENTS' is defined but never used                                                                         no-unused-vars
+   39:40  warning  React Hook useEffect has a missing dependency: 'loadSettings'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  106:14  warning  'e' is defined but never used. Allowed unused caught errors must match /^_/u                                     no-unused-vars
+  118:9   warning  'handleSwitchEnv' is assigned a value but never used                                                             no-unused-vars
+
+C:\Wattipid Apps\wattipid\frontend\app\(tenant)\tips.js
+    2:22  warning  'StyleSheet' is defined but never used                                                                                                                    no-unused-vars
+   98:14  warning  'err' is defined but never used. Allowed unused caught errors must match /^_/u                                                                            no-unused-vars
+  130:14  warning  'err' is defined but never used. Allowed unused caught errors must match /^_/u                                                                            no-unused-vars
+  185:6   warning  React Hook useEffect has missing dependencies: 'currentTip', 'loadCommunityTip', and 'loadSmartTips'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+  208:18  warning  'err' is defined but never used. Allowed unused caught errors must match /^_/u                                                                            no-unused-vars
+  235:14  warning  'err' is defined but never used. Allowed unused caught errors must match /^_/u                                                                            no-unused-vars
+  260:14  warning  'err' is defined but never used. Allowed unused caught errors must match /^_/u                                                                            no-unused-vars
+
+C:\Wattipid Apps\wattipid\frontend\app\_layout.js
+   2:10  warning  'Stack' is defined but never used                                                                          no-unused-vars
+   5:30  warning  'C:\Wattipid Apps\wattipid\frontend\contexts\AuthContext.js' imported multiple times                       import/no-duplicates
+   8:25  warning  'C:\Wattipid Apps\wattipid\frontend\contexts\AuthContext.js' imported multiple times                       import/no-duplicates
+  42:11  warning  'inTenantGroup' is assigned a value but never used                                                         no-unused-vars
+  43:11  warning  'inLandlordGroup' is assigned a value but never used                                                       no-unused-vars
+  70:6   warning  React Hook useEffect has a missing dependency: 'router'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  96:1   warning  Import in body of module; reorder to top                                                                   import/first
+
+C:\Wattipid Apps\wattipid\frontend\app\terms.js
+   6:18  warning  'FONT_SIZE' is defined but never used                                             no-unused-vars
+   6:29  warning  'FONT_WEIGHT' is defined but never used                                           no-unused-vars
+   6:42  warning  'SPACING' is defined but never used                                               no-unused-vars
+   6:51  warning  'RADIUS' is defined but never used                                                no-unused-vars
+  34:18  warning  'error' is defined but never used. Allowed unused caught errors must match /^_/u  no-unused-vars
+
+C:\Wattipid Apps\wattipid\frontend\components\landlord\Overview\LiveConsumptionWidget.js
+  19:6   warning  React Hook useEffect has a missing dependency: 'pulseAnim'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  37:43  error    `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`                                               react/no-unescaped-entities
+
+C:\Wattipid Apps\wattipid\frontend\components\landlord\Overview\RecentTransactionsWidget.js
+   2:22  warning  'FlatList' is defined but never used            no-unused-vars
+  25:11  warning  'isPending' is assigned a value but never used  no-unused-vars
+
+C:\Wattipid Apps\wattipid\frontend\components\landlord\Overview\StatCard.js
+  21:6  warning  React Hook useEffect has a missing dependency: 'fadeAnim'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Wattipid Apps\wattipid\frontend\components\landlord\Overview\UnpaidTenantsWidget.js
+  2:22  warning  'TouchableOpacity' is defined but never used  no-unused-vars
+
+C:\Wattipid Apps\wattipid\frontend\components\landlord\RoomHistoryModal.js
+   6:26  warning  'SPACING' is defined but never used                                                                            no-unused-vars
+  29:6   warning  React Hook useEffect has a missing dependency: 'loadCycles'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Wattipid Apps\wattipid\frontend\components\modals\TermsAgreementModal.js
+   2:88  warning  'Alert' is defined but never used                                                 no-unused-vars
+   4:18  warning  'FONT_SIZE' is defined but never used                                             no-unused-vars
+   4:29  warning  'FONT_WEIGHT' is defined but never used                                           no-unused-vars
+   4:42  warning  'SPACING' is defined but never used                                               no-unused-vars
+   4:51  warning  'RADIUS' is defined but never used                                                no-unused-vars
+   5:8   warning  'GlassCard' is defined but never used                                             no-unused-vars
+  36:18  warning  'error' is defined but never used. Allowed unused caught errors must match /^_/u  no-unused-vars
+
+C:\Wattipid Apps\wattipid\frontend\components\ui\DashboardAlertCard.js
+  8:37  warning  'category' is assigned a value but never used  no-unused-vars
+
+C:\Wattipid Apps\wattipid\frontend\components\ui\GlobalToast.js
+  2:10  warning  'View' is defined but never used       no-unused-vars
+  5:18  warning  'FONT_SIZE' is defined but never used  no-unused-vars
+
+C:\Wattipid Apps\wattipid\frontend\components\ui\Logo\styles.js
+  2:40  warning  'RADIUS' is defined but never used  no-unused-vars
+
+C:\Wattipid Apps\wattipid\frontend\components\ui\NotificationBanner.js
+   2:34  warning  'Platform' is defined but never used                                                                                                                             no-unused-vars
+  50:6   warning  React Hook useEffect has missing dependencies: 'dismissBanner', 'isVisible', 'translateX', and 'translateY'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Wattipid Apps\wattipid\frontend\components\ui\NotificationCard.js
+  7:27  warning  'type' is assigned a value but never used  no-unused-vars
+
+C:\Wattipid Apps\wattipid\frontend\components\ui\StatusBadge\styles.js
+  2:10  warning  'COLORS' is defined but never used  no-unused-vars
+
+C:\Wattipid Apps\wattipid\frontend\components\ui\TransactionTable.js
+   1:51  warning  'useMemo' is defined but never used                                           no-unused-vars
+   2:71  warning  'Platform' is defined but never used                                          no-unused-vars
+  99:12  warning  'e' is defined but never used. Allowed unused caught errors must match /^_/u  no-unused-vars
+
+C:\Wattipid Apps\wattipid\frontend\components\ui\WattipidBarChart.js
+  49:6   warning  React Hook useEffect has a missing dependency: 'animProgress'. Either include it or remove the dependency array                           react-hooks/exhaustive-deps
+  49:20  warning  React Hook useEffect has a complex expression in the dependency array. Extract it to a separate variable so it can be statically checked  react-hooks/exhaustive-deps
+
+C:\Wattipid Apps\wattipid\frontend\contexts\AuthContext.js
+  123:14  warning  'error' is defined but never used. Allowed unused caught errors must match /^_/u  no-unused-vars
+  158:14  warning  'error' is defined but never used. Allowed unused caught errors must match /^_/u  no-unused-vars
+
+C:\Wattipid Apps\wattipid\frontend\contexts\NotificationContext.js
+  27:14  warning  'e' is defined but never used. Allowed unused caught errors must match /^_/u  no-unused-vars
+
+C:\Wattipid Apps\wattipid\frontend\contexts\SyncContext.js
+   2:10  warning  'AppState' is defined but never used            no-unused-vars
+   6:8   warning  'Constants' is defined but never used           no-unused-vars
+  24:10  warning  'pushToken' is assigned a value but never used  no-unused-vars
+
+C:\Wattipid Apps\wattipid\frontend\services\api.js
+  1:8  warning  'Storage' is defined but never used  no-unused-vars
+
+C:\Wattipid Apps\wattipid\frontend\services\apiClient.js
+    2:10  warning  'Alert' is defined but never used                                                                                      no-unused-vars
+   19:19  warning  Caution: `axios` also has a named export `create`. Check if you meant to write `import {create} from 'axios'` instead  import/no-named-as-default-member
+   33:11  warning  'isPolling' is assigned a value but never used                                                                         no-unused-vars
+   56:11  warning  'isPolling' is assigned a value but never used                                                                         no-unused-vars
+  124:16  warning  'refreshError' is defined but never used. Allowed unused caught errors must match /^_/u                                no-unused-vars
+
+C:\Wattipid Apps\wattipid\frontend\services\consumptionService.js
+  24:12  warning  'error' is defined but never used. Allowed unused caught errors must match /^_/u  no-unused-vars
+
+C:\Wattipid Apps\wattipid\frontend\services\esp32Api.js
+   8:7   warning  'MAX_FAILURES_BEFORE_BACKOFF' is assigned a value but never used                  no-unused-vars
+  58:12  warning  'error' is defined but never used. Allowed unused caught errors must match /^_/u  no-unused-vars
+  64:5   warning  '_lastAttemptTime' is assigned a value but never used                             no-unused-vars
+
+C:\Wattipid Apps\wattipid\frontend\services\notificationApi.js
+  53:12  warning  'err' is defined but never used. Allowed unused caught errors must match /^_/u  no-unused-vars
+
+C:\Wattipid Apps\wattipid\frontend\services\notificationService.js
+  121:41  warning  'channelId' is assigned a value but never used  no-unused-vars
+
+C:\Wattipid Apps\wattipid\frontend\services\pdfService.js
+    3:10   warning  'Image' is defined but never used                       no-unused-vars
+    6:103  warning  'getConsumptionComparison' is defined but never used    no-unused-vars
+   51:9    warning  'diffCost' is assigned a value but never used           no-unused-vars
+  211:9    warning  'previousReading' is assigned a value but never used    no-unused-vars
+  212:9    warning  'currentReading' is assigned a value but never used     no-unused-vars
+  276:9    warning  'totalAfterDueDate' is assigned a value but never used  no-unused-vars
+
+C:\Wattipid Apps\wattipid\frontend\services\storage.js
+  15:10  warning  'e' is defined but never used. Allowed unused caught errors must match /^_/u  no-unused-vars
+  27:12  warning  'e' is defined but never used. Allowed unused caught errors must match /^_/u  no-unused-vars
+  93:14  warning  'e' is defined but never used. Allowed unused caught errors must match /^_/u  no-unused-vars
+
+C:\Wattipid Apps\wattipid\frontend\services\tipsEngine.js
+  181:17  warning  'week' is assigned a value but never used         no-unused-vars
+  181:61  warning  'monthlyComp' is assigned a value but never used  no-unused-vars
+
+C:\Wattipid Apps\wattipid\frontend\services\tipsService.js
+  70:14  warning  'e' is defined but never used. Allowed unused caught errors must match /^_/u  no-unused-vars
+
+C:\Wattipid Apps\wattipid\frontend\styles\global.styles.js
+  2:27  warning  'RADIUS' is defined but never used  no-unused-vars
+
+C:\Wattipid Apps\wattipid\frontend\styles\landlord\manage-tips.styles.js
+  2:35  warning  'FONT_SIZE' is defined but never used  no-unused-vars
+
+C:\Wattipid Apps\wattipid\frontend\styles\landlord\overview.styles.js
+  2:40  warning  'RADIUS' is defined but never used  no-unused-vars
+
+C:\Wattipid Apps\wattipid\frontend\styles\tenant\dashboard.styles.js
+  2:59  warning  'SHADOWS' is defined but never used  no-unused-vars
+
+C:\Wattipid Apps\wattipid\frontend\styles\tenant\edit-profile.styles.js
+  2:18  warning  'FONT_SIZE' is defined but never used    no-unused-vars
+  2:29  warning  'FONT_WEIGHT' is defined but never used  no-unused-vars
+
+C:\Wattipid Apps\wattipid\frontend\styles\tenant\notifications.styles.js
+  2:18  warning  'SPACING' is defined but never used  no-unused-vars
+
+Γ£û 207 problems (10 errors, 197 warnings)
+  0 errors and 5 warnings potentially fixable with the `--fix` option.
+

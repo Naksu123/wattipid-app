@@ -8,7 +8,7 @@ import { generateCycleReport } from '../../services/pdfService';
 import { useAuth } from '../../contexts/AuthContext';
 import { useModal } from '../../contexts/ModalContext';
 import GlassCard from '../../components/ui/GlassCard';
-import { COLORS, FONT_SIZE, FONT_WEIGHT, SPACING, RADIUS } from '../../styles/theme';
+import { COLORS } from '../../styles/theme';
 import styles from '../../styles/tenant/pdf-viewer.styles';
 
 export default function PDFViewerScreen() {

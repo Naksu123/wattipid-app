@@ -4,6 +4,7 @@
  * detects high consumption, and triggers notifications.
  */
 import { getTotalConsumptionToday, getTotalConsumptionWeek, getTotalConsumptionMonth, getBudget, getConsumptionComparison, getSetting, setSetting } from './database';
+import { tipsService } from './tipsService';
 
 // ============ STATIC TIPS ============
 // General, fixed guidelines that never change
@@ -141,9 +142,22 @@ const DYNAMIC_TIP_TEMPLATES = {
 const DEFAULT_THRESHOLDS = {
   budgetWarningPct: 80,      // Warn at 80% of budget
   budgetCriticalPct: 100,    // Critical at 100% of budget
-  comparisonIncreasePct: 20,  // Flag if 20% higher than previous period
+  comparisonIncreasePct: 10,  // Increasing Consumption (10%)
+  unusualIncreasePct: 30,     // Unusual Consumption Increase (30%)
+  decreasingPct: -10,         // Decreasing Consumption (-10%)
+  stableRangePct: 5,          // Stable range (+/- 5%)
   highPowerWatts: 1000,       // High power threshold in watts (1kW)
   highDailyKwh: 5,            // High daily usage threshold
+};
+
+// ============ SMART TIPS BEHAVIOR MAP ============
+const BEHAVIOR_CATEGORY_MAP = {
+  INCREASING: ['High Consumption Awareness', 'Consumption Monitoring', 'Electricity Conservation', 'General Energy Saving'],
+  DECREASING: ['Consumption Goals', 'Energy Awareness', 'General Energy Saving', 'Energy-Saving Practices'],
+  STABLE: ['Consumption Monitoring', 'Energy Awareness', 'Responsible Electricity Use', 'Consumption Goals'],
+  UNUSUAL_INCREASE: ['High Consumption Awareness', 'Consumption Monitoring', 'Electricity Conservation'],
+  REPEATED_HIGH: ['High Consumption Awareness', 'Electricity Conservation', 'Energy-Saving Practices', 'General Energy Saving'],
+  IMPROVING: ['Consumption Goals', 'Energy Awareness', 'Energy-Saving Practices']
 };
 
 export async function getThresholds() {
@@ -171,103 +185,92 @@ function fillTemplate(template, vars) {
 
 /**
  * Generate dynamic tips based on real consumption data.
- * This is the main intelligence function.
+ * This is the main Smart Tips Engine.
  */
 export async function generateDynamicTips(roomId, currentPower = 0) {
-  const tips = [];
   const thresholds = await getThresholds();
 
-  // Fetch all needed data in parallel
-  const [today, week, month, budget, dailyComp, weeklyComp, monthlyComp] = await Promise.all([
+  // 1. Fetch consumption data in parallel
+  const [today, week, month, dailyComp, weeklyComp, monthlyComp] = await Promise.all([
     getTotalConsumptionToday(roomId),
     getTotalConsumptionWeek(roomId),
     getTotalConsumptionMonth(roomId),
-    getBudget(roomId),
     getConsumptionComparison(roomId, 'daily'),
     getConsumptionComparison(roomId, 'weekly'),
     getConsumptionComparison(roomId, 'monthly'),
   ]);
 
-  // --- Budget-based tips ---
-  if (budget) {
-    const dailyPct = budget.daily_allowance > 0 ? (today.totalCost / budget.daily_allowance) * 100 : 0;
-    const monthlyPct = budget.monthly_budget > 0 ? (month.totalCost / budget.monthly_budget) * 100 : 0;
+  // 2. Identify active behaviors
+  const activeBehaviors = new Set();
+  
+  const dChange = dailyComp?.costPctChange || 0;
+  const wChange = weeklyComp?.costPctChange || 0;
+  const mChange = monthlyComp?.costPctChange || 0;
 
-    if (dailyPct >= thresholds.budgetCriticalPct) {
-      tips.push(fillTemplate(DYNAMIC_TIP_TEMPLATES.budgetExceeded, {
-        period: 'daily', amount: Number(today.totalCost - budget.daily_allowance || 0).toFixed(2),
-      }));
-    } else if (dailyPct >= thresholds.budgetWarningPct) {
-      tips.push(fillTemplate(DYNAMIC_TIP_TEMPLATES.budgetNearing, {
-        period: 'daily', pct: Number(dailyPct || 0).toFixed(0), spent: Number(today.totalCost || 0).toFixed(2), limit: Number(budget.daily_allowance || 0).toFixed(2),
-      }));
-    }
-
-    if (monthlyPct >= thresholds.budgetCriticalPct) {
-      tips.push(fillTemplate(DYNAMIC_TIP_TEMPLATES.budgetExceeded, {
-        period: 'monthly', amount: Number(month.totalCost - budget.monthly_budget || 0).toFixed(2),
-      }));
-    } else if (monthlyPct >= thresholds.budgetWarningPct) {
-      tips.push(fillTemplate(DYNAMIC_TIP_TEMPLATES.budgetNearing, {
-        period: 'monthly', pct: Number(monthlyPct || 0).toFixed(0), spent: Number(month.totalCost || 0).toFixed(2), limit: Number(budget.monthly_budget || 0).toFixed(2),
-      }));
-    }
+  // Unusual Increase
+  if (dChange >= thresholds.unusualIncreasePct || wChange >= thresholds.unusualIncreasePct) {
+    activeBehaviors.add('UNUSUAL_INCREASE');
+  }
+  
+  // Repeated High Consumption
+  if (today?.totalEnergy > thresholds.highDailyKwh && wChange >= thresholds.comparisonIncreasePct) {
+    activeBehaviors.add('REPEATED_HIGH');
   }
 
-  // --- Comparison-based tips ---
-  if (dailyComp && dailyComp.previous.totalCost > 0) {
-    if (dailyComp.costPctChange >= thresholds.comparisonIncreasePct) {
-      tips.push(fillTemplate(DYNAMIC_TIP_TEMPLATES.consumptionUp, {
-        period: 'daily', pct: Number(dailyComp.costPctChange || 0).toFixed(0),
-      }));
-    } else if (dailyComp.costPctChange <= -10) {
-      tips.push(fillTemplate(DYNAMIC_TIP_TEMPLATES.consumptionDown, {
-        period: 'daily', pct: Math.abs(Number(dailyComp.costPctChange || 0)).toFixed(0),
-      }));
-    }
+  // Increasing Consumption
+  if (dChange >= thresholds.comparisonIncreasePct || wChange >= thresholds.comparisonIncreasePct || mChange >= thresholds.comparisonIncreasePct) {
+    activeBehaviors.add('INCREASING');
   }
 
-  if (weeklyComp && weeklyComp.previous.totalCost > 0) {
-    if (weeklyComp.costPctChange >= thresholds.comparisonIncreasePct) {
-      tips.push(fillTemplate(DYNAMIC_TIP_TEMPLATES.consumptionUp, {
-        period: 'weekly', pct: Number(weeklyComp.costPctChange || 0).toFixed(0),
-      }));
-    } else if (weeklyComp.costPctChange <= -10) {
-      tips.push(fillTemplate(DYNAMIC_TIP_TEMPLATES.consumptionDown, {
-        period: 'weekly', pct: Math.abs(Number(weeklyComp.costPctChange || 0)).toFixed(0),
-      }));
+  // Decreasing Consumption
+  if (dChange <= thresholds.decreasingPct || wChange <= thresholds.decreasingPct) {
+    activeBehaviors.add('DECREASING');
+  }
+  
+  // Improving Consumption
+  if (mChange <= thresholds.decreasingPct) {
+    activeBehaviors.add('IMPROVING');
+  }
+
+  // Stable Consumption
+  if (activeBehaviors.size === 0) {
+    if (Math.abs(wChange) <= thresholds.stableRangePct && Math.abs(mChange) <= thresholds.stableRangePct) {
+      activeBehaviors.add('STABLE');
     }
   }
 
-  // --- Power-based tips ---
-  if (currentPower > thresholds.highPowerWatts) {
-    tips.push(fillTemplate(DYNAMIC_TIP_TEMPLATES.highPower, {
-      power: Number(currentPower || 0).toFixed(0),
-    }));
+  // Fallback
+  if (activeBehaviors.size === 0) {
+    activeBehaviors.add('STABLE');
   }
 
-  // --- Daily energy check ---
-  if (today.totalEnergy > thresholds.highDailyKwh) {
-    tips.push(fillTemplate(DYNAMIC_TIP_TEMPLATES.highDailyUsage, {
-      energy: Number(today.totalEnergy || 0).toFixed(2),
-    }));
+  // 3. Map to Recommended Categories
+  const recommendedCategories = new Set();
+  activeBehaviors.forEach(b => {
+    const cats = BEHAVIOR_CATEGORY_MAP[b] || [];
+    cats.forEach(c => recommendedCategories.add(c));
+  });
+
+  // 4. Fetch 120-tip library
+  const allTipsRes = await tipsService.getAllTips();
+  let library = [];
+  if (allTipsRes.success && allTipsRes.data) {
+    library = allTipsRes.data;
   }
 
-  // --- Time-based tips (peak hours 6AM-10PM) ---
-  const hour = new Date().getHours();
-  if (hour >= 9 && hour <= 17 && currentPower > 800) {
-    tips.push(fillTemplate(DYNAMIC_TIP_TEMPLATES.peakHourWarning, {}));
+  // 5. Filter and Rank
+  let relevantTips = library.filter(t => recommendedCategories.has(t.category));
+  
+  // Fallback if filtering fails or library empty
+  if (relevantTips.length === 0) {
+    relevantTips = library;
   }
-
-  // --- If everything looks good ---
-  if (tips.length === 0 && today.totalEnergy > 0) {
-    tips.push(fillTemplate(DYNAMIC_TIP_TEMPLATES.efficientUsage, {}));
-  }
-
-  // Sort by priority (0 = most urgent)
-  tips.sort((a, b) => a.priority - b.priority);
-
-  return tips;
+  
+  // Shuffle pseudo-randomly
+  relevantTips.sort(() => 0.5 - Math.random());
+  
+  // Return top 3 most relevant tips, flagged as dynamic
+  return relevantTips.slice(0, 3).map(t => ({ ...t, isDynamic: true, generatedAt: new Date().toISOString() }));
 }
 
 // ============ HIGH CONSUMPTION DETECTION ============
@@ -276,6 +279,69 @@ export async function generateDynamicTips(roomId, currentPower = 0) {
  * Detects high consumption and returns alert details.
  * Returns null if no high consumption detected.
  */
+export function detectHighConsumptionSync(currentPower = 0, budget = null, today = null, month = null) {
+  const alerts = [];
+  
+  // Default thresholds to use synchronously
+  const thresholds = {
+    budgetWarningPct: 80,
+    budgetCriticalPct: 100,
+    highPowerWatts: 2000
+  };
+
+  if (budget) {
+    const dailyPct = budget.daily_allowance > 0 ? ((today?.totalCost || 0) / budget.daily_allowance) * 100 : 0;
+    const monthlyPct = budget.monthly_budget > 0 ? ((month?.totalCost || 0) / budget.monthly_budget) * 100 : 0;
+
+    if (monthlyPct >= thresholds.budgetCriticalPct) {
+      alerts.push({
+        type: 'danger',
+        title: 'Monthly Budget Exceeded!',
+        message: `You've exceeded your monthly budget of ₱${Number(budget.monthly_budget || 0).toFixed(2)}.`,
+        severity: 4,
+      });
+    } else if (monthlyPct >= thresholds.budgetWarningPct) {
+      alerts.push({
+        type: 'warning',
+        title: 'Monthly Budget Warning',
+        message: `You're at ${Number(monthlyPct || 0).toFixed(0)}% of your monthly budget.`,
+        severity: 2,
+      });
+    }
+
+    if (dailyPct >= thresholds.budgetCriticalPct && monthlyPct < thresholds.budgetCriticalPct) {
+      alerts.push({
+        type: 'danger',
+        title: 'Daily Budget Exceeded!',
+        message: `You've exceeded your daily allowance of ₱${Number(budget.daily_allowance || 0).toFixed(2)}.`,
+        severity: 3,
+      });
+    } else if (dailyPct >= thresholds.budgetWarningPct && monthlyPct < thresholds.budgetWarningPct) {
+      alerts.push({
+        type: 'warning',
+        title: 'Daily Budget Warning',
+        message: `You've used ${Number(dailyPct || 0).toFixed(0)}% of your daily allowance.`,
+        severity: 1,
+      });
+    }
+  }
+
+  if (currentPower > thresholds.highPowerWatts) {
+    alerts.push({
+      type: 'warning',
+      title: 'Peak Power Usage!',
+      message: `Your current draw is ${Number(currentPower || 0).toFixed(0)}W, which is high.`,
+      severity: 3,
+    });
+  }
+
+  if (alerts.length > 0) {
+    alerts.sort((a, b) => b.severity - a.severity);
+    return alerts[0];
+  }
+  return null;
+}
+
 export async function detectHighConsumption(roomId, currentPower = 0) {
   const thresholds = await getThresholds();
   const alerts = [];
@@ -389,31 +455,49 @@ export function getDailyStaticTip() {
  * Used for the dashboard smart tip display.
  */
 export function getSmartPopupTip(currentPower, todayEnergy, budget) {
-  if (currentPower > 1500) {
+  const hour = new Date().getHours();
+  const power = Number(currentPower || 0);
+
+  // 1. High Power Alert (General)
+  if (power > 1500) {
     return {
       icon: 'flash', color: '#EF4444',
       title: 'High Power Alert',
-      message: `Your consumption is high right now (${Number(currentPower || 0).toFixed(0)}W). Try turning off unused appliances to save energy.`,
+      message: `Your total consumption is quite high right now (${power.toFixed(0)}W). Consider lowering usage if possible to avoid spikes.`,
     };
   }
+
+  // 2. Budget Alert
   if (budget && todayEnergy > 0) {
     const dailyPct = budget.daily_allowance > 0 ? (todayEnergy / budget.daily_allowance) * 100 : 0;
     if (dailyPct >= 90) {
       return {
         icon: 'wallet', color: '#F59E0B',
         title: 'Budget Alert',
-        message: 'You\'re approaching your daily budget limit. Reduce power usage to stay within budget.',
+        message: 'You\'re approaching your daily budget limit. Reduce overall power usage to stay within budget.',
       };
     }
   }
-  const hour = new Date().getHours();
-  if (hour >= 12 && hour <= 14) {
+
+  // 3. Nighttime Ghost Load / Unintended Usage
+  if ((hour >= 22 || hour <= 5) && power > 300) {
     return {
-      icon: 'sunny', color: '#22C55E',
-      title: 'Midday Tip',
-      message: 'It\'s peak sunlight — open your curtains and use natural light instead of lamps!',
+      icon: 'moon', color: '#8B5CF6',
+      title: 'Late Night Usage',
+      message: `You are pulling ${power.toFixed(0)}W late at night. Ensure nothing was left on by mistake before going to sleep.`,
     };
   }
+
+  // 4. Midday Optimization (if load is moderately high)
+  if (hour >= 12 && hour <= 14 && power > 500) {
+    return {
+      icon: 'sunny', color: '#22C55E',
+      title: 'Daylight Savings',
+      message: 'Your power draw is high during peak daylight. If applicable, try utilizing natural light and ventilation to save energy!',
+    };
+  }
+
+  // 5. Normal Nighttime Tip
   if (hour >= 22 || hour <= 5) {
     return {
       icon: 'moon', color: '#3B82F6',
@@ -421,5 +505,7 @@ export function getSmartPopupTip(currentPower, todayEnergy, budget) {
       message: 'Going to sleep? Make sure to turn off all lights and unplug chargers to save overnight.',
     };
   }
+
+  // Fallback to static rotation
   return getDailyStaticTip();
 }

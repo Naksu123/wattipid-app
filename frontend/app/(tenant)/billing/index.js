@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,7 +17,7 @@ export default function TenantBillingScreen() {
     const [refreshing, setRefreshing] = useState(false);
     const [expandedSection, setExpandedSection] = useState('electricity');
 
-    const fetchBillingDetails = async () => {
+    const fetchBillingDetails = useCallback(async () => {
         try {
             if (!user?.room_id) {
                 setLoading(false);
@@ -43,11 +43,11 @@ export default function TenantBillingScreen() {
             setLoading(false);
             setRefreshing(false);
         }
-    };
+    }, [user?.room_id, showModal]);
 
     useEffect(() => {
         fetchBillingDetails();
-    }, []);
+    }, [fetchBillingDetails]);
 
     const onRefresh = () => {
         setRefreshing(true);

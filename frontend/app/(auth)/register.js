@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet,
+  View, Text, TextInput, TouchableOpacity,
   ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator
 } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -9,7 +9,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '@/contexts/AuthContext';
 import { useModal } from '@/contexts/ModalContext';
 import { verifyAccessCodeAPI } from '../../services/database';
-import { COLORS, GRADIENTS, FONT_WEIGHT } from '@/styles/theme';
+import { COLORS, GRADIENTS } from '@/styles/theme';
 import s from '@/styles/auth/register.styles';
 import TermsAgreementModal from '../../components/modals/TermsAgreementModal';
 

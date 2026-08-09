@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Animated, ActivityIndicator, FlatList, TextInput } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, RefreshControl, Animated, ActivityIndicator, FlatList, TextInput } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { fetchRealtimeData } from '../../services/esp32Api';
@@ -52,22 +52,21 @@ export default function TipsScreen() {
   const [browseLoading, setBrowseLoading] = useState(false);
   const [browseError, setBrowseError] = useState(null);
 
-  const categories = [
-    'All',
-    'Air Conditioning',
-    'Fan Usage',
-    'Charging Devices',
-    'Kitchen Appliances',
-    'Refrigerator Usage',
-    'Laundry',
-    'Study Setup',
-    'Shared Room Efficiency',
-    'Gaming & Entertainment',
-    'Appliance Maintenance',
-    'Daily Habits'
-  ];
+  const dynamicCategories = useMemo(() => {
+    const cats = allTips.reduce((acc, tip) => {
+      if (tip.category) {
+        acc[tip.category] = (acc[tip.category] || 0) + 1;
+      }
+      return acc;
+    }, {});
+    
+    // Create an array with 'All' first, then sort the rest alphabetically
+    const list = ['All', ...Object.keys(cats).sort()];
+    
+    return { list, counts: cats };
+  }, [allTips]);
 
-  const loadCommunityTip = async () => {
+  const loadCommunityTip = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -100,7 +99,7 @@ export default function TipsScreen() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [fadeAnim]);
 
   const loadSmartTips = useCallback(async () => {
     try {
@@ -113,7 +112,7 @@ export default function TipsScreen() {
     }
   }, [roomId]);
 
-  const loadAllTips = async (cat = 'All') => {
+  const loadAllTips = useCallback(async (cat = 'All') => {
     try {
       setBrowseLoading(true);
       setBrowseError(null);
@@ -132,7 +131,7 @@ export default function TipsScreen() {
     } finally {
       setBrowseLoading(false);
     }
-  };
+  }, []);
 
   // Filtered and sorted tips (memoized for performance)
   const filteredTips = useMemo(() => {
@@ -182,7 +181,7 @@ export default function TipsScreen() {
     } else if (activeTab === 'browse') {
       loadAllTips(selectedCategory);
     }
-  }, [activeTab, selectedCategory]);
+  }, [activeTab, selectedCategory, currentTip, loadCommunityTip, loadSmartTips, loadAllTips]);
 
   // Real-time Background Polling for Engagement Stats
   useEffect(() => {
@@ -337,15 +336,20 @@ export default function TipsScreen() {
 
       {/* Category Scroll */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.catScroll} contentContainerStyle={s.catContainer}>
-        {categories.map(cat => (
-          <TouchableOpacity 
-            key={cat} 
-            onPress={() => setSelectedCategory(cat)}
-            style={[s.catBtn, selectedCategory === cat && s.catActive]}
-          >
-            <Text style={[s.catText, selectedCategory === cat && s.catTextActive]}>{cat}</Text>
-          </TouchableOpacity>
-        ))}
+        {dynamicCategories.list.map(cat => {
+          const count = cat === 'All' ? allTips.length : dynamicCategories.counts[cat];
+          return (
+            <TouchableOpacity 
+              key={cat} 
+              onPress={() => setSelectedCategory(cat)}
+              style={[s.catBtn, selectedCategory === cat && s.catActive]}
+            >
+              <Text style={[s.catText, selectedCategory === cat && s.catTextActive]}>
+                {cat} ({count || 0})
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
       </ScrollView>
 
       {/* Sort & Count Row */}

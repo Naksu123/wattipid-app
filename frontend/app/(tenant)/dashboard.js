@@ -1,22 +1,22 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback , useRef } from 'react';
 import { View, Text, ScrollView, RefreshControl, TouchableOpacity } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRef } from 'react';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSync } from '@/contexts/SyncContext';
-import { fetchRealtimeData, isDeviceConnected } from '../../services/esp32Api';
+import { fetchRealtimeData } from '../../services/esp32Api';
 import PowerGauge from '../../components/ui/PowerGauge';
 import GlassCard from '../../components/ui/GlassCard';
 import StatusBadge from '../../components/ui/StatusBadge';
 import { COLORS, SPACING } from '@/styles/theme';
 import ms from '@/styles/tenant/dashboard.styles';
-import { getDashboardSummary, getForecast } from '../../services/consumptionService';
+import { getDashboardSummary } from '../../services/consumptionService';
 import apiClient from '../../services/apiClient';
 import { getBillingCycle, getPaymentInsights } from '../../services/database';
 import { getNotificationHistory, createFrontendAlert } from '../../services/notificationApi';
 import { tipsService } from '../../services/tipsService';
+import { detectHighConsumptionSync } from '../../services/tipsEngine';
 import { useNotification } from '@/contexts/NotificationContext';
 
 let globalLastAlertKey = null;
@@ -141,7 +141,7 @@ export default function DashboardScreen() {
     } finally {
       setLoading(false);
     }
-  }, [roomId]);
+  }, [roomId, user?.id]);
 
   const todayUsageRef = useRef(todayUsage);
   const budgetRef = useRef(budget);
@@ -149,6 +149,7 @@ export default function DashboardScreen() {
   const lastAlertKeyRef = useRef(lastAlertKey);
   const lastTipKeyRef = useRef(lastTipKey);
   const deviceOnlineRef = useRef(deviceOnline);
+  const monthUsageRef = useRef(monthUsage);
 
   useEffect(() => {
     todayUsageRef.current = todayUsage;
@@ -157,7 +158,8 @@ export default function DashboardScreen() {
     lastAlertKeyRef.current = lastAlertKey;
     lastTipKeyRef.current = lastTipKey;
     deviceOnlineRef.current = deviceOnline;
-  }, [todayUsage, budget, lastSeen, lastAlertKey, lastTipKey, deviceOnline]);
+    monthUsageRef.current = monthUsage;
+  }, [todayUsage, budget, lastSeen, lastAlertKey, lastTipKey, deviceOnline, monthUsage]);
 
 
   const fetchRealtimeDataLoop = useCallback(async () => {
@@ -215,7 +217,7 @@ export default function DashboardScreen() {
       // GHOST FIX: Only detect high consumption if we have REAL device data
       // AND the device is online AND the power reading is from a validated source
       if (sensorData.online && sensorData.power > 0) {
-        const alert = detectHighConsumption(sensorData.power, budgetRef.current, todayUsageRef.current);
+        const alert = detectHighConsumptionSync(sensorData.power, budgetRef.current, todayUsageRef.current, monthUsageRef.current);
         if (alert) {
           const alertKey = `${alert.title}-${alert.type}`;
           if (alertKey !== lastAlertKeyRef.current) {
@@ -252,7 +254,7 @@ export default function DashboardScreen() {
     return () => {
       clearInterval(realtimeInterval);
     };
-  }, [isFocused, isAuthenticated]);
+  }, [isFocused, isAuthenticated, fetchStaticData, fetchRealtimeDataLoop]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -345,6 +347,7 @@ export default function DashboardScreen() {
             </View>
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <StatusBadge status={offline ? 'offline' : (relayOn ? 'active' : 'idle')} />
             <TouchableOpacity style={{ position: 'relative', padding: 4 }} onPress={() => router.push('/(tenant)/notifications')}>
               <Ionicons name="notifications-outline" size={24} color={COLORS.textPrimary} />
               {unreadCount > 0 && (
@@ -353,7 +356,6 @@ export default function DashboardScreen() {
                 </View>
               )}
             </TouchableOpacity>
-            <StatusBadge status={offline ? 'offline' : (relayOn ? 'active' : 'idle')} />
           </View>
         </View>
 

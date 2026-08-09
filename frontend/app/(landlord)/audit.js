@@ -1,12 +1,11 @@
+import { SafeAreaView } from 'react-native-safe-area-context';
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, ActivityIndicator, TouchableOpacity, RefreshControl, SafeAreaView, Modal } from 'react-native';
+import { View, Text, ScrollView, ActivityIndicator, TouchableOpacity, RefreshControl, Modal  } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../styles/theme';
 import styles from '../../styles/landlord/audit.styles';
 import apiClient from '../../services/apiClient';
 import { router } from 'expo-router';
-import { Platform } from 'react-native';
-import { BlurView } from 'expo-blur';
 
 export default function AuditLogsScreen() {
   const [logs, setLogs] = useState([]);

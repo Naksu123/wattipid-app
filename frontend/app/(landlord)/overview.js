@@ -1,5 +1,6 @@
+import { SafeAreaView } from 'react-native-safe-area-context';
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, RefreshControl, ActivityIndicator, SafeAreaView, StatusBar, TouchableOpacity, Platform } from 'react-native';
+import { View, Text, ScrollView, RefreshControl, ActivityIndicator, StatusBar, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
@@ -23,7 +24,7 @@ export default function OverviewScreen() {
   // Initial Load
   useEffect(() => {
     loadLiveOverview();
-  }, []);
+  }, [loadLiveOverview]);
 
   // Smart Sync: 5-Second Short Polling for Real-Time Dashboard
   useEffect(() => {
@@ -48,9 +49,9 @@ export default function OverviewScreen() {
       }
     }, 5000);
     return () => clearInterval(interval);
-  }, []);
+  }, [user?.id, user?.role]);
 
-  const loadLiveOverview = async () => {
+  const loadLiveOverview = useCallback(async () => {
     try {
       const result = await getLiveOverview();
       if (result) {
@@ -74,7 +75,7 @@ export default function OverviewScreen() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.id, user?.role]);
 
   const handleRefresh = async () => {
     setRefreshing(true);

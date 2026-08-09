@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, RefreshControl, SafeAreaView, ActivityIndicator, TextInput, Animated, Platform } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import React, { useState, useCallback } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator, TextInput, Platform, FlatList } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from 'expo-router';
-import { COLORS, SPACING, RADIUS, FONT_WEIGHT } from '../../styles/theme';
+import { useFocusEffect , router } from 'expo-router';
+import { COLORS, FONT_WEIGHT } from '../../styles/theme';
 import styles from '../../styles/tenant/notifications.styles';
 import apiClient from '../../services/apiClient';
-import { router } from 'expo-router';
 import { useNotification } from '../../contexts/NotificationContext';
 
 const CATEGORIES = [
@@ -66,10 +66,10 @@ export default function TenantNotificationCenter() {
       fetchNotifications();
       const interval = setInterval(fetchNotifications, 30000);
       return () => clearInterval(interval);
-    }, [activeCategory])
+    }, [activeCategory, fetchNotifications])
   );
 
-  const fetchNotifications = async () => {
+  const fetchNotifications = useCallback(async () => {
     try {
       const action = activeCategory === 'all' ? 'getNotifications' : 'getNotificationsByCategory';
       const payload = activeCategory === 'all'
@@ -81,12 +81,12 @@ export default function TenantNotificationCenter() {
         setNotifications(response.data.data || []);
       }
     } catch (err) {
-      console.error('Failed to fetch notifications:', err.message);
+      console.warn('Fetch error:', err);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [activeCategory]);
 
   const handleSearch = (text) => {
     setSearchQuery(text);
@@ -159,7 +159,7 @@ export default function TenantNotificationCenter() {
   const unreadCountLocal = notifications.filter(n => parseInt(n.is_read) === 0).length;
   const displayList = searchResults !== null ? searchResults : notifications;
 
-  const renderNotificationCard = (notif) => {
+  const renderNotificationCard = ({ item: notif }) => {
     const isUnread = parseInt(notif.is_read) === 0;
     const catConfig = CATEGORY_ICONS[notif.category] || CATEGORY_ICONS.system;
     const sevConfig = SEVERITY_CONFIG[notif.severity] || SEVERITY_CONFIG.info;
@@ -167,7 +167,6 @@ export default function TenantNotificationCenter() {
 
     return (
       <TouchableOpacity
-        key={notif.id}
         style={[styles.notifCard, isUnread && styles.unreadCard]}
         onPress={() => isUnread && handleMarkRead(notif.id)}
         activeOpacity={0.8}
@@ -181,28 +180,29 @@ export default function TenantNotificationCenter() {
           {/* Content */}
           <View style={styles.notifContent}>
             <View style={styles.notifHeader}>
-              <Text style={[styles.notifTitle, isUnread && styles.unreadTitle]} numberOfLines={1}>{notif.title}</Text>
-              {isUnread && <View style={styles.unreadDot} />}
+              <View style={styles.notifTitleContainer}>
+                <Text style={[styles.notifTitle, isUnread && styles.unreadTitle]} numberOfLines={1}>{notif.title}</Text>
+                {isUnread && <View style={styles.unreadDot} />}
+              </View>
+              {/* Delete button */}
+              <TouchableOpacity
+                style={styles.deleteBtn}
+                onPress={() => handleDelete(notif.id)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Ionicons name="close-outline" size={18} color={COLORS.textMuted} />
+              </TouchableOpacity>
             </View>
-            <Text style={styles.notifMessage} numberOfLines={2}>{notif.message}</Text>
+            <Text style={styles.notifMessage} numberOfLines={2} ellipsizeMode="tail">{notif.message}</Text>
             <View style={styles.notifMeta}>
               {/* Severity badge */}
               <View style={[styles.sevBadge, { backgroundColor: sevConfig.bg }]}>
                 <Ionicons name={sevConfig.icon} size={10} color={sevConfig.color} />
-                <Text style={[styles.sevText, { color: sevConfig.color }]}>{sevConfig.label}</Text>
+                <Text style={[styles.sevText, { color: sevConfig.color }]} numberOfLines={1}>{sevConfig.label}</Text>
               </View>
               <Text style={styles.timeText}>{timeStr}</Text>
             </View>
           </View>
-
-          {/* Delete button */}
-          <TouchableOpacity
-            style={styles.deleteBtn}
-            onPress={() => handleDelete(notif.id)}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Ionicons name="close-outline" size={18} color={COLORS.textMuted} />
-          </TouchableOpacity>
         </View>
       </TouchableOpacity>
     );
@@ -221,21 +221,37 @@ export default function TenantNotificationCenter() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={22} color={COLORS.textPrimary} />
+      {/* REBUILT RESPONSIVE HEADER */}
+      <View style={{ 
+        flexDirection: 'row', 
+        alignItems: 'center', 
+        width: '100%', 
+        paddingHorizontal: 16, 
+        paddingTop: Platform.OS === 'android' ? 12 : 8, 
+        paddingBottom: 12 
+      }}>
+        {/* Left Area: Back Button */}
+        <TouchableOpacity style={{ padding: 4, flexShrink: 0 }} onPress={() => router.back()}>
+          <Ionicons name="arrow-back" size={24} color={COLORS.textPrimary} />
         </TouchableOpacity>
-        <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle}>Notifications</Text>
+
+        {/* Center Area: Title & Badge */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, minWidth: 0, paddingHorizontal: 12 }}>
+          <Text style={{ fontSize: 22, fontWeight: FONT_WEIGHT.heavy, color: COLORS.textPrimary, flexShrink: 1 }} numberOfLines={1} ellipsizeMode="tail">
+            Notifications
+          </Text>
           {unreadCount > 0 && (
-            <View style={styles.headerBadge}>
-              <Text style={styles.headerBadgeText}>{unreadCount}</Text>
+            <View style={{ backgroundColor: COLORS.primary, borderRadius: 10, minWidth: 22, height: 22, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 6, marginLeft: 8, flexShrink: 0 }}>
+              <Text style={{ color: '#fff', fontSize: 12, fontWeight: 'bold' }}>{unreadCount}</Text>
             </View>
           )}
         </View>
-        <TouchableOpacity onPress={handleMarkAllRead} disabled={unreadCount === 0}>
-          <Text style={[styles.markAllText, unreadCount === 0 && styles.markAllTextDisabled]}>Read all</Text>
+
+        {/* Right Area: Action */}
+        <TouchableOpacity style={{ flexShrink: 0, padding: 4 }} onPress={handleMarkAllRead} disabled={unreadCount === 0}>
+          <Text style={{ color: COLORS.primary, fontWeight: '600', fontSize: 14, opacity: unreadCount === 0 ? 0.4 : 1 }}>
+            Read all
+          </Text>
         </TouchableOpacity>
       </View>
 
@@ -257,33 +273,50 @@ export default function TenantNotificationCenter() {
         )}
       </View>
 
-      {/* Category Tabs */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabScroll} contentContainerStyle={styles.tabContainer}>
-        {CATEGORIES.map(cat => (
-          <TouchableOpacity
-            key={cat.key}
-            style={[styles.tab, activeCategory === cat.key && styles.tabActive]}
-            onPress={() => { setActiveCategory(cat.key); setSearchQuery(''); setSearchResults(null); setLoading(true); }}
-            activeOpacity={0.7}
-          >
-            <Ionicons name={cat.icon} size={14} color={activeCategory === cat.key ? '#fff' : COLORS.textMuted} />
-            <Text style={[styles.tabText, activeCategory === cat.key && styles.tabTextActive]}>{cat.label}</Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+      {/* REBUILT CATEGORY FILTER */}
+      <View style={{ width: '100%', overflow: 'hidden' }}>
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false} 
+          style={{ width: '100%', flexGrow: 0, marginBottom: 12 }} 
+          contentContainerStyle={{ paddingHorizontal: 16, alignItems: 'center' }}
+        >
+          {CATEGORIES.map((cat, index) => (
+            <TouchableOpacity
+              key={cat.key}
+              style={[
+                styles.tab, 
+                activeCategory === cat.key && styles.tabActive,
+                { marginRight: index === CATEGORIES.length - 1 ? 0 : 8 }
+              ]}
+              onPress={() => { setActiveCategory(cat.key); setSearchQuery(''); setSearchResults(null); setLoading(true); }}
+              activeOpacity={0.7}
+            >
+              <Ionicons name={cat.icon} size={14} color={activeCategory === cat.key ? '#fff' : COLORS.textMuted} />
+              <Text style={[styles.tabText, activeCategory === cat.key && styles.tabTextActive]}>{cat.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
 
       {/* Notification List */}
-      <ScrollView
-        contentContainerStyle={styles.scroll}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={COLORS.primary} />}
-      >
-        {searchResults !== null && (
+      {searchResults !== null && (
+        <View style={{ paddingHorizontal: 16, paddingBottom: 8 }}>
           <Text style={styles.searchResultLabel}>
-            {searchResults.length} result{searchResults.length !== 1 ? 's' : ''} for "{searchQuery}"
+            {searchResults.length} result{searchResults.length !== 1 ? 's' : ''} for &quot;{searchQuery}&quot;
           </Text>
-        )}
+        </View>
+      )}
 
-        {displayList.length === 0 ? (
+      <FlatList
+        style={{ width: '100%' }}
+        data={displayList}
+        renderItem={renderNotificationCard}
+        keyExtractor={(item) => item.id.toString()}
+        contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={COLORS.primary} />}
+        ListEmptyComponent={
           <View style={styles.emptyState}>
             <View style={styles.emptyIconWrap}>
               <Ionicons name="notifications-off-outline" size={48} color={COLORS.textMuted} />
@@ -298,11 +331,8 @@ export default function TenantNotificationCenter() {
               }
             </Text>
           </View>
-        ) : (
-          displayList.map(renderNotificationCard)
-        )}
-        <View style={{ height: 100 }} />
-      </ScrollView>
+        }
+      />
     </SafeAreaView>
   );
 }

@@ -1,17 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  RefreshControl, Modal, TextInput, ActivityIndicator,
-  Platform, useWindowDimensions
+  View, Text, ScrollView, TouchableOpacity,
+  RefreshControl, Modal, TextInput, ActivityIndicator, useWindowDimensions
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { getAllRooms, generateNewTenantCode, updateRoomStatus, saveTenantInvitation, getMonthlyConsumptionFiltered, getSetting, revokeTenant, transferTenant, getVacantRooms, getBuildingSummary, getAvailableBillingCycles, addRoom, updateRoom, archiveRoom, restoreRoom } from '../../services/database';
-import { sendTenantAccessCode } from '../../services/emailService';
-import { generateMonthlyReport, generateCycleReport, shareReport } from '../../services/pdfService';
+import { generateNewTenantCode, updateRoomStatus, saveTenantInvitation, getSetting, revokeTenant, transferTenant, getVacantRooms, getBuildingSummary, getAvailableBillingCycles, addRoom, updateRoom, archiveRoom, restoreRoom } from '../../services/database';
+import { generateCycleReport, shareReport } from '../../services/pdfService';
 import { submitOfflinePayment } from '../../services/paymentService';
 import { useModal } from '../../contexts/ModalContext';
-import RoomCard from '../../components/ui/RoomCard';
 import RoomHistoryModal from '../../components/landlord/RoomHistoryModal';
 import ArchiveModal from '../../components/RoomManagement/ArchiveModal';
 import GlassCard from '../../components/ui/GlassCard';
@@ -711,7 +708,7 @@ export default function RoomsScreen() {
               </View>
               <Text style={s.modalTitle}>Send Invitation</Text>
               <Text style={s.modalDesc}>
-                Enter the tenant's email. They will receive a secure access code for{' '}
+                Enter the tenant&apos;s email. They will receive a secure access code for{' '}
                 <Text style={s.modalRoom}>{selectedRoom?.room_id}</Text>.
               </Text>
 
@@ -911,7 +908,7 @@ export default function RoomsScreen() {
             </View>
             <Text style={s.modalTitle}>Confirm Revocation</Text>
             <Text style={s.modalDesc}>
-              Remove "{revokeRoom?.tenant_name}" from {revokeRoom?.room_id}?
+              Remove &quot;{revokeRoom?.tenant_name}&quot; from {revokeRoom?.room_id}?
             </Text>
 
             <View style={s.revokeInfoBox}>

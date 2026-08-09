@@ -1,8 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from 'expo-router';
 import { useModal } from '../../contexts/ModalContext';
 import { getOverdueAccounts, triggerPenaltyCalculation } from '../../services/penaltyService';
@@ -18,7 +17,7 @@ export default function PenaltyCenterScreen() {
   const [analytics, setAnalytics] = useState({ totalOverdueAccounts: 0, totalActivePenalties: 0 });
   const [calculating, setCalculating] = useState(false);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       const res = await getOverdueAccounts();
       setAccounts(res.accounts || []);
@@ -32,12 +31,12 @@ export default function PenaltyCenterScreen() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [showModal]);
 
   useFocusEffect(
     useCallback(() => {
       loadData();
-    }, [])
+    }, [loadData])
   );
 
   const onRefresh = async () => {

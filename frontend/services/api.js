@@ -1,4 +1,3 @@
-import Storage from './storage';
 import apiClient from './apiClient';
 
 /**

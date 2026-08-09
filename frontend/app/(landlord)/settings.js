@@ -1,11 +1,12 @@
+import { SafeAreaView } from 'react-native-safe-area-context';
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, Modal, Switch, SafeAreaView, StatusBar, Platform, Image } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, Modal, Switch, StatusBar, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { useAuth } from '../../contexts/AuthContext';
 import { useModal } from '../../contexts/ModalContext';
 import { getSetting, setSetting } from '../../services/database';
@@ -209,7 +210,7 @@ export default function LandlordSettings() {
           
           if (!result.canceled && result.assets?.[0]) {
               const file = result.assets[0];
-              const base64 = await FileSystem.readAsStringAsync(file.uri, { encoding: FileSystem.EncodingType.Base64 });
+              const base64 = await FileSystem.readAsStringAsync(file.uri, { encoding: 'base64' });
               const mimeType = file.mimeType || 'image/jpeg';
               setter(`data:${mimeType};base64,${base64}`);
           }

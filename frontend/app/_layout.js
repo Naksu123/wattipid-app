@@ -1,11 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { Stack, useRouter, useSegments, Slot } from 'expo-router';
+import { useRouter, useSegments, Slot } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { View, Text, ActivityIndicator } from 'react-native';
-import { AuthProvider } from '@/contexts/AuthContext';
+import { AuthProvider , useAuth } from '@/contexts/AuthContext';
 import { getDatabase } from '../services/database';
 import { initNotifications, setupNotificationResponseHandler } from '../services/notificationService';
-import { useAuth } from '@/contexts/AuthContext';
 import ErrorTracker from '../services/errorTracker';
 import { ThemeProvider, DarkTheme } from '@react-navigation/native';
 import { COLORS } from '@/styles/theme';
@@ -15,6 +14,8 @@ import GlobalToast from '@/components/ui/GlobalToast';
 import NotificationBanner from '@/components/ui/NotificationBanner';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { globalStyles } from '../styles/global.styles';
+
+import { NotificationProvider } from '@/contexts/NotificationContext';
 
 // Custom dark theme to match Wattipid brand
 const WattipidTheme = {
@@ -92,8 +93,6 @@ function RootLayoutContent() {
     </>
   );
 }
-
-import { NotificationProvider } from '@/contexts/NotificationContext';
 
 export default function RootLayout() {
   const [ready, setReady] = useState(false);

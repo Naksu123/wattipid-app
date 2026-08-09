@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { COLORS, FONT_SIZE, FONT_WEIGHT, RADIUS, SPACING } from '@/styles/theme';
+import { FONT_SIZE, FONT_WEIGHT, RADIUS, SPACING } from '@/styles/theme';
 
 export default StyleSheet.create({
   badge: {

@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Image, ActivityIndicator, ScrollView, TextInput, Platform } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, TouchableOpacity, Image, ActivityIndicator, ScrollView, TextInput } from 'react-native';
 import { useRouter } from 'expo-router';
 import { getAvailableBillingCycles, getSetting } from '../../services/database';
 import { submitPayment } from '../../services/paymentService';
@@ -8,9 +8,9 @@ import { useModal } from '../../contexts/ModalContext';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import GlassCard from '../../components/ui/GlassCard';
-import { COLORS, FONT_SIZE, FONT_WEIGHT, SPACING, RADIUS } from '../../styles/theme';
+import { COLORS, SPACING } from '../../styles/theme';
 import styles from '../../styles/tenant/payment.styles';
 
 export default function TenantPaymentScreen() {
@@ -35,9 +35,9 @@ export default function TenantPaymentScreen() {
 
     useEffect(() => {
         fetchData();
-    }, []);
+    }, [fetchData]);
 
-    const fetchData = async () => {
+    const fetchData = useCallback(async () => {
         try {
             if (!user?.room_id) {
                 setError('No room assigned to your account.');
@@ -81,7 +81,7 @@ export default function TenantPaymentScreen() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [user?.room_id]);
 
     const pickImage = async () => {
         try {
@@ -119,7 +119,7 @@ export default function TenantPaymentScreen() {
                     const file = result.assets[0];
                     setProofUri(file.uri);
                     
-                    const base64 = await FileSystem.readAsStringAsync(file.uri, { encoding: FileSystem.EncodingType.Base64 });
+                    const base64 = await FileSystem.readAsStringAsync(file.uri, { encoding: 'base64' });
                     const mimeType = file.mimeType || 'image/jpeg';
                     // Store WITH prefix so we know it's already formatted
                     setProofBase64(`data:${mimeType};base64,${base64}`);

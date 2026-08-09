@@ -6,10 +6,9 @@ import * as Sharing from 'expo-sharing';
 import { useAuth } from '../../contexts/AuthContext';
 import { useModal } from '../../contexts/ModalContext';
 import {
-  getConsumptionHistory, getConsumptionComparison, getDailyBreakdown,
-  getHourlyBreakdown, getTransactionHistory, getTotalConsumptionToday,
+  getConsumptionHistory, getConsumptionComparison, getTransactionHistory, getTotalConsumptionToday,
   getTotalConsumptionWeek, getTotalConsumptionMonth, getAvailableBillingCycles,
-  getSetting, getPaymentInsights
+  getSetting
 } from '../../services/database';
 import { getMonthlyForecast } from '../../services/notificationApi';
 import { BaseModal, ModalHeader, ModalBody } from '../../components/modals/BaseModal';
@@ -118,7 +117,7 @@ export default function AnalyticsScreen() {
       setBreakdown([...ascendingData].reverse()); // descending for table
       setHourlyBreakdown([]);
     }
-  }, [roomId, period, selectedDate]);
+  }, [roomId, period, selectedDate, historyStartDate, selectedPdfCycle, user?.name]);
 
   const loadHistoryData = useCallback(async () => {
     if (!user || !roomId) return;
@@ -127,7 +126,7 @@ export default function AnalyticsScreen() {
     const endStr = historyEndDate ? historyEndDate.toISOString().split('T')[0] : null;
     const txns = await getTransactionHistory(roomId, 500, historyFilter, tenantName, 0, startStr, endStr);
     setTransactions(txns || []);
-  }, [roomId, historyFilter, historyStartDate, historyEndDate]);
+  }, [roomId, historyFilter, historyStartDate, historyEndDate, user?.name]);
 
   useEffect(() => {
     loadStatsData();

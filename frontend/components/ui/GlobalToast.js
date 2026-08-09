@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, DeviceEventEmitter, TouchableOpacity } from 'react-native';
+import { Text, DeviceEventEmitter, TouchableOpacity } from 'react-native';
 import Animated, { FadeInUp, FadeOutUp } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, FONT_SIZE } from '@/styles/theme';
+import { COLORS } from '@/styles/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import styles from '../../styles/components/ui/GlobalToast.styles';
 

@@ -1,12 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Switch, Modal } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, Switch, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
 import { useModal } from '../../contexts/ModalContext';
 import { getDatabase } from '../../services/database';
 import { getAlertSettings, updateAlertSettings } from '../../services/notificationApi';
-import { getCurrentEnv, setApiEnvironment, ENVIRONMENTS } from '../../services/config';
+import { getCurrentEnv, setApiEnvironment } from '../../services/config';
 import GlassCard from '../../components/ui/GlassCard';
 import { BaseModal, ModalHeader, ModalBody, ModalFooter } from '../../components/modals/BaseModal';
 import { COLORS } from '@/styles/theme';
@@ -36,9 +36,9 @@ export default function TenantSettings() {
   const [envVisible, setEnvVisible] = useState(false);
   const [tempEnv, setTempEnv] = useState('local');
 
-  useEffect(() => { loadSettings(); }, []);
+  useEffect(() => { loadSettings(); }, [loadSettings]);
 
-  const loadSettings = async () => {
+  const loadSettings = useCallback(async () => {
     try {
       const result = await getAlertSettings(user?.room_id || 'Room 1');
       if (result && result.data) {
@@ -58,7 +58,7 @@ export default function TenantSettings() {
     const currentEnv = await getCurrentEnv();
     setEnv(currentEnv);
     setTempEnv(currentEnv);
-  };
+  }, [user?.room_id]);
 
   const confirmLogout = () => {
     setLogoutVisible(false);

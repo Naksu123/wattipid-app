@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { COLORS, RADIUS, SPACING, FONT_SIZE, FONT_WEIGHT, SHADOWS } from '../theme';
+import { COLORS, RADIUS, SPACING, FONT_WEIGHT, SHADOWS } from '../theme';
 
 export default StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },

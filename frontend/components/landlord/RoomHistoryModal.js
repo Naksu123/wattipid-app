@@ -1,8 +1,9 @@
+import { SafeAreaView } from 'react-native-safe-area-context';
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Modal, SafeAreaView } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { getTransactionHistory, getAvailableBillingCycles } from '../../services/database';
-import { COLORS, RADIUS, SPACING } from '../../styles/theme';
+import { COLORS, RADIUS } from '../../styles/theme';
 import { BaseModal, ModalHeader, ModalBody } from '../modals/BaseModal';
 import { useModal } from '../../contexts/ModalContext';
 import s from '../../styles/components/landlord/RoomHistoryModal.styles';

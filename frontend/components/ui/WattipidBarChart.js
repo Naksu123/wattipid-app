@@ -36,6 +36,7 @@ export default function WattipidBarChart({
   const animProgress = useRef(new Animated.Value(0)).current;
   const [animValue, setAnimValue] = useState(0);
 
+  const dataString = JSON.stringify(data);
   useEffect(() => {
     animProgress.setValue(0);
     Animated.timing(animProgress, {
@@ -46,7 +47,7 @@ export default function WattipidBarChart({
 
     const listener = animProgress.addListener(({ value }) => setAnimValue(value));
     return () => animProgress.removeListener(listener);
-  }, [data.length, JSON.stringify(data)]);
+  }, [data.length, dataString, animProgress]);
 
   if (!data || data.length === 0) {
     return (

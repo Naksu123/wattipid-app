@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Modal, ActivityIndicator, Platform, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Modal, ActivityIndicator, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, FONT_SIZE, FONT_WEIGHT, SPACING, RADIUS } from '../../styles/theme';
-import GlassCard from '../ui/GlassCard';
+import { COLORS } from '../../styles/theme';
 import styles from '../../styles/components/modals/TermsAgreementModal.styles';
 import { getActiveTerms } from '../../services/termsApi';
 

@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, TextInput, Platform, BackHandler, RefreshControl } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, TextInput, BackHandler, RefreshControl } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { getTenantBillingHistory } from '../../services/database';
 import GlassCard from '../../components/ui/GlassCard';
-import { COLORS, FONT_SIZE, FONT_WEIGHT, SPACING, RADIUS } from '../../styles/theme';
+import { COLORS } from '../../styles/theme';
 import styles from '../../styles/tenant/billing-history.styles';
 
 export default function TenantBillingHistoryScreen() {
@@ -20,7 +20,7 @@ export default function TenantBillingHistoryScreen() {
     const [searchQuery, setSearchQuery] = useState('');
     const [filterYear, setFilterYear] = useState('All');
 
-    const fetchHistory = async () => {
+    const fetchHistory = useCallback(async () => {
         try {
             if (!user?.room_id) return;
             
@@ -34,7 +34,7 @@ export default function TenantBillingHistoryScreen() {
             setLoading(false);
             setRefreshing(false);
         }
-    };
+    }, [user?.room_id, showModal]);
 
     useEffect(() => {
         fetchHistory();
@@ -45,7 +45,7 @@ export default function TenantBillingHistoryScreen() {
         });
 
         return () => backHandler.remove();
-    }, []);
+    }, [fetchHistory, router]);
 
     useEffect(() => {
         let result = history;

@@ -189,7 +189,7 @@ export default function ForgotPasswordScreen() {
 
         {step === 2 && (
           <TouchableOpacity style={s.resendBtn} onPress={handleRequestOTP} disabled={loading}>
-            <Text style={s.resendText}>Didn't receive code? <Text style={s.resendLink}>Resend</Text></Text>
+            <Text style={s.resendText}>Didn&apos;t receive code? <Text style={s.resendLink}>Resend</Text></Text>
           </TouchableOpacity>
         )}
       </ScrollView>

@@ -29,12 +29,19 @@ const isSecureUsable = async () => {
   }
 };
 
+const SENSITIVE_KEYS = ['user_token', 'refresh_token'];
+const isSensitive = (key) => SENSITIVE_KEYS.includes(key);
+
 const Storage = {
   setItem: async (key, value) => {
     try {
       if (await isSecureUsable()) {
         await SecureStore.setItemAsync(key, value);
       } else {
+        if (isSensitive(key)) {
+          console.error(`[Security Block] Cannot save sensitive key '${key}' in unencrypted storage.`);
+          return;
+        }
         await AsyncStorage.setItem(key, value);
       }
     } catch (e) {
@@ -45,10 +52,15 @@ const Storage = {
   getItem: async (key) => {
     try {
       if (await isSecureUsable()) {
-        return await SecureStore.getItemAsync(key);
-      } else {
-        return await AsyncStorage.getItem(key);
+        const val = await SecureStore.getItemAsync(key);
+        if (val !== null) return val;
       }
+      
+      if (isSensitive(key)) {
+        return null; // Never fallback to unencrypted storage for sensitive keys
+      }
+      
+      return await AsyncStorage.getItem(key);
     } catch (e) {
       console.warn(`[Storage] GetItem Error for ${key}:`, e.message);
       return null;
@@ -59,7 +71,9 @@ const Storage = {
     try {
       if (await isSecureUsable()) {
         await SecureStore.deleteItemAsync(key);
-      } else {
+      }
+      
+      if (!isSensitive(key)) {
         await AsyncStorage.removeItem(key);
       }
     } catch (e) {

@@ -1,14 +1,11 @@
+import { SafeAreaView } from 'react-native-safe-area-context';
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, TextInput, Platform, LayoutAnimation, UIManager } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, LayoutAnimation } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../styles/theme';
 import styles from '../../styles/landlord/manual.styles';
 import { router } from 'expo-router';
 
-// Enable LayoutAnimation on Android
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
 
 const MANUAL_CONTENT = [
   {
@@ -151,7 +148,7 @@ export default function UserManualScreen() {
         {filteredContent.length === 0 ? (
           <View style={styles.emptyState}>
             <Ionicons name="document-text-outline" size={48} color={COLORS.border} />
-            <Text style={styles.emptyText}>No results found for "{searchQuery}"</Text>
+            <Text style={styles.emptyText}>No results found for &quot;{searchQuery}&quot;</Text>
           </View>
         ) : (
           filteredContent.map((item) => {

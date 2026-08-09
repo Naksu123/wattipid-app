@@ -1,9 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import { AppState, Platform } from 'react-native';
+import { Platform } from 'react-native';
 import { apiCall } from '../services/api';
 import { useAuth } from './AuthContext';
 import * as Notifications from 'expo-notifications';
-import Constants from 'expo-constants';
 
 // Configure Push Notifications Behavior
 Notifications.setNotificationHandler({

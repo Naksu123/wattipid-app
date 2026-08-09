@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, FlatList } from 'react-native';
+import { View, Text, ScrollView, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../contexts/AuthContext';
 import { useModal } from '../../contexts/ModalContext';
-import { setBudget, getBudget, resetBudget, getBillingCycle, getTotalConsumptionToday, getTotalConsumptionWeek, getTotalConsumptionMonth, getTransactionHistory, getConsumptionComparison, getDatabase } from '../../services/database';
+import { setBudget, getBudget, resetBudget, getBillingCycle, getTotalConsumptionToday, getTotalConsumptionWeek, getTotalConsumptionMonth, getTransactionHistory, getConsumptionComparison } from '../../services/database';
 import BudgetProgressRing from '../../components/ui/BudgetProgressRing';
 import GlassCard from '../../components/ui/GlassCard';
 import { BaseModal, ModalHeader, ModalBody, ModalFooter } from '../../components/modals/BaseModal';
@@ -155,7 +155,7 @@ export default function BudgetScreen() {
           />
           <ModalBody scrollable={false}>
             <Text style={s.sectionDesc}>
-              We'll calculate your daily and weekly allowances proportionally based on the number of days this month.
+              We&apos;ll calculate your daily and weekly allowances proportionally based on the number of days this month.
             </Text>
             <View style={s.budgetInputContainer}>
               <View style={s.budgetInputWrap}>
