@@ -38,6 +38,7 @@ export default function TipsScreen() {
   const [tipOfTheDay, setTipOfTheDay] = useState(null);
   const [trendingTips, setTrendingTips] = useState([]);
   const fadeAnim = useRef(new Animated.Value(1)).current;
+  const scaleAnim = useRef(new Animated.Value(1)).current;
 
   // Smart Insights State
   const [smartTips, setSmartTips] = useState([]);
@@ -74,10 +75,16 @@ export default function TipsScreen() {
       // Use smart recommendation (server-side no-repeat engine)
       const res = await tipsService.getSmartRecommendation();
       if (res.success && res.data) {
-        // Animate transition
-        Animated.sequence([
-          Animated.timing(fadeAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
-          Animated.timing(fadeAnim, { toValue: 1, duration: 400, useNativeDriver: true })
+        // Animate transition with scale spring
+        Animated.parallel([
+          Animated.sequence([
+            Animated.timing(fadeAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
+            Animated.timing(fadeAnim, { toValue: 1, duration: 400, useNativeDriver: true })
+          ]),
+          Animated.sequence([
+            Animated.timing(scaleAnim, { toValue: 0.96, duration: 150, useNativeDriver: true }),
+            Animated.spring(scaleAnim, { toValue: 1, friction: 5, tension: 40, useNativeDriver: true })
+          ])
         ]).start();
         
         setTimeout(() => {
@@ -278,9 +285,9 @@ export default function TipsScreen() {
 
   // FlatList render item for Browse tab
   const renderTipItem = useCallback(({ item: tip }) => (
-    <GlassCard style={[s.tipCard, { borderLeftWidth: 3, borderLeftColor: COLORS.primary }]}>
-      <View style={s.tipIcon}>
-        <Ionicons name={tip.icon || 'bulb'} size={22} color={COLORS.primary} />
+    <GlassCard style={[s.tipCard, { borderLeftWidth: 4, borderLeftColor: getSavingsColor(tip.savings_level) }]}>
+      <View style={[s.tipIcon, { backgroundColor: `${getSavingsColor(tip.savings_level)}15` }]}>
+        <Ionicons name={tip.icon || 'bulb'} size={22} color={getSavingsColor(tip.savings_level)} />
       </View>
       <View style={s.tipContent}>
         <View style={s.tipHeaderRow}>
@@ -316,22 +323,32 @@ export default function TipsScreen() {
 
   const renderBrowseHeader = () => (
     <>
-      {/* Search Bar */}
-      <View style={s.browseSearchBar}>
-        <Ionicons name="search" size={18} color={COLORS.textMuted} />
-        <TextInput
-          style={s.browseSearchInput}
-          placeholder="Search tips by title, category, or keyword..."
-          placeholderTextColor={COLORS.textMuted}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          returnKeyType="search"
-        />
-        {searchQuery.length > 0 && (
-          <TouchableOpacity onPress={() => setSearchQuery('')}>
-            <Ionicons name="close-circle" size={18} color={COLORS.textMuted} />
-          </TouchableOpacity>
-        )}
+      {/* Consolidated Search & Sort Row */}
+      <View style={s.browseHeaderRow}>
+        <View style={s.browseSearchBar}>
+          <Ionicons name="search" size={18} color={COLORS.textMuted} />
+          <TextInput
+            style={s.browseSearchInput}
+            placeholder="Search tips..."
+            placeholderTextColor={COLORS.textMuted}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            returnKeyType="search"
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')}>
+              <Ionicons name="close-circle" size={18} color={COLORS.textMuted} />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        <TouchableOpacity
+          style={s.browseSortBtn}
+          onPress={() => setShowSortMenu(!showSortMenu)}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="swap-vertical-outline" size={20} color={COLORS.primary} />
+        </TouchableOpacity>
       </View>
 
       {/* Category Scroll */}
@@ -345,27 +362,18 @@ export default function TipsScreen() {
               style={[s.catBtn, selectedCategory === cat && s.catActive]}
             >
               <Text style={[s.catText, selectedCategory === cat && s.catTextActive]}>
-                {cat} ({count || 0})
+                {cat}
               </Text>
             </TouchableOpacity>
           );
         })}
       </ScrollView>
 
-      {/* Sort & Count Row */}
+      {/* Count Row */}
       <View style={s.browseSortRow}>
         <Text style={s.browseCountText}>
           {filteredTips.length} {filteredTips.length === 1 ? 'tip' : 'tips'} found
         </Text>
-        <TouchableOpacity
-          style={s.browseSortBtn}
-          onPress={() => setShowSortMenu(!showSortMenu)}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="swap-vertical-outline" size={16} color={COLORS.primary} />
-          <Text style={s.browseSortLabel}>{SORT_OPTIONS.find(o => o.id === sortBy)?.label || 'Sort'}</Text>
-          <Ionicons name={showSortMenu ? "chevron-up" : "chevron-down"} size={14} color={COLORS.textMuted} />
-        </TouchableOpacity>
       </View>
 
       {/* Sort Dropdown */}
@@ -409,11 +417,6 @@ export default function TipsScreen() {
         <View style={{ flex: 1 }}>
           {/* Fixed Header Section */}
           <View style={{ paddingHorizontal: 20, paddingTop: 60 }}>
-            <View style={{ marginBottom: 20 }}>
-              <Text style={s.title}>Energy Savings</Text>
-              <Text style={s.subtitle}>Smart tips to lower your electric bill</Text>
-            </View>
-
             {/* Tab Selector */}
             <View style={s.tabRow}>
               {TABS.map(tab => (
@@ -470,11 +473,6 @@ export default function TipsScreen() {
       ) : (
         /* ================= COMMUNITY & SMART TABS (ScrollView) ================= */
         <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={COLORS.primary} />}>
-          <View style={{ marginBottom: 20 }}>
-            <Text style={s.title}>Energy Saving Tips</Text>
-            <Text style={s.subtitle}>Smart tips to lower your electric bill</Text>
-          </View>
-
           {/* Tab Selector */}
           <View style={s.tabRow}>
             {TABS.map(tab => (
@@ -509,7 +507,7 @@ export default function TipsScreen() {
               {!error && (
                 <>
                   {/* ---- Recommended For You ---- */}
-                  <Animated.View style={{ opacity: fadeAnim }}>
+                  <Animated.View style={{ opacity: fadeAnim, transform: [{ scale: scaleAnim }] }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10, gap: 6 }}>
                       <Ionicons name="sparkles" size={16} color={COLORS.primary} />
                       <Text style={{ color: COLORS.primary, fontSize: 13, fontWeight: '700', letterSpacing: 0.5 }}>RECOMMENDED FOR YOU</Text>
@@ -540,15 +538,16 @@ export default function TipsScreen() {
                               />
                               <Text style={s.likeCount}>{currentTip.likesCount}</Text>
                             </TouchableOpacity>
-
-                            <TouchableOpacity 
-                              style={s.refreshBtn} 
-                              onPress={() => loadCommunityTip()}
-                              activeOpacity={0.8}
-                            >
-                              <Ionicons name="shuffle" size={24} color="#fff" />
-                            </TouchableOpacity>
                           </View>
+                          
+                          {/* Floating Shuffle Button */}
+                          <TouchableOpacity 
+                            style={s.refreshBtn} 
+                            onPress={() => loadCommunityTip()}
+                            activeOpacity={0.8}
+                          >
+                            <Ionicons name="shuffle" size={24} color="#fff" />
+                          </TouchableOpacity>
                         </>
                       ) : null}
                     </GlassCard>
@@ -586,24 +585,32 @@ export default function TipsScreen() {
                   {trendingTips.length > 0 && (
                     <View style={{ marginTop: 20 }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10, gap: 6 }}>
-                        <Ionicons name="trending-up" size={16} color={COLORS.info} />
-                        <Text style={{ color: COLORS.info, fontSize: 13, fontWeight: '700', letterSpacing: 0.5 }}>TRENDING IN DORMS</Text>
+                        <Ionicons name="flame" size={16} color={COLORS.danger} />
+                        <Text style={{ color: COLORS.danger, fontSize: 13, fontWeight: '700', letterSpacing: 0.5 }}>TRENDING IN DORMS</Text>
                       </View>
-                      {trendingTips.map((tip, idx) => (
-                        <GlassCard key={tip.id} style={{ marginBottom: 10, padding: 14, borderRadius: 16, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                          <View style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: `${COLORS.info}15`, alignItems: 'center', justifyContent: 'center' }}>
-                            <Text style={{ color: COLORS.info, fontWeight: '800', fontSize: 14 }}>#{idx + 1}</Text>
-                          </View>
-                          <View style={{ flex: 1 }}>
-                            <Text style={{ color: COLORS.textPrimary, fontWeight: '600', fontSize: 14 }} numberOfLines={1}>{tip.title}</Text>
-                            <Text style={{ color: COLORS.textMuted, fontSize: 12, marginTop: 2 }} numberOfLines={1}>{tip.category}</Text>
-                          </View>
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                            <Ionicons name="heart" size={12} color={COLORS.danger} />
-                            <Text style={{ fontSize: 11, color: COLORS.textMuted }}>{tip.likesCount}</Text>
-                          </View>
-                        </GlassCard>
-                      ))}
+                      {trendingTips.map((tip, idx) => {
+                        const rankColors = [
+                          { bg: 'rgba(250, 204, 21, 0.2)', text: '#eab308' }, // Gold
+                          { bg: 'rgba(148, 163, 184, 0.2)', text: '#94a3b8' }, // Silver
+                          { bg: 'rgba(217, 119, 6, 0.2)', text: '#d97706' },  // Bronze
+                        ];
+                        const style = rankColors[idx] || { bg: `${COLORS.info}15`, text: COLORS.info };
+                        return (
+                          <GlassCard key={tip.id} style={{ marginBottom: 10, padding: 14, borderRadius: 16, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                            <View style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: style.bg, alignItems: 'center', justifyContent: 'center' }}>
+                              <Text style={{ color: style.text, fontWeight: '900', fontSize: 14 }}>#{idx + 1}</Text>
+                            </View>
+                            <View style={{ flex: 1 }}>
+                              <Text style={{ color: COLORS.textPrimary, fontWeight: '600', fontSize: 14 }} numberOfLines={1}>{tip.title}</Text>
+                              <Text style={{ color: COLORS.textMuted, fontSize: 12, marginTop: 2 }} numberOfLines={1}>{tip.category}</Text>
+                            </View>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                              <Ionicons name="heart" size={12} color={COLORS.danger} />
+                              <Text style={{ fontSize: 11, color: COLORS.textMuted }}>{tip.likesCount}</Text>
+                            </View>
+                          </GlassCard>
+                        );
+                      })}
                     </View>
                   )}
                 </>

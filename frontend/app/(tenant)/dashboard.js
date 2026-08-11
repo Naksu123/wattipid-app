@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback , useRef } from 'react';
-import { View, Text, ScrollView, RefreshControl, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, RefreshControl, TouchableOpacity, Animated, Easing } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useSync } from '@/contexts/SyncContext';
 import { fetchRealtimeData } from '../../services/esp32Api';
 import PowerGauge from '../../components/ui/PowerGauge';
+import AnimatedNumber from '../../components/ui/AnimatedNumber';
 import GlassCard from '../../components/ui/GlassCard';
 import StatusBadge from '../../components/ui/StatusBadge';
 import { COLORS, SPACING } from '@/styles/theme';
@@ -18,6 +19,7 @@ import { getNotificationHistory, createFrontendAlert } from '../../services/noti
 import { tipsService } from '../../services/tipsService';
 import { detectHighConsumptionSync } from '../../services/tipsEngine';
 import { useNotification } from '@/contexts/NotificationContext';
+import { useConsumption } from '@/contexts/ConsumptionContext';
 
 let globalLastAlertKey = null;
 let globalLastTipKey = null;
@@ -27,16 +29,6 @@ export default function DashboardScreen() {
   const { user, isAuthenticated } = useAuth();
   const router = useRouter();
   const isFocused = useIsFocused();
-  const [data, setData] = useState({ voltage: 0, current: 0, power: 0, energy: 0, powerFactor: 0 });
-  const [relayOn, setRelayOn] = useState(true);
-  const [rate, setRate] = useState(12.5);
-  const [todayUsage, setTodayUsage] = useState({ totalEnergy: 0, totalCost: 0 });
-  const [weekUsage, setWeekUsage] = useState({ totalEnergy: 0, totalCost: 0 });
-  const [monthUsage, setMonthUsage] = useState({ totalEnergy: 0, totalCost: 0 });
-  const [budget, setBudgetData] = useState(null);
-  const [comparison, setComparison] = useState(null);
-  const [refreshing, setRefreshing] = useState(false);
-  const [lastSeen, setLastSeen] = useState(null);
   const [loading, setLoading] = useState(true);
   const [lastAlertKey, setLastAlertKeyState] = useState(globalLastAlertKey);
   const [lastTipKey, setLastTipKeyState] = useState(globalLastTipKey);
@@ -46,8 +38,12 @@ export default function DashboardScreen() {
   const [randomTip, setRandomTip] = useState(null);
   const [tipDismissed, setTipDismissedState] = useState(globalTipDismissed);
   const setTipDismissed = (val) => { globalTipDismissed = val; setTipDismissedState(val); };
-  // GHOST FIX: Track whether we have REAL device data
-  const [deviceOnline, setDeviceOnline] = useState(false);
+  
+  const { data, deviceOnline, lastSeen, rate, todayUsage, weekUsage, monthUsage, comparison, todayUsageRef, monthUsageRef, fetchStaticConsumption } = useConsumption();
+  
+  const [relayOn, setRelayOn] = useState(true);
+  const [budget, setBudgetData] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
   const lastNotifyTime = useRef(0);
 
   const roomId = user?.room_id || 'Room 1';
@@ -58,6 +54,18 @@ export default function DashboardScreen() {
   const [unreadCount, setUnreadCount] = useState(0); 
   const [paymentInsights, setPaymentInsights] = useState(null);
   const [activities, setActivities] = useState([]);
+
+  // Live Pulse Animation
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 0.4, duration: 1000, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1, duration: 1000, useNativeDriver: true })
+      ])
+    ).start();
+  }, [pulseAnim]);
 
   // Sync Global Refresh
   useEffect(() => {
@@ -74,26 +82,9 @@ export default function DashboardScreen() {
     if (!roomId) return;
     try {
       setLoading(true);
-      const result = await getDashboardSummary(roomId);
+      await fetchStaticConsumption(); // Seed the shared real-time baseline first
+      
       const cycle = await getBillingCycle(roomId);
-
-      if (result.success) {
-        setTodayUsage(result.data.today);
-        setWeekUsage(result.data.week);
-        setComparison(result.data.week.comparison);
-
-        // GHOST FIX: Pull dynamic billing cycle info from the backend's monthly response
-        if (result.data.month) {
-          setMonthUsage({
-            totalEnergy: result.data.month.totalEnergy || 0,
-            totalCost: result.data.month.totalCost || 0,
-            cycle_start: result.data.month.cycle_start || null,
-            cycle_end: result.data.month.cycle_end || null,
-            next_reset: result.data.month.next_reset || null,
-            tenant_start_date: result.data.month.tenant_start_date || null
-          });
-        }
-      }
 
       // Fetch actual billing cycles to get the latest invoice data
       const cyclesRes = await apiClient.post('/api.php', { action: 'getAvailableBillingCycles', roomId });
@@ -134,7 +125,8 @@ export default function DashboardScreen() {
         setUnreadCount(unreadRes.data.data);
       }
 
-      return result;
+      // Return true to indicate success
+      return true;
     } catch (err) {
       console.warn('Dashboard fetch error:', err);
       return null;
@@ -143,123 +135,70 @@ export default function DashboardScreen() {
     }
   }, [roomId, user?.id]);
 
-  const todayUsageRef = useRef(todayUsage);
   const budgetRef = useRef(budget);
-  const lastSeenRef = useRef(lastSeen);
   const lastAlertKeyRef = useRef(lastAlertKey);
   const lastTipKeyRef = useRef(lastTipKey);
-  const deviceOnlineRef = useRef(deviceOnline);
-  const monthUsageRef = useRef(monthUsage);
 
   useEffect(() => {
-    todayUsageRef.current = todayUsage;
     budgetRef.current = budget;
-    lastSeenRef.current = lastSeen;
     lastAlertKeyRef.current = lastAlertKey;
     lastTipKeyRef.current = lastTipKey;
-    deviceOnlineRef.current = deviceOnline;
-    monthUsageRef.current = monthUsage;
-  }, [todayUsage, budget, lastSeen, lastAlertKey, lastTipKey, deviceOnline, monthUsage]);
+  }, [budget, lastAlertKey, lastTipKey]);
 
 
-  const fetchRealtimeDataLoop = useCallback(async () => {
-    if (!roomId) return;
-    try {
-      const sensorData = await fetchRealtimeData(roomId);
-
-      // GHOST FIX: If sensorData is null, the ESP32 is unreachable.
-      // Do NOT use mock data, do NOT trigger any alerts.
-      if (!sensorData) {
-        setDeviceOnline(false);
-        setData({ voltage: 0, current: 0, power: 0, energy: 0, powerFactor: 0 });
-        setSmartTip(null); // Clear any power-based tips
-        return;
-      }
-
-      // We have REAL data from the backend
-      // Use the 'online' and 'lastSeen' properties calculated by the backend
-      setDeviceOnline(sensorData.online === true);
-      setLastSeen(sensorData.lastSeen || new Date().toISOString());
-
-      // If the device is offline, zero out the real-time readings 
-      // but keep the rest of the data intact (like energy)
-      if (!sensorData.online) {
-        setData({
-          voltage: 0,
-          current: 0,
-          power: 0,
-          energy: sensorData.energy || 0,
-          powerFactor: 0
-        });
-      } else {
-        setData(sensorData);
-      }
-
-      setRelayOn(sensorData.relayState !== false);
-
-      // Generate smart tips from REAL, validated data when online
-      if (sensorData.online) {
-        const tip = getSmartPopupTip(sensorData.power, todayUsageRef.current?.totalCost || 0, budgetRef.current);
-        setSmartTip(tip);
-
-        if (tip && (tip.color === COLORS.danger || tip.color === COLORS.warning)) {
-          const tipAlertKey = `tip-${tip.title}`;
-          if (tipAlertKey !== lastTipKeyRef.current) {
-            showBanner(tip.title, tip.message, tip.color === COLORS.danger ? 'critical' : 'warning', { route: '/(tenant)/analytics' });
-            createFrontendAlert(roomId, 'smart_tip', 'consumption', tip.color === COLORS.danger ? 'critical' : 'warning', tip.title, tip.message, { route: '/(tenant)/analytics' });
-            setLastTipKey(tipAlertKey);
-          }
-        }
-      } else {
-        setSmartTip(null);
-      }
-
-      // GHOST FIX: Only detect high consumption if we have REAL device data
-      // AND the device is online AND the power reading is from a validated source
-      if (sensorData.online && sensorData.power > 0) {
-        const alert = detectHighConsumptionSync(sensorData.power, budgetRef.current, todayUsageRef.current, monthUsageRef.current);
-        if (alert) {
-          const alertKey = `${alert.title}-${alert.type}`;
-          if (alertKey !== lastAlertKeyRef.current) {
-            showBanner(alert.title, alert.message, alert.type === 'danger' ? 'critical' : 'warning', { route: '/(tenant)/analytics' });
-            createFrontendAlert(roomId, 'high_consumption', 'consumption', alert.type === 'danger' ? 'critical' : 'warning', alert.title, alert.message, { route: '/(tenant)/analytics' });
-            setLastAlertKey(alertKey);
-
-            const now = Date.now();
-            if (now - lastNotifyTime.current > 300000) {
-              lastNotifyTime.current = now;
-            }
-          }
-        } else {
-          // Reset the alert state when power returns to normal, so it can trigger again later!
-          if (lastAlertKeyRef.current !== null) {
-            setLastAlertKey(null);
-          }
-        }
-      }
-    } catch (err) {
-      console.warn('Real-time fetch error:', err);
+  // Watch the global consumption sensor data and trigger tips/alerts locally
+  useEffect(() => {
+    if (!deviceOnline) {
+      setSmartTip(null);
+      return;
     }
-  }, [roomId]);
+    
+    // Generate smart tips from REAL, validated data
+    const tip = getSmartPopupTip(data.power, todayUsageRef.current?.totalCost || 0, budgetRef.current);
+    setSmartTip(tip);
+
+    if (tip && (tip.color === COLORS.danger || tip.color === COLORS.warning)) {
+      const tipAlertKey = `tip-${tip.title}`;
+      if (tipAlertKey !== lastTipKeyRef.current) {
+        showBanner(tip.title, tip.message, tip.color === COLORS.danger ? 'critical' : 'warning', { route: '/(tenant)/analytics' });
+        createFrontendAlert(roomId, 'smart_tip', 'consumption', tip.color === COLORS.danger ? 'critical' : 'warning', tip.title, tip.message, { route: '/(tenant)/analytics' });
+        setLastTipKey(tipAlertKey);
+      }
+    }
+
+    // High consumption alert check
+    if (data.power > 0) {
+      const alert = detectHighConsumptionSync(data.power, budgetRef.current, todayUsageRef.current, monthUsageRef.current);
+      if (alert) {
+        const alertKey = `${alert.title}-${alert.type}`;
+        if (alertKey !== lastAlertKeyRef.current) {
+          showBanner(alert.title, alert.message, alert.type === 'danger' ? 'critical' : 'warning', { route: '/(tenant)/analytics' });
+          createFrontendAlert(roomId, 'high_consumption', 'consumption', alert.type === 'danger' ? 'critical' : 'warning', alert.title, alert.message, { route: '/(tenant)/analytics' });
+          setLastAlertKey(alertKey);
+
+          const now = Date.now();
+          if (now - lastNotifyTime.current > 300000) {
+            lastNotifyTime.current = now;
+          }
+        }
+      } else {
+        if (lastAlertKeyRef.current !== null) {
+          setLastAlertKey(null);
+        }
+      }
+    }
+  }, [data.power, deviceOnline, roomId, showBanner]);
 
   useEffect(() => {
     if (!isFocused || !isAuthenticated) return;
-
-    // 1. Initial fetch of everything
-    fetchStaticData().then(() => fetchRealtimeDataLoop());
-
-    // 2. Real-time loop (1 second for instant UI updates when ESP32 sends data)
-    const realtimeInterval = setInterval(fetchRealtimeDataLoop, 1000);
-
-    return () => {
-      clearInterval(realtimeInterval);
-    };
-  }, [isFocused, isAuthenticated, fetchStaticData, fetchRealtimeDataLoop]);
+    // 1. Initial fetch of static dashboard non-consumption data
+    fetchStaticData();
+  }, [isFocused, isAuthenticated, fetchStaticData]);
 
   const onRefresh = async () => {
     setRefreshing(true);
     setTipDismissed(false);
-    await Promise.all([fetchStaticData(), fetchRealtimeDataLoop()]);
+    await fetchStaticData();
     setRefreshing(false);
   };
 
@@ -286,7 +225,18 @@ export default function DashboardScreen() {
   const budgetPct = budget && budget.daily_allowance > 0 ? (todayUsage.totalCost / budget.daily_allowance) * 100 : 0;
 
   // GHOST FIX: Use our tracked deviceOnline state instead of guessing from lastSeen
-  const offline = !deviceOnline;
+  const offline = !deviceOnline || !isOnline;
+  
+  // Budget animation
+  const animatedBudgetPct = useRef(new Animated.Value(budgetPct)).current;
+  useEffect(() => {
+    Animated.timing(animatedBudgetPct, {
+      toValue: budgetPct,
+      duration: 500,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false // Width animation
+    }).start();
+  }, [budgetPct, animatedBudgetPct]);
 
   // Calculate due date data if applicable
   const dueDateStr = billingCycle?.due_date;
@@ -307,13 +257,23 @@ export default function DashboardScreen() {
     return last.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   };
 
-  const MetricCard = ({ icon, label, value, unit, color = COLORS.textPrimary }) => (
-    <GlassCard style={ms.metricCard}>
+  const MetricCard = ({ icon, label, value, unit, color, prefix = '', formatter }) => (
+  <GlassCard style={ms.metricCard}>
+    <View style={[ms.metricIconWrap, { backgroundColor: `${color}15` }]}>
       <Ionicons name={icon} size={20} color={color} />
-      <Text style={ms.metricValue}>{value}<Text style={ms.metricUnit}> {unit}</Text></Text>
-      <Text style={ms.metricLabel}>{label}</Text>
-    </GlassCard>
-  );
+    </View>
+    <View style={ms.metricValueRow}>
+      {prefix ? <Text style={ms.metricValue}>{prefix}</Text> : null}
+      {typeof value === 'number' ? (
+        <AnimatedNumber value={value} formatter={formatter || ((val) => val.toFixed(2))} style={ms.metricValue} />
+      ) : (
+        <Text style={ms.metricValue} numberOfLines={1} adjustsFontSizeToFit>{value}</Text>
+      )}
+      {unit ? <Text style={ms.metricUnit}> {unit}</Text> : null}
+    </View>
+    <Text style={ms.metricLabel}>{label}</Text>
+  </GlassCard>
+);
 
   return (
     <View style={ms.container}>
@@ -377,33 +337,14 @@ export default function DashboardScreen() {
           </GlassCard>
         )}
 
-        {/* Payment Status Overview */}
-        {paymentInsights && (
-          <>
-            <Text style={ms.sectionTitle}>Payment Overview</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={ms.statsScroll}>
-              <GlassCard style={ms.statCard}>
-                <Ionicons name="checkmark-circle" size={24} color={COLORS.success} />
-                <Text style={ms.statValue}>₱{Number(paymentInsights.totalPaid || 0).toLocaleString()}</Text>
-                <Text style={ms.statLabel}>Total Paid</Text>
-              </GlassCard>
-              <GlassCard style={[ms.statCard, { borderColor: 'rgba(245,158,11,0.3)' }]}>
-                <Ionicons name="time" size={24} color={COLORS.warning} />
-                <Text style={[ms.statValue, { color: COLORS.warning }]}>₱{Number(paymentInsights.totalPending || 0).toLocaleString()}</Text>
-                <Text style={ms.statLabel}>Pending Verification</Text>
-              </GlassCard>
-              <GlassCard style={[ms.statCard, { borderColor: 'rgba(239,68,68,0.3)' }]}>
-                <Ionicons name="alert-circle" size={24} color={COLORS.danger} />
-                <Text style={[ms.statValue, { color: COLORS.danger }]}>₱{Number(paymentInsights.totalOverdue || 0).toLocaleString()}</Text>
-                <Text style={ms.statLabel}>Total Overdue</Text>
-              </GlassCard>
-            </ScrollView>
-          </>
-        )}
-
-        <Text style={ms.sectionTitle}>Live Consumption</Text>
-        {/* Power Gauge */}
+        <Text style={ms.sectionTitle}>Live Sensor</Text>
+        {/* Live Sensor Widget */}
         <GlassCard gradient style={[ms.gaugeCard, offline && { opacity: 0.8 }]}>
+          <View style={ms.liveIndicatorWrap}>
+            <Animated.View style={[ms.liveDot, { backgroundColor: offline ? COLORS.danger : '#10B981', opacity: offline ? 1 : pulseAnim }]} />
+            <Text style={ms.liveText}>{offline ? 'Offline' : 'Live Data'}</Text>
+          </View>
+          
           {offline ? (
             <View style={{ paddingVertical: SPACING.sm, justifyContent: 'center', alignItems: 'center' }}>
               <View style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', padding: 12, borderRadius: 100, marginBottom: 8 }}>
@@ -430,63 +371,73 @@ export default function DashboardScreen() {
           ) : (
             <>
               <PowerGauge value={data.power} maxValue={2000} unit="W" label="Real-Time Power" size={180} />
-              <View style={ms.pf}>
-                <Text style={ms.pfLabel}>Power Factor</Text>
-                <Text style={ms.pfValue}>{data.powerFactor}</Text>
+              
+              <View style={ms.sensorStatsRow}>
+                <View style={ms.sensorStat}>
+                  <Text style={ms.sensorStatLabel}>Voltage</Text>
+                  <View style={ms.sensorStatValueRow}>
+                    <AnimatedNumber value={Number(data.voltage || 0)} formatter={(v) => v.toFixed(1)} style={ms.sensorStatValue} />
+                    <Text style={ms.sensorStatUnit}>V</Text>
+                  </View>
+                </View>
+                
+                <View style={ms.sensorStat}>
+                  <Text style={ms.sensorStatLabel}>Current</Text>
+                  <View style={ms.sensorStatValueRow}>
+                    <AnimatedNumber value={Number(data.current || 0)} formatter={(v) => v.toFixed(2)} style={ms.sensorStatValue} />
+                    <Text style={ms.sensorStatUnit}>A</Text>
+                  </View>
+                </View>
+                
+                <View style={ms.sensorStat}>
+                  <Text style={ms.sensorStatLabel}>Power Factor</Text>
+                  <View style={ms.sensorStatValueRow}>
+                    <AnimatedNumber value={Number(data.powerFactor || 1)} formatter={(v) => v.toFixed(2)} style={ms.sensorStatValue} />
+                  </View>
+                </View>
               </View>
             </>
           )}
         </GlassCard>
 
-        {/* Metrics Grid */}
-        <View style={ms.grid}>
-          <MetricCard icon="flash" label="Voltage" value={offline ? '0.0' : Number(data.voltage || 0).toFixed(1)} unit="V" color={COLORS.accent} />
-          <MetricCard icon="water" label="Current" value={offline ? '0.00' : Number(data.current || 0).toFixed(2)} unit="A" color={COLORS.info} />
-          <MetricCard icon="battery-charging" label="Energy Today" value={Number(todayUsage.totalEnergy || 0).toFixed(2)} unit="kWh" color={COLORS.primary} />
-          <MetricCard icon="cash" label="Live Bill" value={`₱${Number(activeMonthCost || 0).toFixed(2)}`} unit="" color={COLORS.warning} />
-        </View>
-
-        {/* Consumption Totals (Moved from Analytics) */}
-        <GlassCard style={ms.totalsCard}>
-          <Text style={ms.totalsTitle}>Consumption Totals</Text>
-          <View style={ms.totalsGrid}>
-            {[
-              { label: 'Today', energy: todayUsage.totalEnergy, cost: todayUsage.totalCost, icon: 'calendar-outline', color: COLORS.info },
-              { label: 'This Week', energy: weekUsage.totalEnergy, cost: weekUsage.totalCost, icon: 'grid-outline', color: COLORS.warning },
-              { label: 'This Month', energy: monthUsage.totalEnergy, cost: monthUsage.totalCost, icon: 'albums-outline', color: COLORS.primary },
-            ].map((item, i) => (
-              <View key={i} style={ms.totalItem}>
-                <View style={[ms.totalIcon, { backgroundColor: `${item.color}15` }]}>
-                  <Ionicons name={item.icon} size={20} color={item.color} />
-                </View>
-                <Text style={ms.totalLabel}>{item.label}</Text>
-                <Text style={ms.totalEnergy} numberOfLines={1} adjustsFontSizeToFit>
-                  {Number(item.energy || 0).toFixed(2)}
-                </Text>
-                <Text style={ms.totalUnit}>kWh</Text>
-                <Text style={[ms.totalCost, { marginTop: 6 }]} numberOfLines={1}>₱{Number(item.cost || 0).toFixed(2)}</Text>
+        {/* Financial Overview */}
+        <Text style={ms.sectionTitle}>Live Cost</Text>
+        <GlassCard style={ms.financialCard}>
+          <View style={ms.financialRow}>
+            <View style={ms.financialBlock}>
+              <Text style={ms.financialLabel}>Live Bill</Text>
+              <View style={ms.financialValueRow}>
+                <Text style={ms.financialPrefix}>₱</Text>
+                <AnimatedNumber value={offline ? 0 : Number(activeMonthCost || 0)} style={ms.financialValue} />
               </View>
-            ))}
+            </View>
+            
+            <View style={[ms.financialBlock, { alignItems: 'flex-end' }]}>
+              <Text style={ms.financialLabel}>Energy Today</Text>
+              <View style={ms.financialValueRow}>
+                <AnimatedNumber value={offline ? 0 : Number(todayUsage.totalEnergy || 0)} style={ms.financialValue} />
+                <Text style={ms.financialUnit}>kWh</Text>
+              </View>
+            </View>
           </View>
+          
+          {budget && (
+            <View>
+              <View style={ms.budgetHeader}>
+                <Ionicons name="wallet-outline" size={18} color={COLORS.primary} />
+                <Text style={ms.budgetTitle}>Daily Budget</Text>
+                <Text style={ms.budgetPct}>{Number(Math.min(budgetPct, 100) || 0).toFixed(0)}%</Text>
+              </View>
+              <View style={ms.budgetBar}>
+                <Animated.View style={[ms.budgetFill, {
+                  width: animatedBudgetPct.interpolate({ inputRange: [0, 100], outputRange: ['0%', '100%'], extrapolate: 'clamp' }),
+                  backgroundColor: budgetPct > 90 ? COLORS.danger : budgetPct > 70 ? COLORS.warning : COLORS.primary,
+                }]} />
+              </View>
+              <Text style={ms.budgetText}>₱{Number(todayUsage.totalCost || 0).toFixed(2)} / ₱{Number(budget.daily_allowance || 0).toFixed(2)}</Text>
+            </View>
+          )}
         </GlassCard>
-
-        {/* Budget Quick View */}
-        {budget && (
-          <GlassCard style={ms.budgetCard}>
-            <View style={ms.budgetHeader}>
-              <Ionicons name="wallet-outline" size={18} color={COLORS.primary} />
-              <Text style={ms.budgetTitle}>Daily Budget</Text>
-              <Text style={ms.budgetPct}>{Number(Math.min(budgetPct, 100) || 0).toFixed(0)}%</Text>
-            </View>
-            <View style={ms.budgetBar}>
-              <View style={[ms.budgetFill, {
-                width: `${Math.min(budgetPct, 100)}%`,
-                backgroundColor: budgetPct > 90 ? COLORS.danger : budgetPct > 70 ? COLORS.warning : COLORS.primary,
-              }]} />
-            </View>
-            <Text style={ms.budgetText}>₱{Number(todayUsage.totalCost || 0).toFixed(2)} / ₱{Number(budget.daily_allowance || 0).toFixed(2)}</Text>
-          </GlassCard>
-        )}
 
         {/* Smart Tip Card */}
         {(smartTip || randomTip) && !tipDismissed && (
@@ -506,175 +457,6 @@ export default function DashboardScreen() {
           </GlassCard>
         )}
 
-        {/* Recent Activities */}
-        <Text style={ms.sectionTitle}>Recent Activities</Text>
-        <GlassCard style={{ padding: SPACING.md, marginBottom: SPACING.xl }}>
-          {activities.length > 0 ? (
-            <View>
-              {activities.map((act, index) => (
-                <View key={act.id || index} style={ms.activityItem}>
-                  {index < activities.length - 1 && <View style={ms.activityLine} />}
-                  <View style={ms.activityIconWrap}>
-                    <Ionicons 
-                      name={act.type === 'payment_verified' ? 'checkmark-circle' : act.type === 'bill_generated' ? 'document-text' : act.type === 'penalty' ? 'alert-circle' : 'notifications'} 
-                      size={16} 
-                      color={act.type === 'payment_verified' ? COLORS.success : act.type === 'penalty' ? COLORS.danger : COLORS.primary} 
-                    />
-                  </View>
-                  <View style={ms.activityContent}>
-                    <Text style={ms.activityTitle}>{act.title}</Text>
-                    <Text style={ms.activityMessage}>{act.message}</Text>
-                    <Text style={ms.activityTime}>{new Date(act.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</Text>
-                  </View>
-                </View>
-              ))}
-              <TouchableOpacity onPress={() => router.push('/(tenant)/notifications')} style={{ marginTop: 8, alignItems: 'center', paddingVertical: 8, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)' }}>
-                <Text style={{ color: COLORS.primary, fontSize: 12, fontWeight: 'bold' }}>View All Activities</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <Text style={ms.emptyActivity}>No recent activities found.</Text>
-          )}
-        </GlassCard>
-
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: SPACING.lg, marginBottom: SPACING.md }}>
-          <Text style={[ms.sectionTitle, { marginTop: 0, marginBottom: 0 }]}>
-              {billingCycle?.status === 'active' ? 'Live Consumption (Ongoing)' : 'Latest Invoice'}
-          </Text>
-          <StatusBadge status={billingCycle?.payment_status || 'unpaid'} />
-        </View>
-        <GlassCard style={ms.soaCard}>
-          
-          <View style={ms.soaAmountRow}>
-            <View>
-              <Text style={ms.soaLabel}>Amount Due</Text>
-              <Text style={ms.soaAmount}>₱{Number(invoiceAmountDue || 0).toFixed(2)}</Text>
-            </View>
-            <View style={{ alignItems: 'flex-end' }}>
-              <Text style={ms.soaLabel}>Due Date</Text>
-              <Text style={[ms.soaValue, { color: daysUntilDue !== null && daysUntilDue < 0 ? COLORS.danger : COLORS.textPrimary }]}>
-                {billingCycle?.due_date ? new Date(billingCycle.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '--'}
-              </Text>
-            </View>
-          </View>
-
-          {/* Daily Penalty Breakdown */}
-          {daysUntilDue !== null && daysUntilDue < 0 && parseFloat(billingCycle?.penalty_amount || 0) > 0 && (() => {
-            const originalAmount = Number(billingCycle.electricity_charge || billingCycle.total_cost || 0);
-            const dailyPenalty = (originalAmount * 0.02).toFixed(2);
-            return (
-              <View style={{ backgroundColor: 'rgba(239,68,68,0.05)', borderRadius: 8, padding: 10, marginBottom: 12, borderWidth: 1, borderColor: 'rgba(239,68,68,0.2)' }}>
-                <Text style={{ fontSize: 12, fontWeight: '600', color: COLORS.danger, marginBottom: 8 }}>Penalty Computation Breakdown</Text>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
-                  <Text style={{ fontSize: 11, color: COLORS.textMuted }}>Original Amount Due</Text>
-                  <Text style={{ fontSize: 11, color: COLORS.textPrimary }}>₱{originalAmount.toFixed(2)}</Text>
-                </View>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
-                  <Text style={{ fontSize: 11, color: COLORS.textMuted }}>Daily Penalty Rate</Text>
-                  <Text style={{ fontSize: 11, color: COLORS.textPrimary }}>2%</Text>
-                </View>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
-                  <Text style={{ fontSize: 11, color: COLORS.textMuted }}>Daily Penalty Amount</Text>
-                  <Text style={{ fontSize: 11, color: COLORS.textPrimary }}>₱{dailyPenalty}</Text>
-                </View>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
-                  <Text style={{ fontSize: 11, color: COLORS.textMuted }}>Days Overdue</Text>
-                  <Text style={{ fontSize: 11, color: COLORS.textPrimary }}>{Math.abs(daysUntilDue)}</Text>
-                </View>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingTop: 6, borderTopWidth: 1, borderTopColor: 'rgba(239,68,68,0.2)' }}>
-                  <Text style={{ fontSize: 11, color: COLORS.danger, fontWeight: '600' }}>Total Penalty</Text>
-                  <Text style={{ fontSize: 11, color: COLORS.danger, fontWeight: '700' }}>+ ₱{Number(billingCycle.penalty_amount).toFixed(2)}</Text>
-                </View>
-              </View>
-            );
-          })()}
-
-
-          <View style={ms.soaRow}>
-            <Text style={ms.soaLabel}>Invoice No.</Text>
-            <Text style={[ms.soaValue, !billingCycle?.invoice_number && { fontStyle: 'italic', color: COLORS.textMuted, fontSize: 12 }]}>
-              {billingCycle?.invoice_number || 'Pending Generation'}
-            </Text>
-          </View>
-          <View style={ms.soaRow}>
-            <Text style={ms.soaLabel}>Billing Issue Date</Text>
-            <Text style={[ms.soaValue, { fontSize: 13 }]}>
-              {billingCycle?.cycle_end ? new Date(billingCycle.cycle_end).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '--'}
-            </Text>
-          </View>
-          <View style={ms.soaRow}>
-            <Text style={ms.soaLabel}>Billing Period</Text>
-            <Text style={[ms.soaValue, { fontSize: 13 }]}>
-              {billingCycle?.cycle_start ? new Date(billingCycle.cycle_start).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '--'} - {billingCycle?.cycle_end ? new Date(billingCycle.cycle_end).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '--'}
-            </Text>
-          </View>
-
-          <View style={ms.soaActions}>
-            <TouchableOpacity style={ms.soaBtnSecondary} onPress={() => router.push('/(tenant)/billing')}>
-              <Text style={ms.soaBtnText}>View History</Text>
-            </TouchableOpacity>
-            {billingCycle?.status === 'completed' && billingCycle?.payment_status !== 'paid' && billingCycle?.payment_status !== 'pending_verification' && (
-                <TouchableOpacity 
-                  style={ms.soaBtnPrimary} 
-                  onPress={() => router.push('/(tenant)/payment')}
-                >
-                  <Text style={ms.soaBtnText}>Pay Now</Text>
-                </TouchableOpacity>
-            )}
-            {(billingCycle?.payment_status === 'paid' || billingCycle?.payment_status === 'pending_verification') && (
-                <TouchableOpacity 
-                  style={[ms.soaBtnPrimary, { opacity: 0.5 }]} 
-                  disabled={true}
-                >
-                  <Text style={ms.soaBtnText}>{billingCycle?.payment_status === 'paid' ? 'Paid' : 'Pending Verification'}</Text>
-                </TouchableOpacity>
-            )}
-            {billingCycle?.status === 'active' && (
-                 <TouchableOpacity 
-                  style={[ms.soaBtnPrimary, { opacity: 0.5 }]} 
-                  disabled={true}
-                  onPress={() => {}}
-                >
-                  <Text style={ms.soaBtnText}>Live Cycle</Text>
-                </TouchableOpacity>
-            )}
-          </View>
-        </GlassCard>
-
-        {/* Account Summary */}
-        <Text style={ms.sectionTitle}>Account Summary</Text>
-        <GlassCard style={ms.accountCard}>
-          <View style={ms.accountRow}>
-            <Text style={ms.soaLabel}>Tenant Name</Text>
-            <Text style={[ms.soaValue, { fontSize: 13 }]}>{user?.name || 'Tenant'}</Text>
-          </View>
-          <View style={ms.accountRow}>
-            <Text style={ms.soaLabel}>Room</Text>
-            <Text style={[ms.soaValue, { fontSize: 13 }]}>{roomId}</Text>
-          </View>
-          <View style={ms.accountRow}>
-            <Text style={ms.soaLabel}>Move-In Date</Text>
-            <Text style={[ms.soaValue, { fontSize: 13 }]}>
-              {monthUsage.tenant_start_date ? new Date(monthUsage.tenant_start_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : '--'}
-            </Text>
-          </View>
-          <View style={ms.accountRow}>
-            <Text style={ms.soaLabel}>Rate (per kWh)</Text>
-            <Text style={[ms.soaValue, { fontSize: 13 }]}>₱{Number(rate || 0).toFixed(2)}</Text>
-          </View>
-          <View style={ms.accountRow}>
-            <Text style={ms.soaLabel}>Next Billing Cycle</Text>
-            <Text style={[ms.soaValue, { fontSize: 13 }]}>
-              {monthUsage.next_reset ? new Date(monthUsage.next_reset).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '--'}
-            </Text>
-          </View>
-          <View style={[ms.accountRow, { borderBottomWidth: 0 }]}>
-            <Text style={ms.soaLabel}>Account Status</Text>
-            <View style={{ backgroundColor: 'rgba(16, 185, 129, 0.15)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 }}>
-              <Text style={{ color: COLORS.success, fontSize: 11, fontWeight: 'bold' }}>Active</Text>
-            </View>
-          </View>
-        </GlassCard>
       </ScrollView>
 
     </View>

@@ -3,6 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity, Switch, Modal } from 'react-n
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
+import { useConsumption } from '../../contexts/ConsumptionContext';
 import { useModal } from '../../contexts/ModalContext';
 import { getDatabase } from '../../services/database';
 import { getAlertSettings, updateAlertSettings } from '../../services/notificationApi';
@@ -16,6 +17,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 export default function TenantSettings() {
   const router = useRouter();
   const { user, logout } = useAuth();
+  const { monthUsage, rate } = useConsumption();
   const { showModal } = useModal();
   const [logoutVisible, setLogoutVisible] = useState(false);
   const [clearDataVisible, setClearDataVisible] = useState(false);
@@ -185,6 +187,32 @@ export default function TenantSettings() {
               <Ionicons name="create-outline" size={16} color={COLORS.primary} />
               <Text style={s.editBtnText}>Edit Profile</Text>
             </TouchableOpacity>
+          </View>
+        </GlassCard>
+
+        <Text style={s.sectionLabel}>Account Details</Text>
+        <GlassCard style={s.accountCard}>
+          <View style={s.accountRow}>
+            <Text style={s.soaLabel}>Move-In Date</Text>
+            <Text style={s.soaValue}>
+              {monthUsage?.tenant_start_date ? new Date(monthUsage.tenant_start_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : '--'}
+            </Text>
+          </View>
+          <View style={s.accountRow}>
+            <Text style={s.soaLabel}>Rate (per kWh)</Text>
+            <Text style={s.soaValue}>₱{Number(rate || 0).toFixed(2)}</Text>
+          </View>
+          <View style={s.accountRow}>
+            <Text style={s.soaLabel}>Next Billing Cycle</Text>
+            <Text style={s.soaValue}>
+              {monthUsage?.next_reset ? new Date(monthUsage.next_reset).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '--'}
+            </Text>
+          </View>
+          <View style={[s.accountRow, { borderBottomWidth: 0 }]}>
+            <Text style={s.soaLabel}>Account Status</Text>
+            <View style={{ backgroundColor: 'rgba(16, 185, 129, 0.15)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 }}>
+              <Text style={{ color: COLORS.success, fontSize: 11, fontWeight: 'bold' }}>Active</Text>
+            </View>
           </View>
         </GlassCard>
 

@@ -45,27 +45,56 @@ export default StyleSheet.create({
     flexDirection: 'row', 
     alignItems: 'center', 
     justifyContent: 'center', 
-    backgroundColor: COLORS.backgroundLight, 
-    borderRadius: RADIUS.xl, 
-    borderWidth: 2, 
-    borderColor: COLORS.primary, 
     paddingHorizontal: SPACING.lg, 
-    height: 72, 
-    width: '100%' 
+    height: 80, 
+    width: '100%',
+    marginBottom: SPACING.md
   },
   currencyLabel: { 
-    fontSize: 36, 
-    fontWeight: FONT_WEIGHT.bold, 
-    color: COLORS.primary, 
-    marginRight: SPACING.xs 
+    fontSize: 42, 
+    fontWeight: '300', 
+    color: COLORS.textMuted, 
+    marginRight: SPACING.xs,
+    marginTop: 6
   },
   inputModal: { 
-    flex: 1, 
-    fontSize: 36, 
-    fontWeight: FONT_WEIGHT.bold, 
+    fontSize: 56, 
+    fontWeight: '300', 
     color: COLORS.textPrimary, 
     height: '100%', 
-    textAlign: 'left' 
+    textAlign: 'center',
+    minWidth: 150
+  },
+  presetChipsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexWrap: 'wrap',
+    gap: SPACING.sm,
+    marginBottom: SPACING.xl
+  },
+  presetChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: RADIUS.full,
+    backgroundColor: 'rgba(255,255,255,0.06)'
+  },
+  presetChipText: {
+    color: COLORS.textSecondary,
+    fontSize: FONT_SIZE.sm,
+    fontWeight: '500'
+  },
+  livePreviewContainer: {
+    alignItems: 'center',
+    marginBottom: SPACING.xl,
+    paddingVertical: 4,
+    alignSelf: 'center'
+  },
+  livePreviewText: {
+    color: COLORS.textSecondary,
+    fontSize: FONT_SIZE.sm,
+    fontWeight: '400',
+    letterSpacing: 0.5
   },
   modalMessage: { 
     fontSize: FONT_SIZE.md, 
@@ -138,6 +167,24 @@ export default StyleSheet.create({
     color: COLORS.primary, 
     fontWeight: FONT_WEIGHT.semibold 
   },
+  liveIndicatorWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    marginBottom: SPACING.md,
+    gap: 6
+  },
+  liveDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#10B981',
+  },
+  liveText: {
+    fontSize: FONT_SIZE.xs,
+    color: COLORS.textMuted,
+    fontWeight: FONT_WEIGHT.medium
+  },
   progressCard: { 
     marginBottom: SPACING.lg, 
     alignItems: 'center' 
@@ -160,63 +207,51 @@ export default StyleSheet.create({
     fontSize: FONT_SIZE.sm, 
     fontWeight: FONT_WEIGHT.semibold 
   },
-  alertStatusContainer: {
-    width: '100%',
+  alertBadgeContainer: {
     marginTop: SPACING.lg,
-    paddingTop: SPACING.md,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.05)'
-  },
-  alertStatusHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: RADIUS.full,
     alignItems: 'center',
-    marginBottom: SPACING.md
+    justifyContent: 'center',
+    borderWidth: 1
   },
-  alertStatusTitle: {
-    fontSize: FONT_SIZE.sm,
-    color: COLORS.textSecondary,
-    fontWeight: FONT_WEIGHT.semibold
-  },
-  alertStatusLevel: {
-    fontSize: FONT_SIZE.sm,
-    fontWeight: FONT_WEIGHT.bold,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5
-  },
-  thresholdTrack: {
-    height: 6,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 3,
-    position: 'relative',
-    marginBottom: SPACING.lg
-  },
-  thresholdFill: {
-    height: '100%',
-    borderRadius: 3
-  },
-  thresholdMarker: {
-    position: 'absolute',
-    top: -18,
-    alignItems: 'center',
-    transform: [{ translateX: -10 }]
-  },
-  thresholdText: {
-    fontSize: 10,
-    color: COLORS.textMuted,
-    fontWeight: 'bold',
-    marginBottom: 2
-  },
-  thresholdTick: {
-    width: 2,
-    height: 8,
-    backgroundColor: 'rgba(255,255,255,0.3)',
-    borderRadius: 1
-  },
-  alertStatusDesc: {
+  alertBadgeText: {
     fontSize: FONT_SIZE.xs,
-    color: COLORS.textMuted,
-    lineHeight: 18
+    fontWeight: FONT_WEIGHT.bold,
+    letterSpacing: 1,
+    textTransform: 'uppercase'
+  },
+  mainActionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.md,
+    marginTop: SPACING.lg,
+    width: '100%'
+  },
+  mainEditBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    paddingVertical: 12,
+    borderRadius: RADIUS.full,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)'
+  },
+  mainResetBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(239,68,68,0.1)',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: RADIUS.full,
+    borderWidth: 1,
+    borderColor: 'rgba(239,68,68,0.2)'
   },
   breakdownCard: { 
     marginBottom: SPACING.lg 
@@ -234,9 +269,7 @@ export default StyleSheet.create({
     color: COLORS.textPrimary,
   },
   breakdownActions: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    gap: 6 
+    display: 'none'
   },
   resetBudgetBtn: { 
     flexDirection: 'row', 

@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { COLORS, FONT_SIZE } from '@/styles/theme';
 import { useSync } from '@/contexts/SyncContext';
+import { ConsumptionProvider } from '@/contexts/ConsumptionContext';
 
 export default function TenantLayout() {
   const { isAuthenticated } = useAuth();
@@ -14,6 +15,7 @@ export default function TenantLayout() {
 
   return (
     <View style={{ flex: 1, backgroundColor: COLORS.background }}>
+      <ConsumptionProvider>
       <Tabs screenOptions={{
         headerShown: false,
         sceneContainerStyle: { backgroundColor: COLORS.background },
@@ -69,7 +71,7 @@ export default function TenantLayout() {
         <Tabs.Screen name="billing-history" options={{ href: null, tabBarStyle: { display: 'none' } }} />
         <Tabs.Screen name="payment" options={{ href: null, tabBarStyle: { display: 'none' } }} />
       </Tabs>
-
+      </ConsumptionProvider>
 
     </View>
   );

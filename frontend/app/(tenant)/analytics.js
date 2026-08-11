@@ -274,12 +274,6 @@ export default function AnalyticsScreen() {
   // ─── Insights Generator ──────────────────────────────────────────────────────
   const insights = useMemo(() => {
     const arr = [];
-    if (comparison) {
-      const pct = comparison.energyPctChange || 0;
-      if (pct > 0) arr.push(`Your electricity consumption increased by ${Math.abs(pct).toFixed(1)}% compared to the previous ${period === 'daily' ? 'day' : period === 'weekly' ? 'week' : period === 'monthly' ? 'month' : 'year'}.`);
-      else if (pct < 0) arr.push(`Great job! Consumption decreased by ${Math.abs(pct).toFixed(1)}% compared to the previous period.`);
-      else arr.push('Consumption remains stable compared to the previous period.');
-    }
     if (peakIndex >= 0 && labels[peakIndex]) {
       arr.push(`Highest consumption was recorded at ${labels[peakIndex]} with ${energyData[peakIndex].toFixed(3)} kWh.`);
     }
@@ -290,7 +284,7 @@ export default function AnalyticsScreen() {
       arr.push(`Estimated monthly cost at current rate: ₱${estMonthly.toFixed(2)}`);
     }
     return arr;
-  }, [comparison, peakIndex, labels, energyData, avgPower, peakPower, totalCost, history.length, period]);
+  }, [peakIndex, labels, energyData, avgPower, peakPower, totalCost, history.length]);
 
   const recommendation = useMemo(() => {
     if (!comparison) return 'Keep monitoring your consumption patterns to optimize electricity usage.';
@@ -398,10 +392,7 @@ export default function AnalyticsScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
       >
-        <View style={{ marginBottom: 16 }}>
-          <Text style={s.title}>Consumption Analytics</Text>
-          <Text style={s.subtitle}>Power consumption report</Text>
-        </View>
+
 
         {/* ── Period Tabs ─────────────────────────────────────────────────────── */}
         <View style={s.periodRow}>
@@ -420,38 +411,41 @@ export default function AnalyticsScreen() {
           <TouchableOpacity style={s.dateNavBtn} onPress={() => navigateDate(-1)} activeOpacity={0.7}>
             <Ionicons name="chevron-back" size={18} color={COLORS.textPrimary} />
           </TouchableOpacity>
-          <View style={s.dateNavCenter}>
+          <View style={s.dateNavCapsule}>
+            <Ionicons name="calendar-outline" size={16} color={COLORS.primary} style={{ marginRight: 6 }} />
             <Text style={s.dateNavTitle}>{getDateLabel()}</Text>
-            <Text style={s.dateNavSub}>
-              Total consumption: {totalEnergy.toFixed(3)} kWh
-            </Text>
           </View>
           <TouchableOpacity style={s.dateNavBtn} onPress={() => navigateDate(1)} activeOpacity={0.7}>
             <Ionicons name="chevron-forward" size={18} color={COLORS.textPrimary} />
           </TouchableOpacity>
         </View>
 
-        {/* ── Summary Cards ───────────────────────────────────────────────────── */}
-        <View style={s.summaryGrid}>
-          <GlassCard style={s.summaryCard}>
-            <View style={[s.summaryCardIcon, { backgroundColor: 'rgba(239,68,68,0.12)' }]}>
-              <Ionicons name="trending-up" size={16} color={COLORS.danger} />
+        {/* ── Period Summary Card ─────────────────────────────────────────────── */}
+        <View style={{ marginBottom: SPACING.sm }}>
+          <Text style={{ fontSize: 14, fontWeight: '600', color: COLORS.textSecondary, marginBottom: 8, marginLeft: 4 }}>Period Summary</Text>
+          <GlassCard style={s.financialCard}>
+            <View style={s.financialRow}>
+              <View style={s.financialBlock}>
+                <Text style={s.financialLabel}>Total Cost</Text>
+                <View style={s.financialValueRow}>
+                  <Text style={s.financialPrefix}>₱</Text>
+                  <Text style={s.financialValue} numberOfLines={1} adjustsFontSizeToFit>{totalCost.toFixed(2)}</Text>
+                </View>
+              </View>
+              
+              <View style={[s.financialBlock, { alignItems: 'flex-end' }]}>
+                <Text style={s.financialLabel}>Daily Average</Text>
+                <View style={s.financialValueRow}>
+                  <Text style={s.financialValue} numberOfLines={1} adjustsFontSizeToFit>{avgEnergy.toFixed(2)}</Text>
+                  <Text style={s.financialUnit}>kWh</Text>
+                </View>
+                {comparison && comparison.energyPctChange !== 0 && (
+                  <Text style={[s.summaryCardTrend, { color: comparison.energyPctChange > 0 ? COLORS.danger : COLORS.success, marginTop: 4 }]}>
+                    {comparison.energyPctChange > 0 ? '↑' : '↓'} {Math.abs(comparison.energyPctChange).toFixed(1)}%
+                  </Text>
+                )}
+              </View>
             </View>
-            <Text style={s.summaryCardLabel}>Peak Power</Text>
-            <Text style={s.summaryCardValue} numberOfLines={1} adjustsFontSizeToFit>{peakPower.toFixed(0)} W</Text>
-          </GlassCard>
-
-          <GlassCard style={s.summaryCard}>
-            <View style={[s.summaryCardIcon, { backgroundColor: 'rgba(59,130,246,0.12)' }]}>
-              <Ionicons name="analytics" size={16} color={COLORS.info} />
-            </View>
-            <Text style={s.summaryCardLabel}>Average</Text>
-            <Text style={s.summaryCardValue} numberOfLines={1} adjustsFontSizeToFit>{avgEnergy.toFixed(3)} kWh</Text>
-            {comparison && comparison.energyPctChange !== 0 && (
-              <Text style={[s.summaryCardTrend, { color: comparison.energyPctChange > 0 ? COLORS.danger : COLORS.success }]}>
-                {comparison.energyPctChange > 0 ? '↑' : '↓'} {Math.abs(comparison.energyPctChange).toFixed(1)}%
-              </Text>
-            )}
           </GlassCard>
         </View>
 
@@ -494,42 +488,28 @@ export default function AnalyticsScreen() {
                 <Text style={s.noData}>No consumption data available yet</Text>
               )}
 
-              {/* Bottom Stats */}
-              {comparison && (
-                <View style={s.bottomStats}>
-                  <View>
-                    <Text style={s.bottomStatLabel}>
-                      Consumption for the {period === 'daily' ? 'day' : period === 'weekly' ? 'week' : period === 'monthly' ? 'month' : 'year'}
-                    </Text>
-                    <Text style={s.bottomStatValue}>{totalEnergy.toFixed(3)} kWh</Text>
-                  </View>
-                  {comparison.energyPctChange !== 0 && (
-                    <View style={s.bottomStatDiff}>
-                      <Ionicons
-                        name={comparison.energyPctChange > 0 ? 'arrow-up' : 'arrow-down'}
-                        size={14}
-                        color={comparison.energyPctChange > 0 ? COLORS.danger : COLORS.success}
-                      />
-                      <Text style={[s.bottomStatDiffText, { color: comparison.energyPctChange > 0 ? COLORS.danger : COLORS.success }]}>
-                        {comparison.energyPctChange > 0 ? '+' : ''}{comparison.energyPctChange.toFixed(1)}%
-                      </Text>
-                    </View>
-                  )}
-                </View>
-              )}
             </GlassCard>
 
             <Text style={s.disclaimer}>
               Power consumption is approximate and may differ from the actual value.
             </Text>
 
-            {/* Insights */}
-            {insights.length > 0 && (
+            {/* AI Analysis */}
+            {(insights.length > 0 || recommendation) && (
               <GlassCard style={s.insightCard}>
                 <View style={s.insightHeader}>
-                  <Ionicons name="bulb" size={20} color={COLORS.warning} />
-                  <Text style={s.insightTitle}>Smart Insights</Text>
+                  <Ionicons name="sparkles" size={20} color={COLORS.primary} />
+                  <Text style={[s.insightTitle, { color: COLORS.primary }]}>Wattipid Smart Insights</Text>
                 </View>
+                
+                {recommendation && (
+                  <View style={{ marginBottom: 12 }}>
+                    <Text style={{ fontSize: 13, fontWeight: '500', color: COLORS.textPrimary, lineHeight: 20 }}>
+                      {recommendation}
+                    </Text>
+                  </View>
+                )}
+
                 {insights.map((text, i) => (
                   <View key={i} style={s.insightItem}>
                     <View style={s.insightDot} />
@@ -538,15 +518,6 @@ export default function AnalyticsScreen() {
                 ))}
               </GlassCard>
             )}
-
-            {/* Recommendations */}
-            <GlassCard style={s.recCard}>
-              <View style={s.recHeader}>
-                <Ionicons name="shield-checkmark" size={18} color={COLORS.warning} />
-                <Text style={s.recTitle}>Recommendation</Text>
-              </View>
-              <Text style={s.recText}>{recommendation}</Text>
-            </GlassCard>
           </>
         )}
 

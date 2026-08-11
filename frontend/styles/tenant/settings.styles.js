@@ -358,4 +358,27 @@ export default StyleSheet.create({
     color: COLORS.warning, 
     lineHeight: 18 
   },
+  accountCard: {
+    padding: SPACING.md,
+    borderRadius: RADIUS.xl,
+    backgroundColor: COLORS.surface,
+    marginBottom: SPACING.md
+  },
+  accountRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: SPACING.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.05)'
+  },
+  soaLabel: {
+    fontSize: FONT_SIZE.sm,
+    color: COLORS.textMuted
+  },
+  soaValue: {
+    fontSize: FONT_SIZE.sm,
+    color: COLORS.textPrimary,
+    fontWeight: FONT_WEIGHT.medium
+  }
 });

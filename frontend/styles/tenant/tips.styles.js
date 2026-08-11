@@ -76,25 +76,25 @@ export default StyleSheet.create({
   },
   tabRow: { 
     flexDirection: 'row', 
-    gap: SPACING.sm, 
-    marginBottom: SPACING.lg 
+    marginBottom: SPACING.lg,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderRadius: RADIUS.full,
+    padding: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)'
   },
   tabBtn: { 
     flex: 1, 
     flexDirection: 'row', 
     alignItems: 'center', 
     justifyContent: 'center', 
-    gap: 4, 
+    gap: 6, 
     paddingVertical: 12, 
-    paddingHorizontal: 4,
-    borderRadius: RADIUS.md, 
-    backgroundColor: COLORS.surfaceGlass, 
-    borderWidth: 1, 
-    borderColor: COLORS.border 
+    borderRadius: RADIUS.full, 
+    backgroundColor: 'transparent', 
   },
   tabActive: { 
-    backgroundColor: 'rgba(34,197,94,0.1)', 
-    borderColor: COLORS.primary 
+    backgroundColor: 'rgba(16,185,129,0.18)', 
   },
   tabText: { 
     fontSize: 11, 
@@ -346,12 +346,13 @@ export default StyleSheet.create({
   },
   // --- INTERACTIVE TIPS SYSTEM ---
   interactiveCard: {
-    padding: SPACING.xl,
+    padding: SPACING.xxl,
     borderRadius: RADIUS.xxl,
     marginBottom: SPACING.lg,
     justifyContent: 'center',
     position: 'relative',
-    overflow: 'hidden'
+    overflow: 'hidden',
+    minHeight: 220
   },
   tipCatRow: {
     flexDirection: 'row',
@@ -405,12 +406,20 @@ export default StyleSheet.create({
     color: COLORS.textSecondary
   },
   refreshBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    position: 'absolute',
+    bottom: SPACING.xl,
+    right: SPACING.xl,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: COLORS.primary,
     alignItems: 'center',
-    justifyContent: 'center'
+    justifyContent: 'center',
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 6
   },
   errorBox: {
     padding: SPACING.lg,
@@ -440,7 +449,14 @@ export default StyleSheet.create({
     fontWeight: FONT_WEIGHT.bold
   },
   // --- BROWSE TAB ADDITIONS ---
+  browseHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    marginBottom: SPACING.md
+  },
   browseSearchBar: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: COLORS.surfaceGlass,
@@ -449,7 +465,6 @@ export default StyleSheet.create({
     borderRadius: RADIUS.full,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm,
-    marginBottom: SPACING.md,
     gap: SPACING.sm
   },
   browseSearchInput: {
@@ -473,18 +488,20 @@ export default StyleSheet.create({
     fontWeight: FONT_WEIGHT.medium
   },
   browseSortBtn: {
-    flexDirection: 'row',
+    width: 42,
+    height: 42,
     alignItems: 'center',
-    gap: 6,
+    justifyContent: 'center',
     backgroundColor: 'rgba(34,197,94,0.1)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: RADIUS.full
+    borderRadius: RADIUS.full,
+    borderWidth: 1,
+    borderColor: 'rgba(34,197,94,0.2)'
   },
   browseSortLabel: {
     fontSize: FONT_SIZE.xs,
     color: COLORS.primary,
-    fontWeight: FONT_WEIGHT.bold
+    fontWeight: FONT_WEIGHT.bold,
+    display: 'none' // Hidden for minimalist icon-only look
   },
   browseSortDropdown: {
     backgroundColor: COLORS.surface,

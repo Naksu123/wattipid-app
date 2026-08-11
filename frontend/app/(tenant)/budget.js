@@ -1,11 +1,12 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, ScrollView, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform } from 'react-native';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { View, Text, ScrollView, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, Animated, Easing } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../contexts/AuthContext';
 import { useModal } from '../../contexts/ModalContext';
-import { setBudget, getBudget, resetBudget, getBillingCycle, getTotalConsumptionToday, getTotalConsumptionWeek, getTotalConsumptionMonth, getTransactionHistory, getConsumptionComparison } from '../../services/database';
-import BudgetProgressRing from '../../components/ui/BudgetProgressRing';
+import { useConsumption } from '../../contexts/ConsumptionContext';
+import { setBudget, getBudget, resetBudget, getBillingCycle, getTransactionHistory, getConsumptionComparison } from '../../services/database';
+import AnimatedBudgetRing from '../../components/ui/AnimatedBudgetRing';
 import GlassCard from '../../components/ui/GlassCard';
 import { BaseModal, ModalHeader, ModalBody, ModalFooter } from '../../components/modals/BaseModal';
 
@@ -18,11 +19,9 @@ export default function BudgetScreen() {
   const { user } = useAuth();
   const { showModal } = useModal();
   const roomId = user?.room_id || 'Room 1';
+  const { todayUsage, weekUsage, monthUsage } = useConsumption();
   const [monthlyBudget, setMonthlyBudgetInput] = useState('');
   const [budgetData, setBudgetData] = useState(null);
-  const [todayUsage, setTodayUsage] = useState({ totalEnergy: 0, totalCost: 0 });
-  const [weekUsage, setWeekUsage] = useState({ totalEnergy: 0, totalCost: 0 });
-  const [monthUsage, setMonthUsage] = useState({ totalEnergy: 0, totalCost: 0 });
   const [comparison, setComparison] = useState(null);
   const [compPeriod, setCompPeriod] = useState('weekly');
   const [transactions, setTransactions] = useState([]);
@@ -34,12 +33,9 @@ export default function BudgetScreen() {
 
   const loadData = useCallback(async () => {
     if (!user || !roomId) return;
-    const [b, bc, t, w, m, txns, comp] = await Promise.all([
+    const [b, bc, txns, comp] = await Promise.all([
       getBudget(roomId),
       getBillingCycle(roomId),
-      getTotalConsumptionToday(roomId, user?.name),
-      getTotalConsumptionWeek(roomId, user?.name),
-      getTotalConsumptionMonth(roomId, user?.name),
       getTransactionHistory(roomId, 20, 'all', user?.name),
       getConsumptionComparison(roomId, compPeriod, user?.name),
     ]);
@@ -50,9 +46,6 @@ export default function BudgetScreen() {
     if (bc) {
       setBillingCycle(bc);
     }
-    setTodayUsage(t);
-    setWeekUsage(w);
-    setMonthUsage(m);
     setTransactions(txns || []);
     setComparison(comp);
   }, [roomId, user?.name, compPeriod]);
@@ -108,6 +101,27 @@ export default function BudgetScreen() {
   const activeLimit = getActiveLimit();
   const activePct = activeLimit > 0 ? (activeSpent / activeLimit) * 100 : 0;
 
+  // Animation values for the Alert Status bar
+  const animatedPct = useRef(new Animated.Value(activePct)).current;
+  
+  useEffect(() => {
+    Animated.timing(animatedPct, {
+      toValue: activePct,
+      duration: 500,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false // Animating width percentage requires JS driver
+    }).start();
+  }, [activePct, animatedPct]);
+
+  const getStatusInfo = (pct) => {
+    if (pct < 75) return { text: 'NORMAL', color: '#10B981', bg: 'rgba(16, 185, 129, 0.15)', border: 'rgba(16, 185, 129, 0.3)', msg: 'You are within your safe budget range.' };
+    if (pct < 90) return { text: 'APPROACHING', color: '#F59E0B', bg: 'rgba(245, 158, 11, 0.15)', border: 'rgba(245, 158, 11, 0.3)', msg: 'You are getting close to your budget limit.' };
+    if (pct <= 100) return { text: 'WARNING', color: '#EF4444', bg: 'rgba(239, 68, 68, 0.15)', border: 'rgba(239, 68, 68, 0.3)', msg: 'You are almost at your budget limit. Monitor your consumption.' };
+    return { text: 'EXCEEDED', color: '#8B5CF6', bg: 'rgba(139, 92, 246, 0.15)', border: 'rgba(139, 92, 246, 0.3)', msg: 'You have exceeded your budget. Please manage your consumption.' };
+  };
+
+  const statusInfo = getStatusInfo(activePct);
+
 
 
   // Reset budget handler
@@ -140,10 +154,7 @@ export default function BudgetScreen() {
   return (
     <KeyboardAvoidingView style={[s.container, { backgroundColor: COLORS.background }]} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <ScrollView style={s.container} contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
-        <View style={s.headerContainer}>
-          <Text style={s.title}>Budget Management</Text>
-          <Text style={s.subtitle}>Track spending across daily, weekly & monthly</Text>
-        </View>
+
 
         {/* Budget Setup / Edit Modal */}
         <BaseModal visible={editing} onClose={() => setEditing(false)}>
@@ -154,21 +165,44 @@ export default function BudgetScreen() {
             onClose={budgetData ? () => setEditing(false) : null} 
           />
           <ModalBody scrollable={false}>
-            <Text style={s.sectionDesc}>
-              We&apos;ll calculate your daily and weekly allowances proportionally based on the number of days this month.
-            </Text>
             <View style={s.budgetInputContainer}>
+              {/* Massive Floating Input */}
               <View style={s.budgetInputWrap}>
                 <Text style={s.currencyLabel}>₱</Text>
                 <TextInput 
                   style={s.inputModal} 
-                  placeholder="0.00" 
+                  placeholder="0" 
                   placeholderTextColor={COLORS.textMuted}
                   value={monthlyBudget} 
                   onChangeText={setMonthlyBudgetInput} 
                   keyboardType="numeric" 
                   autoFocus
                 />
+              </View>
+
+              {/* Live Daily Preview */}
+              {parseFloat(monthlyBudget) > 0 ? (
+                <View style={s.livePreviewContainer}>
+                  <Text style={s.livePreviewText}>
+                    ≈ ₱{(parseFloat(monthlyBudget) / (budgetData?.days_in_month || 30)).toFixed(2)} / day
+                  </Text>
+                </View>
+              ) : (
+                <View style={[s.livePreviewContainer, { opacity: 0 }]}><Text style={s.livePreviewText}>Placeholder</Text></View>
+              )}
+
+              {/* Quick Select Chips */}
+              <View style={s.presetChipsContainer}>
+                {['500', '1000', '2500', '5000'].map(amount => (
+                  <TouchableOpacity 
+                    key={amount}
+                    style={s.presetChip}
+                    onPress={() => setMonthlyBudgetInput(amount)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={s.presetChipText}>₱{amount}</Text>
+                  </TouchableOpacity>
+                ))}
               </View>
             </View>
           </ModalBody>
@@ -265,50 +299,32 @@ export default function BudgetScreen() {
 
             {/* Progress Ring & Alert Status */}
             <GlassCard style={s.progressCard}>
+              <View style={s.liveIndicatorWrap}>
+                <View style={s.liveDot} />
+                <Text style={s.liveText}>Live</Text>
+              </View>
+
               <View style={s.progressCenter}>
-                <BudgetProgressRing spent={activeSpent} limit={activeLimit} size={160}
+                <AnimatedBudgetRing spent={activeSpent} limit={activeLimit} size={200}
                   label={`${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Budget`} />
               </View>
 
-              {/* Budget Alert Status */}
-              <View style={s.alertStatusContainer}>
-                <View style={s.alertStatusHeader}>
-                  <Text style={s.alertStatusTitle}>Alert Status</Text>
-                  <Text style={[s.alertStatusLevel, { color: activePct >= 100 ? COLORS.danger : (activePct >= 90 ? COLORS.danger : 
-                    (activePct >= 75 ? COLORS.warning : (activePct >= 50 ? COLORS.info : COLORS.success))) }]}>
-                    {activePct >= 100 ? 'Exceeded' : (activePct >= 90 ? 'Critical' : (activePct >= 75 ? 'Warning' : (activePct >= 50 ? 'Approaching' : 'Normal')))}
-                  </Text>
-                </View>
-
-                {/* Threshold Markers */}
-                <View style={s.thresholdTrack}>
-                  {/* Fill bar */}
-                  <View style={[s.thresholdFill, { width: `${Math.min(activePct, 100)}%`, 
-                    backgroundColor: activePct >= 100 ? COLORS.danger : (activePct >= 90 ? COLORS.danger : 
-                    (activePct >= 75 ? COLORS.warning : (activePct >= 50 ? COLORS.info : COLORS.success))) }]} />
-                  
-                  {/* Markers */}
-                  <View style={[s.thresholdMarker, { left: '50%' }]}>
-                    <Text style={s.thresholdText}>50%</Text>
-                    <View style={s.thresholdTick} />
-                  </View>
-                  <View style={[s.thresholdMarker, { left: '75%' }]}>
-                    <Text style={s.thresholdText}>75%</Text>
-                    <View style={s.thresholdTick} />
-                  </View>
-                  <View style={[s.thresholdMarker, { left: '90%' }]}>
-                    <Text style={s.thresholdText}>90%</Text>
-                    <View style={s.thresholdTick} />
-                  </View>
-                </View>
-                
-                <Text style={s.alertStatusDesc}>
-                  {activePct >= 100 ? 'You have exceeded your budget limit.' : 
-                   activePct >= 90 ? 'You are very close to exceeding your budget.' : 
-                   activePct >= 75 ? 'You have used 75% of your budget limit.' : 
-                   activePct >= 50 ? 'You have used half of your budget.' : 
-                   'Your spending is currently well within your budget limit.'}
+              {/* Modern Alert Badge */}
+              <View style={[s.alertBadgeContainer, { backgroundColor: statusInfo.bg, borderColor: statusInfo.border }]}>
+                <Text style={[s.alertBadgeText, { color: statusInfo.color }]}>
+                  {statusInfo.text}
                 </Text>
+              </View>
+
+              {/* Main Action Buttons */}
+              <View style={s.mainActionRow}>
+                <TouchableOpacity onPress={() => setEditing(true)} style={s.mainEditBtn} activeOpacity={0.8}>
+                  <Ionicons name="create-outline" size={16} color={COLORS.textPrimary} />
+                  <Text style={{ color: COLORS.textPrimary, fontSize: 13, fontWeight: '600' }}>Edit Budget</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={handleResetBudget} style={s.mainResetBtn} activeOpacity={0.8}>
+                  <Ionicons name="trash-outline" size={16} color={COLORS.danger} />
+                </TouchableOpacity>
               </View>
             </GlassCard>
 

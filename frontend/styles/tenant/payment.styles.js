@@ -17,66 +17,30 @@ export default StyleSheet.create({
     alignItems: 'center',
   },
 
-  // ============ Header ============
-  headerTitle: {
-    fontSize: FONT_SIZE.xl,
-    fontWeight: FONT_WEIGHT.bold,
-    color: COLORS.textPrimary,
-    marginBottom: SPACING.lg,
-  },
-
-  // ============ Invoice Card ============
-  invoiceCard: {
-    padding: SPACING.lg,
-    marginBottom: SPACING.lg,
-  },
-  invoiceHeader: {
-    flexDirection: 'row',
+  // ============ Hero Card ============
+  heroCard: {
+    padding: SPACING.xl,
+    marginBottom: SPACING.xl,
     alignItems: 'center',
-    gap: 8,
-    marginBottom: SPACING.md,
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.02)'
   },
-  title: {
-    fontSize: FONT_SIZE.lg,
-    fontWeight: FONT_WEIGHT.bold,
-    color: COLORS.textPrimary,
-  },
-
-  // ============ Rows & Labels ============
-  row: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  label: {
-    fontSize: FONT_SIZE.sm,
+  heroTitle: {
+    fontSize: FONT_SIZE.xs,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
     color: COLORS.textSecondary,
+    marginBottom: SPACING.sm
   },
-  value: {
+  heroAmount: {
+    fontSize: 56,
+    fontWeight: '300',
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.xs
+  },
+  heroSubtitle: {
     fontSize: FONT_SIZE.sm,
-    fontWeight: FONT_WEIGHT.bold,
-    color: COLORS.textPrimary,
-  },
-  valueSuccess: {
-    color: COLORS.success,
-  },
-
-  // ============ Total Row ============
-  totalRow: {
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.1)',
-    paddingTop: 16,
-    marginTop: 8,
-  },
-  totalLabel: {
-    fontSize: FONT_SIZE.md,
-    fontWeight: FONT_WEIGHT.bold,
-    color: COLORS.textPrimary,
-  },
-  totalValue: {
-    fontSize: 20,
-    fontWeight: FONT_WEIGHT.heavy,
-    color: COLORS.primary,
+    color: COLORS.textMuted
   },
 
   // ============ Status ============
@@ -158,24 +122,41 @@ export default StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: 'rgba(255,255,255,0.03)',
     padding: 16,
     borderRadius: RADIUS.lg,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
+    borderColor: 'transparent',
   },
-  methodBtnActive: {
-    borderColor: COLORS.primary,
-    backgroundColor: 'rgba(34,197,94,0.05)',
+  methodBtnGCashActive: {
+    backgroundColor: 'rgba(59,130,246,0.1)',
+    borderColor: 'rgba(59,130,246,0.3)',
+  },
+  methodBtnMayaActive: {
+    backgroundColor: 'rgba(16,185,129,0.1)',
+    borderColor: 'rgba(16,185,129,0.3)',
+  },
+  methodBtnCashActive: {
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderColor: 'rgba(255,255,255,0.2)',
   },
   methodBtnText: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '500',
     color: COLORS.textPrimary,
   },
-  methodBtnTextActive: {
-    color: COLORS.primary,
+  methodBtnTextGCash: {
+    color: '#3B82F6',
+    fontWeight: 'bold'
+  },
+  methodBtnTextMaya: {
+    color: '#10B981',
+    fontWeight: 'bold'
+  },
+  methodBtnTextCash: {
+    color: COLORS.textPrimary,
+    fontWeight: 'bold'
   },
 
   // ============ Instructions ============
@@ -260,20 +241,22 @@ export default StyleSheet.create({
 
   // ============ Inputs ============
   inputContainer: {
-    marginBottom: SPACING.lg,
+    marginBottom: SPACING.xl,
   },
   inputLabel: {
     fontSize: FONT_SIZE.xs,
-    color: COLORS.textSecondary,
+    color: COLORS.textMuted,
     marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 1
   },
   input: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
     color: COLORS.textPrimary,
-    padding: 14,
-    borderRadius: RADIUS.md,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    paddingVertical: 12,
+    paddingHorizontal: 4,
+    fontSize: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.1)',
   },
 
   // ============ Upload ============

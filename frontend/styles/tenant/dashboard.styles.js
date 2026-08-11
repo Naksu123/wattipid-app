@@ -55,11 +55,84 @@ export default StyleSheet.create({
   gaugeCard: { 
     alignItems: 'center', 
     paddingVertical: SPACING.lg, 
-    marginBottom: SPACING.md 
+    marginBottom: SPACING.lg 
+  },
+  sensorStatsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+    paddingHorizontal: SPACING.md,
+    marginTop: SPACING.lg,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.05)',
+    paddingTop: SPACING.md
+  },
+  sensorStat: {
+    alignItems: 'center',
+    flex: 1
+  },
+  sensorStatLabel: {
+    fontSize: FONT_SIZE.xs,
+    color: COLORS.textMuted,
+    marginBottom: 4
+  },
+  sensorStatValueRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 2
+  },
+  sensorStatValue: {
+    fontSize: FONT_SIZE.md,
+    fontWeight: FONT_WEIGHT.bold,
+    color: COLORS.textPrimary
+  },
+  sensorStatUnit: {
+    fontSize: FONT_SIZE.xs,
+    color: COLORS.textSecondary
+  },
+  financialCard: {
+    marginBottom: SPACING.lg,
+    padding: SPACING.lg
+  },
+  financialRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: SPACING.lg
+  },
+  financialBlock: {
+    flex: 1
+  },
+  financialLabel: {
+    fontSize: FONT_SIZE.sm,
+    color: COLORS.textMuted,
+    marginBottom: 6
+  },
+  financialValueRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 4
+  },
+  financialPrefix: {
+    fontSize: FONT_SIZE.md,
+    color: COLORS.textSecondary,
+    fontWeight: FONT_WEIGHT.medium
+  },
+  financialValue: {
+    fontSize: 28,
+    fontWeight: FONT_WEIGHT.heavy,
+    color: COLORS.textPrimary
+  },
+  financialUnit: {
+    fontSize: FONT_SIZE.sm,
+    color: COLORS.textSecondary,
+    fontWeight: FONT_WEIGHT.semibold
   },
   pf: { 
     flexDirection: 'row', 
     alignItems: 'center', 
+    justifyContent: 'center',
+    alignSelf: 'center',
     gap: SPACING.sm, 
     marginTop: SPACING.sm,
     paddingHorizontal: SPACING.md,
@@ -89,11 +162,23 @@ export default StyleSheet.create({
     padding: SPACING.md, 
     paddingVertical: SPACING.md,
   },
+  metricIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: RADIUS.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8
+  },
+  metricValueRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 2
+  },
   metricValue: { 
     fontSize: FONT_SIZE.lg, 
     fontWeight: FONT_WEIGHT.heavy, 
     color: COLORS.textPrimary, 
-    marginTop: 8 
   },
   metricUnit: { 
     fontSize: FONT_SIZE.sm, 
@@ -272,6 +357,27 @@ export default StyleSheet.create({
     marginBottom: SPACING.md,
     marginTop: SPACING.md,
     letterSpacing: 0.5
+  },
+  liveIndicatorWrap: {
+    position: 'absolute',
+    top: 16,
+    left: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    zIndex: 10
+  },
+  liveDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  liveText: {
+    fontSize: FONT_SIZE.xs,
+    color: COLORS.textMuted,
+    fontWeight: FONT_WEIGHT.medium
+  },
+  gaugeCard: {
   },
   quickActionsScroll: {
     marginBottom: SPACING.lg

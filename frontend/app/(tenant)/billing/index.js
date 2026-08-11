@@ -131,7 +131,7 @@ export default function TenantBillingScreen() {
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
             >
 
-                <Text style={styles.invoiceTitle}>Billing Overview</Text>
+
                 
                 <GlassCard style={styles.headerDetails}>
                     <View style={styles.headerItem}>
@@ -197,7 +197,10 @@ export default function TenantBillingScreen() {
                     {parseFloat(monthly_rent || 0) > 0 && (
                         <View style={styles.accordionItem}>
                             <TouchableOpacity style={styles.accordionHeader} onPress={() => toggleSection('rent')}>
-                                <View>
+                                <View style={[styles.accordionIconWrap, { backgroundColor: 'rgba(59, 130, 246, 0.15)' }]}>
+                                    <Ionicons name="home-outline" size={20} color="#3B82F6" />
+                                </View>
+                                <View style={styles.accordionTitleWrap}>
                                     <Text style={styles.accordionTitle}>Monthly Room Rent</Text>
                                     <Text style={styles.accordionSub}>Fixed monthly rental fee</Text>
                                 </View>
@@ -216,7 +219,10 @@ export default function TenantBillingScreen() {
 
                     <View style={styles.accordionItem}>
                         <TouchableOpacity style={styles.accordionHeader} onPress={() => toggleSection('electricity')}>
-                            <View>
+                            <View style={[styles.accordionIconWrap, { backgroundColor: 'rgba(245, 158, 11, 0.15)' }]}>
+                                <Ionicons name="flash-outline" size={20} color="#F59E0B" />
+                            </View>
+                            <View style={styles.accordionTitleWrap}>
                                 <Text style={styles.accordionTitle}>Electricity Charge</Text>
                                 <Text style={styles.accordionSub}>Based on actual consumption</Text>
                             </View>
@@ -255,7 +261,10 @@ export default function TenantBillingScreen() {
                     {parseFloat(previous_balance || 0) > 0 && (
                         <View style={styles.accordionItem}>
                             <TouchableOpacity style={styles.accordionHeader} onPress={() => toggleSection('balance')}>
-                                <View>
+                                <View style={[styles.accordionIconWrap, { backgroundColor: 'rgba(139, 92, 246, 0.15)' }]}>
+                                    <Ionicons name="time-outline" size={20} color="#8B5CF6" />
+                                </View>
+                                <View style={styles.accordionTitleWrap}>
                                     <Text style={styles.accordionTitle}>Previous Balance</Text>
                                     <Text style={styles.accordionSub}>Unpaid amounts from last month</Text>
                                 </View>
@@ -275,7 +284,10 @@ export default function TenantBillingScreen() {
                     {parseFloat(penalty_amount || 0) > 0 && (
                         <View style={styles.accordionItem}>
                             <TouchableOpacity style={styles.accordionHeader} onPress={() => toggleSection('penalty')}>
-                                <View>
+                                <View style={[styles.accordionIconWrap, { backgroundColor: 'rgba(225, 29, 72, 0.15)' }]}>
+                                    <Ionicons name="alert-outline" size={20} color="#E11D48" />
+                                </View>
+                                <View style={styles.accordionTitleWrap}>
                                     <Text style={styles.accordionTitle}>Penalty Charges</Text>
                                     <Text style={[styles.accordionSub, { color: COLORS.danger }]}>Late payment fees</Text>
                                 </View>
@@ -295,7 +307,10 @@ export default function TenantBillingScreen() {
                     {parseFloat(additional_charges || 0) > 0 && (
                         <View style={styles.accordionItem}>
                             <TouchableOpacity style={styles.accordionHeader} onPress={() => toggleSection('additional')}>
-                                <View>
+                                <View style={[styles.accordionIconWrap, { backgroundColor: 'rgba(255, 255, 255, 0.1)' }]}>
+                                    <Ionicons name="add-circle-outline" size={20} color={COLORS.textPrimary} />
+                                </View>
+                                <View style={styles.accordionTitleWrap}>
                                     <Text style={styles.accordionTitle}>Additional Charges</Text>
                                     <Text style={styles.accordionSub}>Other fees applied</Text>
                                 </View>
@@ -310,7 +325,10 @@ export default function TenantBillingScreen() {
                     {parseFloat(discounts || 0) > 0 && (
                         <View style={styles.accordionItem}>
                             <TouchableOpacity style={styles.accordionHeader} onPress={() => toggleSection('discount')}>
-                                <View>
+                                <View style={[styles.accordionIconWrap, { backgroundColor: 'rgba(16, 185, 129, 0.15)' }]}>
+                                    <Ionicons name="pricetag-outline" size={20} color="#10B981" />
+                                </View>
+                                <View style={styles.accordionTitleWrap}>
                                     <Text style={styles.accordionTitle}>Discounts Applied</Text>
                                     <Text style={styles.accordionSub}>Deductions from total</Text>
                                 </View>
@@ -336,7 +354,7 @@ export default function TenantBillingScreen() {
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: COLORS.background },
-    scroll: { padding: SPACING.lg, paddingBottom: 60 },
+    scroll: { padding: SPACING.lg, paddingBottom: 120 },
     center: { justifyContent: 'center', alignItems: 'center' },
     loadingText: { marginTop: 16, color: COLORS.textMuted, fontSize: FONT_SIZE.md },
     emptyText: { marginTop: 16, fontSize: FONT_SIZE.md, color: COLORS.textMuted, textAlign: 'center' },
@@ -367,26 +385,30 @@ const styles = StyleSheet.create({
     actionBtn: { flex: 1, flexDirection: 'row', backgroundColor: 'rgba(16, 185, 129, 0.05)', paddingVertical: 14, borderRadius: RADIUS.md, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(16, 185, 129, 0.2)' },
     actionBtnText: { marginLeft: 8, fontSize: FONT_SIZE.sm, fontWeight: FONT_WEIGHT.bold, color: COLORS.primary },
 
-    sectionTitle: { fontSize: FONT_SIZE.xs, fontWeight: FONT_WEIGHT.bold, color: COLORS.textSecondary, letterSpacing: 1, marginBottom: SPACING.sm, marginLeft: 4 },
-    breakdownContainer: { padding: SPACING.md },
+    sectionTitle: { fontSize: FONT_SIZE.xs, fontWeight: FONT_WEIGHT.bold, color: COLORS.textSecondary, letterSpacing: 1, marginBottom: SPACING.sm, marginLeft: SPACING.xs },
+    breakdownContainer: { padding: 0, overflow: 'hidden' },
     
-    accordionItem: { borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
-    accordionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: SPACING.md },
-    accordionTitle: { fontSize: FONT_SIZE.sm, fontWeight: FONT_WEIGHT.bold, color: COLORS.textPrimary, marginBottom: 2 },
-    accordionSub: { fontSize: FONT_SIZE.xs, color: COLORS.textSecondary },
-    accordionRight: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-    accordionAmount: { fontSize: FONT_SIZE.md, fontWeight: FONT_WEIGHT.bold, color: COLORS.textPrimary },
+    accordionItem: { borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.03)', paddingHorizontal: SPACING.lg },
+    accordionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: SPACING.lg },
     
-    accordionBody: { paddingBottom: SPACING.md },
-    accordionDesc: { fontSize: FONT_SIZE.xs, color: COLORS.textSecondary, lineHeight: 20, marginBottom: SPACING.md },
+    accordionIconWrap: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', marginRight: SPACING.md },
+    accordionTitleWrap: { flex: 1 },
     
-    meterBox: { backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: RADIUS.sm, padding: SPACING.md, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
-    meterRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
-    meterLabel: { fontSize: FONT_SIZE.xs, color: COLORS.textSecondary },
-    meterValue: { fontSize: FONT_SIZE.xs, fontWeight: FONT_WEIGHT.bold, color: COLORS.textPrimary },
-    divider: { height: 1, backgroundColor: 'rgba(255,255,255,0.05)', marginVertical: 8 },
+    accordionTitle: { fontSize: 15, fontWeight: '600', color: COLORS.textPrimary, marginBottom: 2 },
+    accordionSub: { fontSize: 13, color: COLORS.textSecondary },
+    accordionRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    accordionAmount: { fontSize: 17, fontWeight: '400', color: COLORS.textPrimary },
     
-    totalComputationRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: SPACING.md, paddingTop: SPACING.md, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.1)' },
-    totalComputationLabel: { fontSize: FONT_SIZE.sm, fontWeight: FONT_WEIGHT.heavy, color: COLORS.textPrimary },
-    totalComputationValue: { fontSize: FONT_SIZE.lg, fontWeight: FONT_WEIGHT.heavy, color: COLORS.danger }
+    accordionBody: { paddingBottom: SPACING.lg, paddingLeft: 56 },
+    accordionDesc: { fontSize: 13, color: COLORS.textSecondary, lineHeight: 20, marginBottom: SPACING.md },
+    
+    meterBox: { backgroundColor: 'rgba(0,0,0,0.2)', borderRadius: RADIUS.md, padding: SPACING.md, marginTop: 4 },
+    meterRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 },
+    meterLabel: { fontSize: 13, color: COLORS.textSecondary },
+    meterValue: { fontSize: 13, fontWeight: '500', color: COLORS.textPrimary },
+    divider: { height: 1, backgroundColor: 'rgba(255,255,255,0.05)', marginVertical: 12 },
+    
+    totalComputationRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: SPACING.lg, paddingVertical: SPACING.xl, backgroundColor: 'rgba(255,255,255,0.02)' },
+    totalComputationLabel: { fontSize: 15, fontWeight: '600', color: COLORS.textPrimary },
+    totalComputationValue: { fontSize: 24, fontWeight: '300', color: COLORS.textPrimary }
 });
