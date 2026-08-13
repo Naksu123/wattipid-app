@@ -90,5 +90,36 @@ export default StyleSheet.create({
     height: 40,
     backgroundColor: 'rgba(255,255,255,0.1)',
     marginHorizontal: 20,
+  },
+  loadBarContainer: {
+    marginTop: 24,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.05)',
+    paddingTop: 16,
+  },
+  loadBarHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  loadBarLabel: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    fontWeight: FONT_WEIGHT.medium,
+  },
+  loadBarPct: {
+    fontSize: 12,
+    color: COLORS.textPrimary,
+    fontWeight: FONT_WEIGHT.bold,
+  },
+  loadBarTrack: {
+    height: 6,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  loadBarFill: {
+    height: '100%',
+    borderRadius: 3,
   }
 });

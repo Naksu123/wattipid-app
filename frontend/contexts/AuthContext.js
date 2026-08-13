@@ -1,4 +1,5 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
+import { DeviceEventEmitter } from 'react-native';
 import Storage from '../services/storage';
 import apiClient, { setIsLoggingOut } from '../services/apiClient';
 
@@ -11,6 +12,14 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     loadStorageData();
+
+    const logoutListener = DeviceEventEmitter.addListener('forceLogout', () => {
+      logout();
+    });
+
+    return () => {
+      logoutListener.remove();
+    };
   }, []);
 
   async function loadStorageData() {

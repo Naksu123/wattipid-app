@@ -1,9 +1,11 @@
 import { SafeAreaView } from 'react-native-safe-area-context';
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, RefreshControl, ActivityIndicator, StatusBar } from 'react-native';
+import { View, Text, ScrollView, RefreshControl, ActivityIndicator, StatusBar, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { getLiveOverview } from '../../services/database';
 import { getPaymentHistory } from '../../services/paymentService';
+import { useSync } from '../../contexts/SyncContext';
 import { COLORS } from '../../styles/theme';
 import styles from '../../styles/landlord/payments.styles';
 
@@ -19,28 +21,21 @@ export default function PaymentsDashboard() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [historyModalVisible, setHistoryModalVisible] = useState(false);
+  const router = useRouter();
+
+  const { landlordSyncData } = useSync();
 
   // Initial Load
   useEffect(() => {
     loadData();
   }, []);
 
-  // Smart Sync: 5-Second Short Polling for Real-Time Dashboard
+  // Smart Sync: Hook into global real-time stream instead of unoptimized polling
   useEffect(() => {
-    const interval = setInterval(async () => {
-      try {
-        const [overviewResult, historyResult] = await Promise.all([
-          getLiveOverview(),
-          getPaymentHistory()
-        ]);
-        if (overviewResult) setData(overviewResult);
-        if (historyResult) setHistory(historyResult);
-      } catch (err) {
-        // Suppress network errors on background poll
-      }
-    }, 5000);
-    return () => clearInterval(interval);
-  }, []);
+    if (landlordSyncData && landlordSyncData.liveOverview) {
+      setData(landlordSyncData.liveOverview);
+    }
+  }, [landlordSyncData]);
 
   const loadData = async () => {
     try {
@@ -80,16 +75,7 @@ export default function PaymentsDashboard() {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" />
       
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <Text style={styles.title}>Payment Gateway</Text>
-          <Text style={styles.subtitle}>Manage collections and verifications</Text>
-        </View>
-        <View style={styles.headerIcon}>
-          <Ionicons name="wallet-outline" size={28} color={COLORS.primary} />
-        </View>
-      </View>
+
 
       <ScrollView 
         contentContainerStyle={styles.scroll} 
@@ -122,6 +108,14 @@ export default function PaymentsDashboard() {
         onClose={() => setHistoryModalVisible(false)} 
         history={history} 
       />
+
+      <TouchableOpacity 
+        style={styles.floatingSettingsBtn} 
+        onPress={() => router.push('/(landlord)/payment-settings')}
+        activeOpacity={0.8}
+      >
+        <Ionicons name="options" size={24} color="#fff" />
+      </TouchableOpacity>
     </SafeAreaView>
   );
 }

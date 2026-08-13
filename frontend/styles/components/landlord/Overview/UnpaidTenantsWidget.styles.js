@@ -3,15 +3,42 @@ import { COLORS, SPACING, RADIUS, FONT_WEIGHT, SHADOWS } from '../../../theme';
 
 export default StyleSheet.create({
   card: {
-    backgroundColor: COLORS.surface,
-    borderRadius: RADIUS.xl,
-    padding: SPACING.lg,
-    ...SHADOWS.md,
+    padding: 24,
+    marginBottom: 20,
+    borderRadius: 24,
+    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  emptyCard: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+  },
+  emptyIcon: {
+    marginBottom: 16,
+    opacity: 0.8,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: FONT_WEIGHT.bold,
+    color: COLORS.textPrimary,
+    marginBottom: 8,
+  },
+  emptyText: {
+    fontSize: 14,
+    color: COLORS.textMuted,
+    textAlign: 'center',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: SPACING.lg,
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   title: {
     fontSize: 15,
@@ -61,6 +88,23 @@ export default StyleSheet.create({
   },
   amountBox: {
     alignItems: 'flex-end',
+    flexDirection: 'column',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  remindAllBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    gap: 4,
+  },
+  remindText: {
+    fontSize: 12,
+    color: COLORS.textPrimary,
+    fontWeight: FONT_WEIGHT.bold,
   },
   amountText: {
     fontSize: 14,

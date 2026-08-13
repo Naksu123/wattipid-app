@@ -29,8 +29,10 @@ export const SyncProvider = ({ children }) => {
   // Real-time Global States
   const [unreadCount, setUnreadCount] = useState(0);
   const [globalRefreshTick, setGlobalRefreshTick] = useState(0);
+  const [landlordSyncData, setLandlordSyncData] = useState(null);
 
   const syncInterval = useRef(null);
+  const syncTickRef = useRef(0);
 
   // 1. Network Connectivity Monitoring
   // Fallback to assuming online initially.
@@ -55,9 +57,15 @@ export const SyncProvider = ({ children }) => {
 
     try {
       isSyncingRef.current = true;
+      syncTickRef.current += 1;
+
+      // Throttle heavy landlord queries to every 3rd tick (6 seconds) to protect database CPU
+      const requestLandlordData = (syncTickRef.current % 3 === 0);
+
       const res = await apiCall('syncState', {
         roomId: user?.room_id,
-        last_sync_timestamp: lastSyncTimeRef.current
+        last_sync_timestamp: lastSyncTimeRef.current,
+        request_landlord_data: requestLandlordData
       });
 
       // apiCall bridge returns response.data.data, so there is no .success property here
@@ -71,6 +79,11 @@ export const SyncProvider = ({ children }) => {
         // If the server says there's a major update (payment, bill, activity)
         if (res.trigger_full_refresh) {
           setGlobalRefreshTick(prev => prev + 1);
+        }
+
+        // Real-Time Landlord Data streaming
+        if (res.landlord_sync_data) {
+          setLandlordSyncData(res.landlord_sync_data);
         }
       }
       
@@ -116,6 +129,7 @@ export const SyncProvider = ({ children }) => {
       unreadCount, 
       setUnreadCount,
       globalRefreshTick,
+      landlordSyncData,
       forceSync: performSync
     }}>
       {children}

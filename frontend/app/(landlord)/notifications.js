@@ -6,21 +6,30 @@ import { COLORS } from '../../styles/theme';
 import styles from '../../styles/landlord/notifications.styles';
 import apiClient from '../../services/apiClient';
 import { router } from 'expo-router';
+import { useAuth } from '../../contexts/AuthContext';
 import { useNotification } from '../../contexts/NotificationContext';
 
 export default function NotificationCenter() {
+  const { user } = useAuth();
   const { refreshUnreadCount } = useNotification();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    fetchNotifications();
-  }, []);
+    if (user?.id) {
+      fetchNotifications();
+    }
+  }, [user?.id]);
 
   const fetchNotifications = async () => {
     try {
-      const response = await apiClient.post('/api.php', { action: 'getNotifications', limit: 50 });
+      const response = await apiClient.post('/api.php', { 
+        action: 'getNotifications', 
+        limit: 50,
+        userId: user?.id,
+        role: user?.role
+      });
       if (response.data.success) {
         setNotifications(response.data.data);
       }
@@ -39,7 +48,11 @@ export default function NotificationCenter() {
 
   const handleMarkAllRead = async () => {
     try {
-      await apiClient.post('/api.php', { action: 'markAllNotificationsRead' });
+      await apiClient.post('/api.php', { 
+        action: 'markAllNotificationsRead',
+        userId: user?.id,
+        role: user?.role 
+      });
       setNotifications(prev => prev.map(n => ({ ...n, is_read: 1 })));
       refreshUnreadCount();
     } catch (err) {
@@ -49,7 +62,12 @@ export default function NotificationCenter() {
 
   const handleMarkRead = async (id) => {
     try {
-      await apiClient.post('/api.php', { action: 'markNotificationRead', notificationId: id });
+      await apiClient.post('/api.php', { 
+        action: 'markNotificationRead', 
+        notificationId: id,
+        userId: user?.id,
+        role: user?.role
+      });
       setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: 1 } : n));
       refreshUnreadCount();
     } catch (err) {
@@ -72,6 +90,10 @@ export default function NotificationCenter() {
     const { name, color } = renderIcon(notif.category || 'system');
     const dateStr = new Date(notif.created_at).toLocaleString();
 
+    // Strip common emoticons and emojis
+    const cleanTitle = notif.title ? notif.title.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F600}-\u{1F64F}\u{1F900}-\u{1F9FF}\u{2B50}]/gu, '').trim() : '';
+    const cleanMessage = notif.message ? notif.message.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F600}-\u{1F64F}\u{1F900}-\u{1F9FF}\u{2B50}]/gu, '').trim() : '';
+
     return (
       <TouchableOpacity 
         key={notif.id} 
@@ -83,8 +105,8 @@ export default function NotificationCenter() {
           <Ionicons name={name} size={24} color={color} />
         </View>
         <View style={styles.content}>
-          <Text style={[styles.title, isUnread && styles.unreadText]}>{notif.title}</Text>
-          <Text style={styles.message}>{notif.message}</Text>
+          <Text style={[styles.title, isUnread && styles.unreadText]}>{cleanTitle}</Text>
+          <Text style={styles.message}>{cleanMessage}</Text>
           <Text style={styles.date}>{dateStr}</Text>
         </View>
         {isUnread && <View style={styles.unreadDot} />}

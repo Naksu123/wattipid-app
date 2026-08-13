@@ -1,7 +1,8 @@
 import { SafeAreaView } from 'react-native-safe-area-context';
 import React from 'react';
-import { View, Text, StyleSheet, Modal, FlatList, TouchableOpacity, Platform } from 'react-native';
+import { View, Text, StyleSheet, Modal, FlatList, TouchableOpacity, Platform, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { generateAndShareReceipt } from '../../../utils/ReceiptGenerator';
 import { COLORS, SPACING, FONT_WEIGHT } from '@/styles/theme';
 
 export default function PaymentHistoryModal({ visible, onClose, history }) {
@@ -41,6 +42,19 @@ export default function PaymentHistoryModal({ visible, onClose, history }) {
           <Text style={[styles.statusBadge, { color: statusColor, backgroundColor: `${statusColor}10` }]}>
             {item.status.toUpperCase()}
           </Text>
+          {isApproved && (
+            <TouchableOpacity 
+              style={styles.receiptBtn} 
+              onPress={() => {
+                generateAndShareReceipt(item).catch(err => {
+                  Alert.alert('Error', 'Failed to generate receipt. Please try again.');
+                });
+              }}
+            >
+              <Ionicons name="download-outline" size={14} color={COLORS.primary} />
+              <Text style={styles.receiptBtnText}>Receipt</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
     );
@@ -160,5 +174,20 @@ const styles = StyleSheet.create({
     color: COLORS.textMuted,
     marginTop: 12,
     fontSize: 15,
+  },
+  receiptBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    backgroundColor: `${COLORS.primary}15`,
+    borderRadius: 6,
+  },
+  receiptBtnText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: COLORS.primary,
+    marginLeft: 4,
   }
 });

@@ -19,14 +19,14 @@ export default StyleSheet.create({
     letterSpacing: -0.5
   },
   sectionLabel: { 
-    fontSize: FONT_SIZE.xs, 
-    color: COLORS.textMuted, 
-    fontWeight: FONT_WEIGHT.bold, 
+    fontSize: 13, 
+    color: COLORS.textSecondary, 
+    fontWeight: '600', 
     textTransform: 'uppercase', 
-    letterSpacing: 1.5, 
-    marginBottom: SPACING.sm, 
-    marginTop: SPACING.lg, 
-    marginLeft: SPACING.xs 
+    letterSpacing: 1, 
+    marginBottom: SPACING.xs, 
+    marginTop: SPACING.xl, 
+    marginLeft: SPACING.sm 
   },
   profileCard: { 
     alignItems: 'center', 
@@ -113,10 +113,9 @@ export default StyleSheet.create({
     paddingVertical: SPACING.lg
   },
   toggleIcon: { 
-    width: 44, 
-    height: 44, 
-    borderRadius: RADIUS.md, 
-    backgroundColor: 'rgba(16,185,129,0.1)', 
+    width: 36, 
+    height: 36, 
+    borderRadius: 10, 
     alignItems: 'center', 
     justifyContent: 'center' 
   },
@@ -125,9 +124,9 @@ export default StyleSheet.create({
     marginLeft: SPACING.md 
   },
   toggleLabel: { 
-    fontSize: FONT_SIZE.md, 
+    fontSize: 16, 
     color: COLORS.textPrimary, 
-    fontWeight: FONT_WEIGHT.bold 
+    fontWeight: '500' 
   },
   toggleDesc: { 
     fontSize: FONT_SIZE.xs, 
@@ -149,10 +148,9 @@ export default StyleSheet.create({
     borderBottomColor: 'rgba(255,255,255,0.05)' 
   },
   menuIcon: { 
-    width: 44, 
-    height: 44, 
-    borderRadius: RADIUS.md, 
-    backgroundColor: 'rgba(16,185,129,0.1)', 
+    width: 36, 
+    height: 36, 
+    borderRadius: 10, 
     alignItems: 'center', 
     justifyContent: 'center' 
   },
@@ -161,9 +159,9 @@ export default StyleSheet.create({
     marginLeft: SPACING.md 
   },
   menuLabel: { 
-    fontSize: FONT_SIZE.md, 
+    fontSize: 16, 
     color: COLORS.textPrimary, 
-    fontWeight: FONT_WEIGHT.bold 
+    fontWeight: '500' 
   },
   menuValue: { 
     fontSize: FONT_SIZE.xs, 
@@ -368,9 +366,10 @@ export default StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: SPACING.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.05)'
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(255,255,255,0.1)'
   },
   soaLabel: {
     fontSize: FONT_SIZE.sm,

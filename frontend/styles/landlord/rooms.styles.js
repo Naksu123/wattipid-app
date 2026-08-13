@@ -16,22 +16,21 @@ export default StyleSheet.create({
     fontWeight: FONT_WEIGHT.bold, 
     color: COLORS.textPrimary 
   },
-  subtitle: { 
-    fontSize: FONT_SIZE.md, 
-    color: COLORS.textSecondary, 
-    marginBottom: SPACING.lg 
-  },
-  statsRow: { 
-    flexDirection: 'row', 
+  statsContainer: {
+    flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    marginBottom: SPACING.lg 
+    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+    borderRadius: RADIUS.xl, // Softer curves
+    padding: SPACING.md,
+    marginBottom: SPACING.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+    ...SHADOWS.md
   },
-  statCard: { 
-    width: '32%',
-    alignItems: 'center', 
-    padding: SPACING.sm,
-    marginBottom: 8
+  statBox: {
+    width: '33.33%',
+    alignItems: 'center',
+    paddingVertical: SPACING.sm
   },
   statNum: { 
     fontSize: FONT_SIZE.xl, 
@@ -43,23 +42,14 @@ export default StyleSheet.create({
     color: COLORS.textMuted, 
     marginTop: 2 
   },
-  infoCard: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    gap: SPACING.sm, 
-    marginBottom: SPACING.lg, 
-    padding: SPACING.md 
-  },
-  infoText: { 
-    fontSize: FONT_SIZE.sm, 
-    color: COLORS.textSecondary, 
-    flex: 1 
-  },
   roomCard: { 
+    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+    borderRadius: RADIUS.xl,
     marginBottom: SPACING.md, 
     padding: SPACING.lg, 
     borderWidth: 1, 
-    borderColor: COLORS.border 
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+    ...SHADOWS.md
   },
   roomHeader: { 
     flexDirection: 'row', 
@@ -153,19 +143,48 @@ export default StyleSheet.create({
     marginTop: SPACING.xs, 
     gap: SPACING.xs 
   },
-  actionBtn: { 
-    width: '48%', 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    justifyContent: 'center', 
-    gap: 4, 
-    paddingVertical: SPACING.sm, 
-    backgroundColor: COLORS.backgroundLight, 
-    borderRadius: RADIUS.md 
-  },
   actionBtnText: { 
     fontSize: 12, 
     fontWeight: FONT_WEIGHT.semibold 
+  },
+  moreBtn: {
+    padding: 6,
+    borderRadius: RADIUS.round,
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  menuHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border
+  },
+  menuTitle: {
+    fontSize: FONT_SIZE.lg,
+    fontWeight: FONT_WEIGHT.bold,
+    color: COLORS.textPrimary
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border
+  },
+  menuIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12
+  },
+  menuItemText: {
+    fontSize: FONT_SIZE.md,
+    color: COLORS.textPrimary,
+    fontWeight: FONT_WEIGHT.medium
   },
   overlay: { 
     flex: 1, 

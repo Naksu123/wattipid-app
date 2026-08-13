@@ -89,7 +89,6 @@ export default function TenantSettings() {
     if (!val) {
       setBudgetAlerts(false);
       setPowerSpikeAlerts(false);
-      setForecastAlerts(false);
       setDueDateAlerts(false);
       setOverdueAlerts(false);
       setPenaltyAlerts(false);
@@ -100,14 +99,20 @@ export default function TenantSettings() {
     }
   };
 
-  const handleMarkAllRead = async () => {
-    try {
-      const { markAllNotificationsRead } = require('../../services/notificationApi');
-      await markAllNotificationsRead();
-      setMarkReadSuccessVisible(true);
-    } catch (e) {
-      showModal({ type: 'error', title: 'Error', message: 'Could not update notifications.' });
-    }
+  const isUsageEnabled = budgetAlerts || powerSpikeAlerts;
+  const setUsageEnabled = (val) => {
+    setBudgetAlerts(val);
+    setPowerSpikeAlerts(val);
+    saveAlertSettings({ budget_alerts: val, power_spike_alerts: val });
+  };
+
+  const isBillingEnabled = dueDateAlerts || overdueAlerts || penaltyAlerts || paymentAlerts;
+  const setBillingEnabled = (val) => {
+    setDueDateAlerts(val);
+    setOverdueAlerts(val);
+    setPenaltyAlerts(val);
+    setPaymentAlerts(val);
+    saveAlertSettings({ due_date_alerts: val, overdue_alerts: val, penalty_alerts: val, payment_alerts: val });
   };
 
   const confirmClearData = async () => {
@@ -138,14 +143,13 @@ export default function TenantSettings() {
     });
   };
 
-  const ToggleItem = ({ icon, label, desc, value, onToggle, disabled }) => (
+  const ToggleItem = ({ icon, label, value, onToggle, disabled, iconColor = COLORS.primary, iconBg = 'rgba(16,185,129,0.1)' }) => (
     <View style={[s.toggleItem, disabled && { opacity: 0.4 }]}>
-      <View style={s.toggleIcon}>
-        <Ionicons name={icon} size={20} color={COLORS.primary} />
+      <View style={[s.toggleIcon, { backgroundColor: iconBg }]}>
+        <Ionicons name={icon} size={20} color={iconColor} />
       </View>
       <View style={s.toggleContent}>
         <Text style={s.toggleLabel}>{label}</Text>
-        {desc && <Text style={s.toggleDesc}>{desc}</Text>}
       </View>
       <Switch
         value={value}
@@ -157,18 +161,22 @@ export default function TenantSettings() {
     </View>
   );
 
-  const MenuItem = ({ icon, label, value, onPress, danger }) => (
-    <TouchableOpacity style={s.menuItem} onPress={onPress} activeOpacity={0.7}>
-      <View style={[s.menuIcon, danger && { backgroundColor: 'rgba(239,68,68,0.1)' }]}>
-        <Ionicons name={icon} size={20} color={danger ? COLORS.danger : COLORS.primary} />
-      </View>
-      <View style={s.menuContent}>
-        <Text style={[s.menuLabel, danger && { color: COLORS.danger }]}>{label}</Text>
-        {value !== undefined && <Text style={s.menuValue}>{value}</Text>}
-      </View>
-      <Ionicons name="chevron-forward" size={18} color={COLORS.textMuted} />
-    </TouchableOpacity>
-  );
+  const MenuItem = ({ icon, label, value, onPress, danger, iconColor = COLORS.primary, iconBg = 'rgba(16,185,129,0.1)' }) => {
+    const finalIconColor = danger ? COLORS.danger : iconColor;
+    const finalIconBg = danger ? 'rgba(239,68,68,0.1)' : iconBg;
+    return (
+      <TouchableOpacity style={s.menuItem} onPress={onPress} activeOpacity={0.7}>
+        <View style={[s.menuIcon, { backgroundColor: finalIconBg }]}>
+          <Ionicons name={icon} size={20} color={finalIconColor} />
+        </View>
+        <View style={s.menuContent}>
+          <Text style={[s.menuLabel, danger && { color: COLORS.danger }]}>{label}</Text>
+          {value !== undefined && <Text style={s.menuValue}>{value}</Text>}
+        </View>
+        <Ionicons name="chevron-forward" size={18} color={COLORS.textMuted} />
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <View style={s.container}>
@@ -190,22 +198,12 @@ export default function TenantSettings() {
           </View>
         </GlassCard>
 
-        <Text style={s.sectionLabel}>Account Details</Text>
+        <Text style={s.sectionLabel}>Lease Information</Text>
         <GlassCard style={s.accountCard}>
           <View style={s.accountRow}>
             <Text style={s.soaLabel}>Move-In Date</Text>
             <Text style={s.soaValue}>
               {monthUsage?.tenant_start_date ? new Date(monthUsage.tenant_start_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : '--'}
-            </Text>
-          </View>
-          <View style={s.accountRow}>
-            <Text style={s.soaLabel}>Rate (per kWh)</Text>
-            <Text style={s.soaValue}>₱{Number(rate || 0).toFixed(2)}</Text>
-          </View>
-          <View style={s.accountRow}>
-            <Text style={s.soaLabel}>Next Billing Cycle</Text>
-            <Text style={s.soaValue}>
-              {monthUsage?.next_reset ? new Date(monthUsage.next_reset).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '--'}
             </Text>
           </View>
           <View style={[s.accountRow, { borderBottomWidth: 0 }]}>
@@ -218,23 +216,12 @@ export default function TenantSettings() {
 
         <Text style={s.sectionLabel}>Notifications</Text>
         <GlassCard style={s.sectionCard}>
-          <MenuItem icon="notifications" label="Notification History" onPress={() => router.push('/(tenant)/notifications')} />
+          <ToggleItem icon="notifications-outline" label="Push Notifications" value={notifEnabled} onToggle={toggleNotif} iconColor="#10B981" iconBg="rgba(16, 185, 129, 0.15)" />
           <View style={s.divider} />
-          <MenuItem icon="checkmark-done-outline" label="Mark All as Read" onPress={handleMarkAllRead} />
+          <ToggleItem icon="flash-outline" label="Usage Alerts" value={isUsageEnabled} onToggle={setUsageEnabled} disabled={!notifEnabled} iconColor="#F59E0B" iconBg="rgba(245, 158, 11, 0.15)" />
           <View style={s.divider} />
-          <ToggleItem icon="notifications-outline" label="Push Notifications" desc="Enable or disable all alerts" value={notifEnabled} onToggle={toggleNotif} />
-          <View style={s.divider} />
-          <ToggleItem icon="wallet-outline" label="Budget Alerts" desc="Warn when approaching budget limit" value={budgetAlerts} onToggle={val => {setBudgetAlerts(val); saveAlertSettings({ budget_alerts: val });}} disabled={!notifEnabled} />
-          <View style={s.divider} />
-          <ToggleItem icon="flash-outline" label="Power Spike Alerts" desc="Alert when power usage spikes" value={powerSpikeAlerts} onToggle={val => {setPowerSpikeAlerts(val); saveAlertSettings({ power_spike_alerts: val });}} disabled={!notifEnabled} />
-          <View style={s.divider} />
-          <ToggleItem icon="calendar-outline" label="Due Date Reminders" desc="Remind before bill due dates" value={dueDateAlerts} onToggle={val => {setDueDateAlerts(val); saveAlertSettings({ due_date_alerts: val });}} disabled={!notifEnabled} />
-          <View style={s.divider} />
-          <ToggleItem icon="time-outline" label="Overdue Alerts" desc="Alert when payments are late" value={overdueAlerts} onToggle={val => {setOverdueAlerts(val); saveAlertSettings({ overdue_alerts: val });}} disabled={!notifEnabled} />
-          <View style={s.divider} />
-          <ToggleItem icon="alert-circle-outline" label="Penalty Alerts" desc="Notify when penalties are applied" value={penaltyAlerts} onToggle={val => {setPenaltyAlerts(val); saveAlertSettings({ penalty_alerts: val });}} disabled={!notifEnabled} />
-          <View style={s.divider} />
-          <ToggleItem icon="card-outline" label="Payment Alerts" desc="Payment status updates" value={paymentAlerts} onToggle={val => {setPaymentAlerts(val); saveAlertSettings({ payment_alerts: val });}} disabled={!notifEnabled} />
+          <ToggleItem icon="card-outline" label="Billing Reminders" value={isBillingEnabled} onToggle={setBillingEnabled} disabled={!notifEnabled} iconColor="#3B82F6" iconBg="rgba(59, 130, 246, 0.15)" />
+
 
         </GlassCard>
 
@@ -246,9 +233,9 @@ export default function TenantSettings() {
 
         <Text style={s.sectionLabel}>Support</Text>
         <GlassCard style={s.menuCard}>
-          <MenuItem icon="help-circle-outline" label="Help & Support" onPress={() => setHelpVisible(true)} />
-          <MenuItem icon="document-text-outline" label="Terms and Conditions" onPress={() => router.push('/terms')} />
-          <MenuItem icon="information-circle-outline" label="About Wattipid" value="v2.0.0" onPress={() => setAboutVisible(true)} />
+          <MenuItem icon="help-circle-outline" label="Help & Support" onPress={() => setHelpVisible(true)} iconColor="#8B5CF6" iconBg="rgba(139, 92, 246, 0.15)" />
+          <MenuItem icon="document-text-outline" label="Terms and Conditions" onPress={() => router.push('/terms')} iconColor="#A1A1AA" iconBg="rgba(255, 255, 255, 0.05)" />
+          <MenuItem icon="information-circle-outline" label="About Wattipid" value="v2.0.0" onPress={() => setAboutVisible(true)} iconColor="#A1A1AA" iconBg="rgba(255, 255, 255, 0.05)" />
         </GlassCard>
 
         <GlassCard style={s.menuCard}>

@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, Animated } from 'react-native';
 import GlassCard from '../../ui/GlassCard';
 import { COLORS } from '@/styles/theme';
 import styles from '../../../styles/components/landlord/Overview/PaymentStatusWidget.styles';
@@ -14,6 +14,23 @@ export default function PaymentStatusWidget({ summary }) {
   const verifiedPct = total > 0 ? (verified / total) * 100 : 0;
   const pendingPct = total > 0 ? (pending / total) * 100 : 0;
 
+  const verifiedAnim = useRef(new Animated.Value(0)).current;
+  const pendingAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(verifiedAnim, {
+      toValue: verifiedPct,
+      duration: 1000,
+      useNativeDriver: false,
+    }).start();
+    
+    Animated.timing(pendingAnim, {
+      toValue: pendingPct,
+      duration: 1000,
+      useNativeDriver: false,
+    }).start();
+  }, [verifiedPct, pendingPct]);
+
   return (
     <GlassCard style={styles.card}>
       <Text style={styles.title}>Billing Collection Status</Text>
@@ -24,8 +41,18 @@ export default function PaymentStatusWidget({ summary }) {
         <View style={styles.container}>
           {/* Multi-color Progress Bar */}
           <View style={styles.barContainer}>
-            <View style={[styles.barSegment, { width: `${verifiedPct}%`, backgroundColor: COLORS.success, borderTopLeftRadius: 6, borderBottomLeftRadius: 6 }]} />
-            <View style={[styles.barSegment, { width: `${pendingPct}%`, backgroundColor: COLORS.warning, borderTopRightRadius: 6, borderBottomRightRadius: 6 }]} />
+            <Animated.View style={[styles.barSegment, { 
+                width: verifiedAnim.interpolate({ inputRange: [0, 100], outputRange: ['0%', '100%'] }), 
+                backgroundColor: COLORS.success, 
+                borderTopLeftRadius: 6, 
+                borderBottomLeftRadius: 6 
+            }]} />
+            <Animated.View style={[styles.barSegment, { 
+                width: pendingAnim.interpolate({ inputRange: [0, 100], outputRange: ['0%', '100%'] }), 
+                backgroundColor: COLORS.warning, 
+                borderTopRightRadius: 6, 
+                borderBottomRightRadius: 6 
+            }]} />
           </View>
 
           {/* Legend */}

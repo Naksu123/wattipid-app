@@ -3,10 +3,12 @@ import { COLORS, SPACING, RADIUS, FONT_WEIGHT, SHADOWS } from '../../../theme';
 
 export default StyleSheet.create({
   card: {
-    backgroundColor: COLORS.surface,
-    borderRadius: RADIUS.xl,
-    padding: SPACING.lg,
-    ...SHADOWS.md,
+    padding: 24,
+    marginBottom: 20,
+    borderRadius: 24,
+    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
   },
   header: {
     flexDirection: 'row',
@@ -71,7 +73,7 @@ export default StyleSheet.create({
   },
   divider: {
     height: 1,
-    backgroundColor: COLORS.border,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
   },
   emptyState: {
     alignItems: 'center',

@@ -43,6 +43,20 @@ export const triggerPenaltyCalculation = async () => {
         return response.data;
     } catch (error) {
         console.error('triggerPenaltyCalculation error:', error);
-        throw error;
+        throw error.response?.data?.message || error.message || error;
+    }
+};
+
+export const waivePenalty = async (billingCycleId) => {
+    try {
+        const response = await apiClient.post('/api.php', { 
+            action: 'waivePenalty',
+            billing_cycle_id: billingCycleId
+        });
+        if (!response.data.success) throw new Error(response.data.message);
+        return response.data;
+    } catch (error) {
+        console.error('waivePenalty error:', error);
+        throw error.response?.data?.message || error.message || error;
     }
 };

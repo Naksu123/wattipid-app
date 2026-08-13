@@ -1,33 +1,29 @@
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, FONT_SIZE } from '@/styles/theme';
+import { COLORS } from '@/styles/theme';
+import LandlordTabBar from '@/components/ui/LandlordTabBar';
 
 export default function LandlordLayout() {
   return (
-    <Tabs screenOptions={{
-      headerShown: false,
-      tabBarStyle: {
-        backgroundColor: COLORS.surface, borderTopColor: COLORS.border, borderTopWidth: 1,
-        height: 65, paddingBottom: 8, paddingTop: 6,
-      },
-      tabBarActiveTintColor: COLORS.primary,
-      tabBarInactiveTintColor: COLORS.textMuted,
-      tabBarLabelStyle: { fontSize: FONT_SIZE.xs, fontWeight: '600' },
-    }}>
-      <Tabs.Screen name="overview" options={{ title: 'Overview',
-        tabBarIcon: ({ color, size }) => <Ionicons name="grid" size={size} color={color} /> }} />
-      <Tabs.Screen name="rooms" options={{ title: 'Rooms',
-        tabBarIcon: ({ color, size }) => <Ionicons name="home" size={size} color={color} /> }} />
-      <Tabs.Screen name="payments" options={{ title: 'Payments',
-        tabBarIcon: ({ color, size }) => <Ionicons name="wallet" size={size} color={color} /> }} />
-      <Tabs.Screen name="penalties" options={{ title: 'Penalties',
-        tabBarIcon: ({ color, size }) => <Ionicons name="warning" size={size} color={color} /> }} />
-      <Tabs.Screen name="settings" options={{ title: 'Settings',
-        tabBarIcon: ({ color, size }) => <Ionicons name="settings-outline" size={size} color={color} /> }} />
-      <Tabs.Screen name="manage-tips" options={{ href: null }} />
-      <Tabs.Screen name="audit" options={{ href: null }} />
-      <Tabs.Screen name="notifications" options={{ href: null }} />
-      <Tabs.Screen name="manual" options={{ href: null }} />
+    <Tabs 
+      tabBar={(props) => <LandlordTabBar {...props} />}
+      screenOptions={{
+        headerShown: false,
+        sceneContainerStyle: { backgroundColor: COLORS.background },
+      }}
+    >
+      <Tabs.Screen name="overview" options={{ title: 'Overview' }} />
+      <Tabs.Screen name="rooms" options={{ title: 'Rooms' }} />
+      <Tabs.Screen name="payments" options={{ title: 'Payments' }} />
+      <Tabs.Screen name="penalties" options={{ title: 'Penalties' }} />
+      <Tabs.Screen name="settings" options={{ title: 'Settings' }} />
+      
+      {/* Hidden Screens */}
+      <Tabs.Screen name="manage-tips" options={{ href: null, tabBarStyle: { display: 'none' } }} />
+      <Tabs.Screen name="audit" options={{ href: null, tabBarStyle: { display: 'none' } }} />
+      <Tabs.Screen name="notifications" options={{ href: null, tabBarStyle: { display: 'none' } }} />
+      <Tabs.Screen name="manual" options={{ href: null, tabBarStyle: { display: 'none' } }} />
+      <Tabs.Screen name="payment-settings" options={{ href: null, tabBarStyle: { display: 'none' } }} />
     </Tabs>
   );
 }

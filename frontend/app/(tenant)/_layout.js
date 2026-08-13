@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { COLORS, FONT_SIZE } from '@/styles/theme';
 import { useSync } from '@/contexts/SyncContext';
 import { ConsumptionProvider } from '@/contexts/ConsumptionContext';
+import TenantTabBar from '@/components/ui/TenantTabBar';
 
 export default function TenantLayout() {
   const { isAuthenticated } = useAuth();
@@ -16,54 +17,19 @@ export default function TenantLayout() {
   return (
     <View style={{ flex: 1, backgroundColor: COLORS.background }}>
       <ConsumptionProvider>
-      <Tabs screenOptions={{
-        headerShown: false,
-        sceneContainerStyle: { backgroundColor: COLORS.background },
-        tabBarBackground: () => (
-          <View 
-            style={[
-              StyleSheet.absoluteFill, 
-              { 
-                backgroundColor: 'rgba(15, 23, 42, 0.94)', 
-                borderRadius: 32,
-                overflow: 'hidden' 
-              }
-            ]} 
-          />
-        ),
-        tabBarStyle: {
-          position: 'absolute',
-          bottom: Platform.OS === 'ios' ? 20 : 15,
-          left: 15,
-          right: 15,
-          height: 65, 
-          paddingBottom: 0, 
-          paddingTop: 0,
-          borderRadius: 32,
-          borderWidth: 1,
-          borderColor: 'rgba(255,255,255,0.12)',
-          elevation: 5, // Add shadow for Android
-          backgroundColor: 'transparent',
-        },
-        tabBarItemStyle: {
-          paddingVertical: 10,
-        },
-        tabBarActiveTintColor: COLORS.primary,
-        tabBarInactiveTintColor: COLORS.textMuted,
-        tabBarLabelStyle: { fontSize: FONT_SIZE.xs, fontWeight: '600', marginTop: 4 },
-      }}>
-        <Tabs.Screen name="dashboard" options={{ title: 'Dashboard',
-          tabBarIcon: ({ color, size }) => <Ionicons name="speedometer" size={size} color={color} /> }} />
-        <Tabs.Screen name="analytics" options={{ title: 'Analytics',
-          tabBarIcon: ({ color, size }) => <Ionicons name="bar-chart" size={size} color={color} /> }} />
-        <Tabs.Screen name="tips" options={{ title: 'Tips',
-          tabBarIcon: ({ color, size }) => <Ionicons name="bulb-outline" size={size} color={color} /> }} />
-        <Tabs.Screen name="budget" options={{ title: 'Budget',
-          tabBarIcon: ({ color, size }) => <Ionicons name="wallet-outline" size={size} color={color} /> }} />
-        <Tabs.Screen name="billing/index" options={{ title: 'Payment',
-          tabBarIcon: ({ color, size }) => <Ionicons name="card-outline" size={size} color={color} /> }} />
-        <Tabs.Screen name="settings" options={{ title: 'Settings',
-          tabBarIcon: ({ color, size }) => <Ionicons name="settings-outline" size={size} color={color} /> }} />
+      <Tabs 
+        tabBar={(props) => <TenantTabBar {...props} />}
+        screenOptions={{
+          headerShown: false,
+          sceneContainerStyle: { backgroundColor: COLORS.background },
+        }}
+      >
+        <Tabs.Screen name="dashboard" options={{ title: 'Dashboard' }} />
+        <Tabs.Screen name="analytics" options={{ title: 'Analytics' }} />
+        <Tabs.Screen name="tips" options={{ title: 'Tips' }} />
+        <Tabs.Screen name="budget" options={{ title: 'Budget' }} />
+        <Tabs.Screen name="billing/index" options={{ title: 'Payment' }} />
+        <Tabs.Screen name="settings" options={{ title: 'Settings' }} />
         
         <Tabs.Screen name="notifications" options={{ href: null, tabBarStyle: { display: 'none' } }} />
         <Tabs.Screen name="edit-profile" options={{ href: null, tabBarStyle: { display: 'none' } }} />

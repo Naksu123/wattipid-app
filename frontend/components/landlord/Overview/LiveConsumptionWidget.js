@@ -18,6 +18,14 @@ export default function LiveConsumptionWidget({ todayEnergyKwh, livePeakPowerW }
     ).start();
   }, []);
 
+  const MAX_CAPACITY_W = 10000; // 10kW theoretical max
+  const currentLoad = livePeakPowerW || 0;
+  const loadPct = Math.min((currentLoad / MAX_CAPACITY_W) * 100, 100);
+  
+  let barColor = COLORS.primary;
+  if (loadPct > 80) barColor = COLORS.danger;
+  else if (loadPct > 50) barColor = COLORS.warning;
+
   return (
     <GlassCard gradient style={styles.card}>
       <View style={styles.header}>
@@ -34,13 +42,23 @@ export default function LiveConsumptionWidget({ todayEnergyKwh, livePeakPowerW }
 
       <View style={styles.dataRow}>
         <View style={styles.dataBlock}>
-          <Text style={styles.label}>Today&apos;s Usage</Text>
+          <Text style={styles.label}>Today's Usage</Text>
           <Text style={styles.value}>{todayEnergyKwh?.toFixed(2) || '0.00'} <Text style={styles.unit}>kWh</Text></Text>
         </View>
         <View style={styles.divider} />
         <View style={styles.dataBlock}>
           <Text style={styles.label}>5-Min Peak Load</Text>
           <Text style={styles.value}>{livePeakPowerW?.toFixed(1) || '0.0'} <Text style={styles.unit}>W</Text></Text>
+        </View>
+      </View>
+
+      <View style={styles.loadBarContainer}>
+        <View style={styles.loadBarHeader}>
+          <Text style={styles.loadBarLabel}>System Load Capacity</Text>
+          <Text style={styles.loadBarPct}>{loadPct.toFixed(1)}%</Text>
+        </View>
+        <View style={styles.loadBarTrack}>
+          <View style={[styles.loadBarFill, { width: `${loadPct}%`, backgroundColor: barColor }]} />
         </View>
       </View>
     </GlassCard>

@@ -14,7 +14,7 @@ export const ConsumptionProvider = ({ children }) => {
   const [data, setData] = useState({ voltage: 0, current: 0, power: 0, energy: 0, powerFactor: 0 });
   const [deviceOnline, setDeviceOnline] = useState(false);
   const [lastSeen, setLastSeen] = useState(null);
-  const [rate] = useState(12.5); // Hardcoded rate matching dashboard logic for simplicity
+  const [rate, setRate] = useState(12.5); // Will be updated by fetchStaticConsumption
 
   const [todayUsage, setTodayUsage] = useState({ totalEnergy: 0, totalCost: 0 });
   const [weekUsage, setWeekUsage] = useState({ totalEnergy: 0, totalCost: 0 });
@@ -40,6 +40,15 @@ export const ConsumptionProvider = ({ children }) => {
         setTodayUsage(result.data.today);
         setWeekUsage(result.data.week);
         setComparison(result.data.week.comparison);
+
+        // Try to get the actual rate from backend or user data (room's specific utility_rate)
+        if (result.data.roomRate) {
+           setRate(parseFloat(result.data.roomRate));
+        } else if (user?.utility_rate && parseFloat(user.utility_rate) > 0) {
+           setRate(parseFloat(user.utility_rate));
+        } else if (result.data.globalRate) {
+           setRate(parseFloat(result.data.globalRate));
+        }
 
         // TRUE REAL-TIME: Reset baseline on fresh static load to prevent race conditions
         lastCumulativeEnergyRef.current = null;

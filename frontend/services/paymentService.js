@@ -77,3 +77,21 @@ export const getPaymentWidgets = async () => {
         throw error.response?.data?.message || error.message || error;
     }
 };
+
+export const sendManualReminder = async (roomId, tenantId, totalDue, daysOverdue) => {
+    try {
+        const response = await apiClient.post('/api.php', {
+            action: 'send_manual_reminder',
+            room_id: roomId,
+            tenant_id: tenantId,
+            total_due: totalDue,
+            days_overdue: daysOverdue
+        });
+        if (!response.data.success) throw new Error(response.data.message);
+        return response.data;
+    } catch (error) {
+        // Return a clean error string based on the backend response
+        const errMessage = error.response?.data?.message || 'Something went wrong while sending the reminder. Please try again.';
+        throw new Error(errMessage);
+    }
+};

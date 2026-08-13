@@ -109,7 +109,10 @@ apiClient.interceptors.response.use(
           await Storage.deleteItem('user_token');
           await Storage.deleteItem('refresh_token');
           await Storage.deleteItem('user_data');
-          if (!isLoggingOut) DeviceEventEmitter.emit('showToast', { message: 'Session Expired. Please log in again.', type: 'error' });
+          if (!isLoggingOut) {
+            DeviceEventEmitter.emit('forceLogout');
+            DeviceEventEmitter.emit('showToast', { message: 'Session Expired. Please log in again.', type: 'error' });
+          }
           return Promise.resolve({ data: { success: false, message: 'Session expired' } });
         }
 
@@ -125,15 +128,20 @@ apiClient.interceptors.response.use(
         await Storage.deleteItem('user_token');
         await Storage.deleteItem('refresh_token');
         await Storage.deleteItem('user_data');
-        if (!isLoggingOut) DeviceEventEmitter.emit('showToast', { message: 'Session Expired. Please log in again.', type: 'error' });
+        if (!isLoggingOut) {
+          DeviceEventEmitter.emit('forceLogout');
+          DeviceEventEmitter.emit('showToast', { message: 'Session Expired. Please log in again.', type: 'error' });
+        }
         return Promise.resolve({ data: { success: false, message: 'Session expired' } });
       }
     }
 
     // Show friendly toast message
     const isSyncRoute = originalRequest?.url?.includes('action=syncTenantData') || originalRequest?.url?.includes('action=syncLandlordData') || originalRequest?.url?.includes('action=syncState') || originalRequest?.data?.action === 'syncState' || originalRequest?.data?.includes?.('syncState');
-    if (!isLoggingOut && !isAuthRoute && !isSyncRoute) {
-        DeviceEventEmitter.emit('showToast', { message: error.message, type: 'error', duration: 4000 });
+    const isReminderRoute = originalRequest?.data?.action === 'send_manual_reminder';
+    if (!isLoggingOut && !isAuthRoute && !isSyncRoute && !isReminderRoute) {
+        const userMessage = error.response?.data?.message || 'Unable to process your request at this time. Server is currently unavailable.';
+        DeviceEventEmitter.emit('showToast', { message: userMessage, type: 'error', duration: 4000 });
     }
 
     return Promise.reject(error);

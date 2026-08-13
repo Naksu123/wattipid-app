@@ -10,6 +10,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import GlassCard from '../../components/ui/GlassCard';
+import DynamicQRCode from '../../components/tenant/Billing/DynamicQRCode';
 import { COLORS, SPACING } from '../../styles/theme';
 import styles from '../../styles/tenant/payment.styles';
 
@@ -321,11 +322,13 @@ export default function TenantPaymentScreen() {
                                         <Text style={styles.accountLabel}>GCash Number</Text>
                                         <Text style={styles.accountValue}>{landlordInfo.gcash_number}</Text>
                                         
-                                        {landlordInfo.gcash_qr && (
+                                        {landlordInfo.gcash_qr ? (
                                             <View style={styles.qrContainer}>
-                                                <Text style={styles.accountLabel}>Scan QR Code</Text>
+                                                <Text style={styles.accountLabel}>Scan Landlord QR Code</Text>
                                                 <Image source={{uri: landlordInfo.gcash_qr}} style={styles.qrImage} resizeMode="contain" />
                                             </View>
+                                        ) : (
+                                            <DynamicQRCode invoiceNumber={billingCycle.invoice_number || billingCycle.id} amount={totalDue} method="GCash" />
                                         )}
                                     </View>
                                 )}
@@ -338,11 +341,13 @@ export default function TenantPaymentScreen() {
                                         <Text style={styles.accountLabel}>Maya Number</Text>
                                         <Text style={styles.accountValue}>{landlordInfo.maya_number}</Text>
                                         
-                                        {landlordInfo.maya_qr && (
+                                        {landlordInfo.maya_qr ? (
                                             <View style={styles.qrContainer}>
-                                                <Text style={styles.accountLabel}>Scan QR Code</Text>
+                                                <Text style={styles.accountLabel}>Scan Landlord QR Code</Text>
                                                 <Image source={{uri: landlordInfo.maya_qr}} style={styles.qrImage} resizeMode="contain" />
                                             </View>
+                                        ) : (
+                                            <DynamicQRCode invoiceNumber={billingCycle.invoice_number || billingCycle.id} amount={totalDue} method="Maya" />
                                         )}
                                     </View>
                                 )}

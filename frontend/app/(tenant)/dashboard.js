@@ -405,7 +405,7 @@ export default function DashboardScreen() {
         <GlassCard style={ms.financialCard}>
           <View style={ms.financialRow}>
             <View style={ms.financialBlock}>
-              <Text style={ms.financialLabel}>Live Bill</Text>
+              <Text style={ms.financialLabel}>Total Amount Due</Text>
               <View style={ms.financialValueRow}>
                 <Text style={ms.financialPrefix}>₱</Text>
                 <AnimatedNumber value={offline ? 0 : Number(activeMonthCost || 0)} style={ms.financialValue} />
@@ -420,6 +420,53 @@ export default function DashboardScreen() {
               </View>
             </View>
           </View>
+          
+          {/* Breakdown Section */}
+          {(!offline && (monthUsage.monthlyRent > 0 || monthUsage.additionalCharges > 0 || monthUsage.penalty > 0 || monthUsage.previousBalance > 0)) && (
+            <View style={{ marginTop: 15, paddingTop: 15, borderTopWidth: 1, borderTopColor: COLORS.border, gap: 8 }}>
+              <Text style={{ fontFamily: 'Inter-SemiBold', fontSize: 13, color: COLORS.textMuted, marginBottom: 5 }}>TOTAL BREAKDOWN</Text>
+              
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                <Text style={{ fontFamily: 'Inter-Medium', fontSize: 14, color: COLORS.textSecondary }}>Electricity ({Number(monthUsage.totalEnergy || 0).toFixed(2)} kWh)</Text>
+                <Text style={{ fontFamily: 'Inter-SemiBold', fontSize: 14, color: COLORS.text }}>₱{Number(monthUsage.electricityCharge || 0).toFixed(2)}</Text>
+              </View>
+              
+              {monthUsage.monthlyRent > 0 && (
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                  <Text style={{ fontFamily: 'Inter-Medium', fontSize: 14, color: COLORS.textSecondary }}>Monthly Rent</Text>
+                  <Text style={{ fontFamily: 'Inter-SemiBold', fontSize: 14, color: COLORS.text }}>₱{Number(monthUsage.monthlyRent || 0).toFixed(2)}</Text>
+                </View>
+              )}
+              
+              {monthUsage.previousBalance > 0 && (
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                  <Text style={{ fontFamily: 'Inter-Medium', fontSize: 14, color: COLORS.textSecondary }}>Previous Balance</Text>
+                  <Text style={{ fontFamily: 'Inter-SemiBold', fontSize: 14, color: COLORS.text }}>₱{Number(monthUsage.previousBalance || 0).toFixed(2)}</Text>
+                </View>
+              )}
+              
+              {monthUsage.additionalCharges > 0 && (
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                  <Text style={{ fontFamily: 'Inter-Medium', fontSize: 14, color: COLORS.textSecondary }}>Additional Charges</Text>
+                  <Text style={{ fontFamily: 'Inter-SemiBold', fontSize: 14, color: COLORS.text }}>₱{Number(monthUsage.additionalCharges || 0).toFixed(2)}</Text>
+                </View>
+              )}
+
+              {monthUsage.penalty > 0 && (
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                  <Text style={{ fontFamily: 'Inter-Medium', fontSize: 14, color: COLORS.textSecondary }}>Penalty</Text>
+                  <Text style={{ fontFamily: 'Inter-SemiBold', fontSize: 14, color: COLORS.danger }}>₱{Number(monthUsage.penalty || 0).toFixed(2)}</Text>
+                </View>
+              )}
+              
+              {monthUsage.discounts > 0 && (
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                  <Text style={{ fontFamily: 'Inter-Medium', fontSize: 14, color: COLORS.textSecondary }}>Discounts</Text>
+                  <Text style={{ fontFamily: 'Inter-SemiBold', fontSize: 14, color: COLORS.success }}>-₱{Number(monthUsage.discounts || 0).toFixed(2)}</Text>
+                </View>
+              )}
+            </View>
+          )}
           
           {budget && (
             <View>

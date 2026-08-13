@@ -3,9 +3,12 @@ import { COLORS, RADIUS, FONT_WEIGHT, SPACING } from '../../../theme';
 
 export default StyleSheet.create({
   card: {
-    padding: SPACING.lg,
-    marginBottom: SPACING.xl,
-    borderRadius: RADIUS.xl,
+    padding: 24,
+    marginBottom: 20,
+    borderRadius: 24,
+    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
   },
   title: {
     fontSize: 15,

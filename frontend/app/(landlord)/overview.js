@@ -1,55 +1,39 @@
 import { SafeAreaView } from 'react-native-safe-area-context';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, ScrollView, RefreshControl, ActivityIndicator, StatusBar, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
+import { useSync } from '../../contexts/SyncContext';
 import { getLiveOverview } from '../../services/database';
 import apiClient from '../../services/apiClient';
 import { COLORS } from '../../styles/theme';
 import styles from '../../styles/landlord/overview.styles';
 
-import StatCard from '../../components/landlord/Overview/StatCard';
+import SystemAnalyticsWidget from '../../components/landlord/Overview/SystemAnalyticsWidget';
 import LiveConsumptionWidget from '../../components/landlord/Overview/LiveConsumptionWidget';
-import ActivityTimelineWidget from '../../components/landlord/Overview/ActivityTimelineWidget';
+import PendingPaymentsWidget from '../../components/landlord/Overview/PendingPaymentsWidget';
 
 export default function OverviewScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const { landlordSyncData, unreadCount, setUnreadCount } = useSync();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(0);
 
   // Initial Load
   useEffect(() => {
     loadLiveOverview();
   }, [loadLiveOverview]);
 
-  // Smart Sync: 5-Second Short Polling for Real-Time Dashboard
+  // Smart Sync: Hook into global real-time stream
   useEffect(() => {
-    const interval = setInterval(async () => {
-      try {
-        const result = await getLiveOverview();
-        if (result) {
-          setData(result);
-        }
-        
-        // Also fetch unread count
-        const unreadRes = await apiClient.post('/api.php', { 
-          action: 'getUnreadNotificationCount',
-          userId: user?.id,
-          role: user?.role
-        });
-        if (unreadRes.data.success) {
-          setUnreadCount(unreadRes.data.data);
-        }
-      } catch (err) {
-        // Suppress network errors on background poll
-      }
-    }, 5000);
-    return () => clearInterval(interval);
-  }, [user?.id, user?.role]);
+    if (landlordSyncData && landlordSyncData.liveOverview) {
+      // Data arrives effortlessly via backend sync stream
+      setData(landlordSyncData.liveOverview);
+    }
+  }, [landlordSyncData]);
 
   const loadLiveOverview = useCallback(async () => {
     try {
@@ -94,7 +78,15 @@ export default function OverviewScreen() {
 
   const statistics = data?.statistics || {};
   const liveElectricity = data?.liveElectricity || { todayEnergyKwh: 0, livePeakPowerW: 0 };
-  const recentActivities = data?.recentActivities || [];
+
+  const quickActions = [
+    { icon: 'bed-outline', label: 'Rooms', route: '/(landlord)/rooms' },
+    { icon: 'wallet-outline', label: 'Payments', route: '/(landlord)/payments' },
+    { icon: 'warning-outline', label: 'Penalties', route: '/(landlord)/penalties' },
+    { icon: 'settings-outline', label: 'Settings', route: '/(landlord)/settings' },
+  ];
+
+  const unpaidBills = data?.unpaidBills || [];
 
   return (
     <SafeAreaView style={styles.container}>
@@ -111,14 +103,9 @@ export default function OverviewScreen() {
             <Ionicons name="notifications-outline" size={26} color={COLORS.textPrimary} />
             {unreadCount > 0 && (
               <View style={styles.badge}>
-                <Text style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+                <Text style={styles.badgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
               </View>
             )}
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.profileBtn} onPress={() => router.push('/(landlord)/settings')}>
-            <View style={styles.profileIconWrapper}>
-              <Ionicons name="person-circle-outline" size={32} color={COLORS.primary} />
-            </View>
           </TouchableOpacity>
         </View>
       </View>
@@ -128,6 +115,18 @@ export default function OverviewScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={COLORS.primary} />}
       >
+        {/* Quick Actions */}
+        <View style={styles.quickActionsContainer}>
+          {quickActions.map((action, idx) => (
+            <TouchableOpacity key={idx} style={styles.quickActionBtn} onPress={() => router.push(action.route)}>
+              <View style={styles.quickActionIconWrap}>
+                <Ionicons name={action.icon} size={24} color={COLORS.primary} />
+              </View>
+              <Text style={styles.quickActionLabel}>{action.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
         {/* Live Consumption Monitor */}
         <LiveConsumptionWidget 
           todayEnergyKwh={liveElectricity.todayEnergyKwh} 
@@ -135,20 +134,10 @@ export default function OverviewScreen() {
         />
 
         {/* System Analytics Section */}
-        <Text style={styles.sectionTitle}>System Analytics</Text>
-        <View style={styles.gridRow}>
-          <StatCard title="Total Tenants" value={statistics.totalTenants || 0} icon="person-outline" color="#8b5cf6" />
-          <StatCard title="Total Collection" value={statistics.monthlyRevenue?.toFixed(2) || '0.00'} prefix="₱ " icon="checkmark-circle-outline" color="#22c55e" />
-        </View>
-        <View style={styles.gridRow}>
-          <StatCard title="Outstanding Balance" value={statistics.outstandingRevenue?.toFixed(2) || '0.00'} prefix="₱ " icon="time-outline" color="#f97316" />
-          <StatCard title="Total Revenue" value={statistics.totalBilled?.toFixed(2) || '0.00'} prefix="₱ " icon="cash-outline" color={COLORS.primary} />
-        </View>
+        <SystemAnalyticsWidget statistics={statistics} />
 
-        <View style={{ height: 24 }} />
-
-        {/* Live Activity Feed */}
-        <ActivityTimelineWidget activities={recentActivities} />
+        {/* Pending Payments Widget */}
+        <PendingPaymentsWidget payments={unpaidBills} />
 
         <View style={{ height: 40 }} />
       </ScrollView>

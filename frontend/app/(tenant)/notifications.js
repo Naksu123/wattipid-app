@@ -1,6 +1,6 @@
 import { SafeAreaView } from 'react-native-safe-area-context';
 import React, { useState, useCallback } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator, TextInput, Platform, FlatList } from 'react-native';
+import { View, Text, TouchableOpacity, RefreshControl, ActivityIndicator, Platform, FlatList, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect , router } from 'expo-router';
 import { COLORS, FONT_WEIGHT } from '../../styles/theme';
@@ -8,14 +8,9 @@ import styles from '../../styles/tenant/notifications.styles';
 import apiClient from '../../services/apiClient';
 import { useNotification } from '../../contexts/NotificationContext';
 
-const CATEGORIES = [
-  { key: 'all', label: 'All', icon: 'notifications-outline' },
-  { key: 'budget', label: 'Budget', icon: 'wallet-outline' },
-  { key: 'billing', label: 'Billing', icon: 'document-text-outline' },
-  { key: 'payment', label: 'Payment', icon: 'card-outline' },
-  { key: 'penalty', label: 'Penalty', icon: 'warning-outline' },
-  { key: 'consumption', label: 'Usage', icon: 'flash-outline' },
-  { key: 'system', label: 'System', icon: 'settings-outline' },
+const FILTERS = [
+  { key: 'all', label: 'All' },
+  { key: 'unread', label: 'Unread' },
 ];
 
 const SEVERITY_CONFIG = {
@@ -55,10 +50,7 @@ export default function TenantNotificationCenter() {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [activeCategory, setActiveCategory] = useState('all');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState(null);
-  const [searchTimer, setSearchTimer] = useState(null);
+  const [activeFilter, setActiveFilter] = useState('all');
 
   // Auto-refresh when screen is focused
   useFocusEffect(
@@ -66,17 +58,12 @@ export default function TenantNotificationCenter() {
       fetchNotifications();
       const interval = setInterval(fetchNotifications, 30000);
       return () => clearInterval(interval);
-    }, [activeCategory, fetchNotifications])
+    }, [])
   );
 
   const fetchNotifications = useCallback(async () => {
     try {
-      const action = activeCategory === 'all' ? 'getNotifications' : 'getNotificationsByCategory';
-      const payload = activeCategory === 'all'
-        ? { action, limit: 50 }
-        : { action, category: activeCategory, limit: 50 };
-      
-      const response = await apiClient.post('/api.php', payload);
+      const response = await apiClient.post('/api.php', { action: 'getNotifications', limit: 100 });
       if (response.data.success) {
         setNotifications(response.data.data || []);
       }
@@ -86,38 +73,10 @@ export default function TenantNotificationCenter() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [activeCategory]);
-
-  const handleSearch = (text) => {
-    setSearchQuery(text);
-    if (searchTimer) clearTimeout(searchTimer);
-
-    if (text.length < 2) {
-      setSearchResults(null);
-      return;
-    }
-
-    const timer = setTimeout(async () => {
-      try {
-        const response = await apiClient.post('/api.php', {
-          action: 'searchNotifications',
-          query: text,
-          limit: 20,
-        });
-        if (response.data.success) {
-          setSearchResults(response.data.data || []);
-        }
-      } catch (err) {
-        console.warn('Search failed:', err.message);
-      }
-    }, 400);
-    setSearchTimer(timer);
-  };
+  }, []);
 
   const handleRefresh = () => {
     setRefreshing(true);
-    setSearchQuery('');
-    setSearchResults(null);
     fetchNotifications();
   };
 
@@ -131,13 +90,33 @@ export default function TenantNotificationCenter() {
     }
   };
 
+  const handleClearAll = () => {
+    Alert.alert(
+      'Clear All Notifications',
+      'Are you sure you want to clear all notifications? This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Clear All', 
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await apiClient.post('/api.php', { action: 'deleteAllNotifications' });
+              setNotifications([]);
+              refreshUnreadCount();
+            } catch (err) {
+              console.error('Failed to delete all notifications:', err.message);
+            }
+          }
+        }
+      ]
+    );
+  };
+
   const handleMarkRead = async (id) => {
     try {
       await apiClient.post('/api.php', { action: 'markNotificationRead', notificationId: id });
       setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: 1 } : n));
-      if (searchResults) {
-        setSearchResults(prev => prev.map(n => n.id === id ? { ...n, is_read: 1 } : n));
-      }
       refreshUnreadCount();
     } catch (err) {
       console.error('Failed to mark as read:', err.message);
@@ -148,22 +127,25 @@ export default function TenantNotificationCenter() {
     try {
       await apiClient.post('/api.php', { action: 'deleteNotification', notificationId: id });
       setNotifications(prev => prev.filter(n => n.id !== id));
-      if (searchResults) {
-        setSearchResults(prev => prev.filter(n => n.id !== id));
-      }
       refreshUnreadCount();
     } catch (err) {
       console.error('Failed to delete notification:', err.message);
     }
   };
-  const unreadCountLocal = notifications.filter(n => parseInt(n.is_read) === 0).length;
-  const displayList = searchResults !== null ? searchResults : notifications;
+
+  const displayList = activeFilter === 'unread' 
+    ? notifications.filter(n => parseInt(n.is_read) === 0) 
+    : notifications;
 
   const renderNotificationCard = ({ item: notif }) => {
     const isUnread = parseInt(notif.is_read) === 0;
     const catConfig = CATEGORY_ICONS[notif.category] || CATEGORY_ICONS.system;
     const sevConfig = SEVERITY_CONFIG[notif.severity] || SEVERITY_CONFIG.info;
     const timeStr = timeAgo(notif.created_at);
+
+    // Strip common emoticons and emojis
+    const cleanTitle = notif.title ? notif.title.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F600}-\u{1F64F}\u{1F900}-\u{1F9FF}\u{2B50}]/gu, '').trim() : '';
+    const cleanMessage = notif.message ? notif.message.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F600}-\u{1F64F}\u{1F900}-\u{1F9FF}\u{2B50}]/gu, '').trim() : '';
 
     return (
       <TouchableOpacity
@@ -181,7 +163,7 @@ export default function TenantNotificationCenter() {
           <View style={styles.notifContent}>
             <View style={styles.notifHeader}>
               <View style={styles.notifTitleContainer}>
-                <Text style={[styles.notifTitle, isUnread && styles.unreadTitle]} numberOfLines={1}>{notif.title}</Text>
+                <Text style={[styles.notifTitle, isUnread && styles.unreadTitle]} numberOfLines={1}>{cleanTitle}</Text>
                 {isUnread && <View style={styles.unreadDot} />}
               </View>
               {/* Delete button */}
@@ -193,9 +175,9 @@ export default function TenantNotificationCenter() {
                 <Ionicons name="close-outline" size={18} color={COLORS.textMuted} />
               </TouchableOpacity>
             </View>
-            <Text style={styles.notifMessage} numberOfLines={2} ellipsizeMode="tail">{notif.message}</Text>
+            <Text style={styles.notifMessage} numberOfLines={2} ellipsizeMode="tail">{cleanMessage}</Text>
             <View style={styles.notifMeta}>
-              {/* Severity badge */}
+              {/* Severity badge - Optional refinement could remove this if it's too noisy */}
               <View style={[styles.sevBadge, { backgroundColor: sevConfig.bg }]}>
                 <Ionicons name={sevConfig.icon} size={10} color={sevConfig.color} />
                 <Text style={[styles.sevText, { color: sevConfig.color }]} numberOfLines={1}>{sevConfig.label}</Text>
@@ -221,7 +203,7 @@ export default function TenantNotificationCenter() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* REBUILT RESPONSIVE HEADER */}
+      {/* HEADER */}
       <View style={{ 
         flexDirection: 'row', 
         alignItems: 'center', 
@@ -237,7 +219,7 @@ export default function TenantNotificationCenter() {
 
         {/* Center Area: Title & Badge */}
         <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, minWidth: 0, paddingHorizontal: 12 }}>
-          <Text style={{ fontSize: 22, fontWeight: FONT_WEIGHT.heavy, color: COLORS.textPrimary, flexShrink: 1 }} numberOfLines={1} ellipsizeMode="tail">
+          <Text style={{ fontSize: 22, fontWeight: FONT_WEIGHT.semibold, color: COLORS.textPrimary, flexShrink: 1 }} numberOfLines={1} ellipsizeMode="tail">
             Notifications
           </Text>
           {unreadCount > 0 && (
@@ -247,67 +229,34 @@ export default function TenantNotificationCenter() {
           )}
         </View>
 
-        {/* Right Area: Action */}
-        <TouchableOpacity style={{ flexShrink: 0, padding: 4 }} onPress={handleMarkAllRead} disabled={unreadCount === 0}>
-          <Text style={{ color: COLORS.primary, fontWeight: '600', fontSize: 14, opacity: unreadCount === 0 ? 0.4 : 1 }}>
-            Read all
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Search Bar */}
-      <View style={styles.searchBar}>
-        <Ionicons name="search-outline" size={18} color={COLORS.textMuted} />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search notifications..."
-          placeholderTextColor={COLORS.textMuted}
-          value={searchQuery}
-          onChangeText={handleSearch}
-          returnKeyType="search"
-        />
-        {searchQuery.length > 0 && (
-          <TouchableOpacity onPress={() => { setSearchQuery(''); setSearchResults(null); }}>
-            <Ionicons name="close-circle" size={18} color={COLORS.textMuted} />
+        {/* Right Area: Actions */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <TouchableOpacity onPress={handleClearAll} disabled={notifications.length === 0} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+            <Ionicons name="trash-outline" size={20} color={notifications.length === 0 ? COLORS.textMuted : '#ef4444'} />
           </TouchableOpacity>
-        )}
-      </View>
-
-      {/* REBUILT CATEGORY FILTER */}
-      <View style={{ width: '100%', overflow: 'hidden' }}>
-        <ScrollView 
-          horizontal 
-          showsHorizontalScrollIndicator={false} 
-          style={{ width: '100%', flexGrow: 0, marginBottom: 12 }} 
-          contentContainerStyle={{ paddingHorizontal: 16, alignItems: 'center' }}
-        >
-          {CATEGORIES.map((cat, index) => (
-            <TouchableOpacity
-              key={cat.key}
-              style={[
-                styles.tab, 
-                activeCategory === cat.key && styles.tabActive,
-                { marginRight: index === CATEGORIES.length - 1 ? 0 : 8 }
-              ]}
-              onPress={() => { setActiveCategory(cat.key); setSearchQuery(''); setSearchResults(null); setLoading(true); }}
-              activeOpacity={0.7}
-            >
-              <Ionicons name={cat.icon} size={14} color={activeCategory === cat.key ? '#fff' : COLORS.textMuted} />
-              <Text style={[styles.tabText, activeCategory === cat.key && styles.tabTextActive]}>{cat.label}</Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </View>
-
-      {/* Notification List */}
-      {searchResults !== null && (
-        <View style={{ paddingHorizontal: 16, paddingBottom: 8 }}>
-          <Text style={styles.searchResultLabel}>
-            {searchResults.length} result{searchResults.length !== 1 ? 's' : ''} for &quot;{searchQuery}&quot;
-          </Text>
+          <TouchableOpacity onPress={handleMarkAllRead} disabled={unreadCount === 0} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+            <Ionicons name="checkmark-done" size={22} color={unreadCount === 0 ? COLORS.textMuted : COLORS.primary} />
+          </TouchableOpacity>
         </View>
-      )}
+      </View>
 
+      {/* FILTER TOGGLE (All / Unread) */}
+      <View style={styles.filterContainer}>
+        {FILTERS.map(filter => (
+          <TouchableOpacity
+            key={filter.key}
+            style={[styles.filterBtn, activeFilter === filter.key && styles.filterBtnActive]}
+            onPress={() => setActiveFilter(filter.key)}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.filterText, activeFilter === filter.key && styles.filterTextActive]}>
+              {filter.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {/* LIST */}
       <FlatList
         style={{ width: '100%' }}
         data={displayList}
@@ -322,13 +271,10 @@ export default function TenantNotificationCenter() {
               <Ionicons name="notifications-off-outline" size={48} color={COLORS.textMuted} />
             </View>
             <Text style={styles.emptyTitle}>
-              {searchResults !== null ? 'No results found' : 'You\'re all caught up!'}
+              You're all caught up!
             </Text>
             <Text style={styles.emptySubtext}>
-              {searchResults !== null
-                ? 'Try a different search term.'
-                : `No ${activeCategory !== 'all' ? activeCategory : ''} notifications at the moment.`
-              }
+              No {activeFilter === 'unread' ? 'unread ' : ''}notifications at the moment.
             </Text>
           </View>
         }
@@ -336,5 +282,3 @@ export default function TenantNotificationCenter() {
     </SafeAreaView>
   );
 }
-
-

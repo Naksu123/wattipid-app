@@ -9,6 +9,7 @@ import { generateNewTenantCode, updateRoomStatus, saveTenantInvitation, getSetti
 import { generateCycleReport, shareReport } from '../../services/pdfService';
 import { submitOfflinePayment } from '../../services/paymentService';
 import { useModal } from '../../contexts/ModalContext';
+import { useSync } from '../../contexts/SyncContext';
 import RoomHistoryModal from '../../components/landlord/RoomHistoryModal';
 import ArchiveModal from '../../components/RoomManagement/ArchiveModal';
 import GlassCard from '../../components/ui/GlassCard';
@@ -20,6 +21,7 @@ export default function RoomsScreen() {
   const { width } = useWindowDimensions();
   const isLargeScreen = width >= 768;
   const { showModal } = useModal();
+  const { landlordSyncData } = useSync();
 
   const [rooms, setRooms] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
@@ -98,6 +100,54 @@ export default function RoomsScreen() {
   const [isRestoreMode, setIsRestoreMode] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
 
+  // Action Menu Modal
+  const [actionMenuVisible, setActionMenuVisible] = useState(false);
+  const [actionMenuRoom, setActionMenuRoom] = useState(null);
+
+  // Real-Time Sync Hook
+  useEffect(() => {
+    if (landlordSyncData && landlordSyncData.roomsSummary) {
+      const summary = landlordSyncData.roomsSummary || {};
+      const currentRate = rate || 12.50;
+
+      const { rooms: roomData, totals } = summary;
+
+      const mappedRooms = (roomData || []).map(r => {
+        const roomRate = (r.utility_rate && parseFloat(r.utility_rate) > 0) ? parseFloat(r.utility_rate) : currentRate;
+        
+        // If currCost is not provided by backend (legacy support), recalculate it
+        const currentCost = r.currCost !== undefined ? parseFloat(r.currCost) : (r.currEnergy || 0) * roomRate;
+        const previousCost = r.prevCost !== undefined ? parseFloat(r.prevCost) : (r.prevEnergy || 0) * roomRate;
+
+        return {
+          ...r,
+          consumption: {
+            energy: r.currEnergy || 0,
+            cost: currentCost
+          },
+          prevConsumption: {
+            energy: r.prevEnergy || 0,
+            cost: previousCost
+          }
+        };
+      });
+
+      setRooms(mappedRooms);
+
+      const cData = {};
+      mappedRooms.forEach(r => {
+        if (r.status === 'occupied') {
+          cData[r.room_id] = {
+            current: { totalEnergy: r.consumption.energy, totalCost: r.consumption.cost },
+            previous: { totalEnergy: r.prevConsumption.energy, totalCost: r.prevConsumption.cost },
+            diff: r.consumption.energy - r.prevConsumption.energy
+          };
+        }
+      });
+      setConsumptionData(cData);
+    }
+  }, [landlordSyncData, rate]);
+
   useEffect(() => { loadRooms(); }, []);
 
   const loadRooms = async () => {
@@ -111,17 +161,25 @@ export default function RoomsScreen() {
         const { rooms: roomData, totals } = summary;
 
         // Map rooms with their specific consumption data
-        const mappedRooms = (roomData || []).map(r => ({
-          ...r,
-          consumption: {
-            energy: r.currEnergy || 0,
-            cost: (r.currEnergy || 0) * currentRate
-          },
-          prevConsumption: {
-            energy: r.prevEnergy || 0,
-            cost: (r.prevEnergy || 0) * currentRate
-          }
-        }));
+        const mappedRooms = (roomData || []).map(r => {
+          const roomRate = (r.utility_rate && parseFloat(r.utility_rate) > 0) ? parseFloat(r.utility_rate) : currentRate;
+          
+          // If currCost is not provided by backend (legacy support), recalculate it
+          const currentCost = r.currCost !== undefined ? parseFloat(r.currCost) : (r.currEnergy || 0) * roomRate;
+          const previousCost = r.prevCost !== undefined ? parseFloat(r.prevCost) : (r.prevEnergy || 0) * roomRate;
+
+          return {
+            ...r,
+            consumption: {
+              energy: r.currEnergy || 0,
+              cost: currentCost
+            },
+            prevConsumption: {
+              energy: r.prevEnergy || 0,
+              cost: previousCost
+            }
+          };
+        });
 
         setRooms(mappedRooms);
 
@@ -371,13 +429,30 @@ export default function RoomsScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
       >
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-          <View style={{ flexShrink: 1, paddingRight: 12 }}>
-            <Text style={s.title}>Room Management</Text>
-            <Text style={s.subtitle} numberOfLines={2}>Manage tenant access and room assignments</Text>
-          </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flex: 1, marginRight: 12 }} contentContainerStyle={{ paddingRight: 16 }}>
+            {['All', 'Vacant', 'Occupied', 'Under Maintenance', 'Not Available', 'Archived'].map(f => (
+              <TouchableOpacity
+                key={f}
+                style={{
+                  paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20,
+                  backgroundColor: filterActive === f ? COLORS.primary : 'rgba(255,255,255,0.05)',
+                  marginRight: 8, borderWidth: 1, borderColor: filterActive === f ? COLORS.primary : 'rgba(255,255,255,0.1)'
+                }}
+                onPress={() => setFilterActive(f)}
+              >
+                <Text style={{ color: filterActive === f ? '#fff' : COLORS.textMuted, fontWeight: '600' }}>{f}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+
           <TouchableOpacity
-            style={{ backgroundColor: COLORS.primary, width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center' }}
+            style={{ 
+              width: 40, height: 40, borderRadius: 20, 
+              backgroundColor: 'rgba(34,197,94,0.15)', 
+              borderWidth: 1, borderColor: 'rgba(34,197,94,0.3)',
+              justifyContent: 'center', alignItems: 'center' 
+            }}
             onPress={() => {
               setIsEditMode(false);
               setRoomFormData({ room_id: '', room_name: '', room_type: 'Standard', monthly_rent: '', utility_rate: '', description: '', max_occupancy: '1', status: 'vacant' });
@@ -385,62 +460,36 @@ export default function RoomsScreen() {
               setRoomModalVisible(true);
             }}
           >
-            <Ionicons name="add" size={24} color="#fff" />
+            <Ionicons name="add" size={24} color={COLORS.primary} />
           </TouchableOpacity>
         </View>
 
-        <View style={s.statsRow}>
-          {/* Row 1 */}
-          <GlassCard style={s.statCard}>
+        <View style={s.statsContainer}>
+          <View style={s.statBox}>
             <Text style={s.statNum}>{rooms.length}</Text>
-            <Text style={s.statLabel}>Total</Text>
-          </GlassCard>
-          <GlassCard style={[s.statCard, { borderColor: COLORS.primary }]}>
+            <Text style={s.statLabel} adjustsFontSizeToFit numberOfLines={1}>Total</Text>
+          </View>
+          <View style={s.statBox}>
             <Text style={[s.statNum, { color: COLORS.primary }]}>{occupiedCount}</Text>
-            <Text style={s.statLabel}>Occupied</Text>
-          </GlassCard>
-          <GlassCard style={s.statCard}>
+            <Text style={s.statLabel} adjustsFontSizeToFit numberOfLines={1}>Occupied</Text>
+          </View>
+          <View style={s.statBox}>
             <Text style={s.statNum}>{vacantCount}</Text>
-            <Text style={s.statLabel}>Vacant</Text>
-          </GlassCard>
-
-          {/* Row 2 */}
-          <GlassCard style={[s.statCard, { borderColor: COLORS.warning }]}>
+            <Text style={s.statLabel} adjustsFontSizeToFit numberOfLines={1}>Vacant</Text>
+          </View>
+          <View style={s.statBox}>
             <Text style={[s.statNum, { color: COLORS.warning }]}>{onProcessCount}</Text>
-            <Text style={s.statLabel}>On Process</Text>
-          </GlassCard>
-          <GlassCard style={[s.statCard, { borderColor: COLORS.danger }]}>
+            <Text style={s.statLabel} adjustsFontSizeToFit numberOfLines={1}>Processing</Text>
+          </View>
+          <View style={s.statBox}>
             <Text style={[s.statNum, { color: COLORS.danger }]}>{notAvailableCount}</Text>
-            <Text style={s.statLabel}>Not Avail</Text>
-          </GlassCard>
-          <GlassCard style={[s.statCard, { borderColor: COLORS.warning }]}>
+            <Text style={s.statLabel} adjustsFontSizeToFit numberOfLines={1}>Unavailable</Text>
+          </View>
+          <View style={s.statBox}>
             <Text style={[s.statNum, { color: COLORS.warning }]}>{maintenanceCount}</Text>
-            <Text style={s.statLabel}>Maint.</Text>
-          </GlassCard>
+            <Text style={s.statLabel} adjustsFontSizeToFit numberOfLines={1}>Maint.</Text>
+          </View>
         </View>
-
-        <GlassCard style={s.infoCard}>
-          <Ionicons name="information-circle" size={18} color={COLORS.info} />
-          <Text style={s.infoText}>
-            Tap a room for actions: send codes, generate reports, transfer or revoke tenants. Historical data is always preserved.
-          </Text>
-        </GlassCard>
-
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
-          {['All', 'Vacant', 'Occupied', 'Under Maintenance', 'Not Available', 'Archived'].map(f => (
-            <TouchableOpacity
-              key={f}
-              style={{
-                paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20,
-                backgroundColor: filterActive === f ? COLORS.primary : 'rgba(255,255,255,0.05)',
-                marginRight: 8, borderWidth: 1, borderColor: filterActive === f ? COLORS.primary : 'rgba(255,255,255,0.1)'
-              }}
-              onPress={() => setFilterActive(f)}
-            >
-              <Text style={{ color: filterActive === f ? '#fff' : COLORS.textMuted, fontWeight: '600' }}>{f}</Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
 
         <View style={{ flexDirection: isLargeScreen ? 'row' : 'column', flexWrap: 'wrap', justifyContent: 'space-between' }}>
           {filteredRooms.map(room => (
@@ -448,32 +497,20 @@ export default function RoomsScreen() {
               <GlassCard style={[s.roomCard, room.status === 'occupied' && { borderColor: COLORS.primary }]}>
                 <View style={s.roomHeader}>
                   <View style={s.roomInfo}>
-                    <View style={[s.roomIcon, {
-                      backgroundColor: room.status === 'occupied' ? 'rgba(34,197,94,0.15)' :
-                        room.status === 'on_process' ? 'rgba(245,158,11,0.15)' :
-                          room.status === 'not_available' ? 'rgba(239,68,68,0.15)' :
-                            room.status === 'under_maintenance' ? 'rgba(245,158,11,0.15)' :
-                              'rgba(100,116,139,0.15)'
-                    }]}>
-                      <Ionicons
-                        name={room.status === 'occupied' ? 'flash' :
-                          room.status === 'on_process' ? 'time' :
-                            room.status === 'not_available' ? 'ban' :
-                              room.status === 'under_maintenance' ? 'construct' :
-                                'flash-outline'}
-                        size={22}
-                        color={room.status === 'occupied' ? COLORS.primary :
-                          room.status === 'on_process' || room.status === 'under_maintenance' ? COLORS.warning :
-                            room.status === 'not_available' ? COLORS.danger :
-                              COLORS.textMuted}
-                      />
-                    </View>
-                    <View>
-                      <Text style={s.roomId}>{room.room_id} {room.room_name ? `- ${room.room_name}` : ''}</Text>
-                      <Text style={s.tenantName}>{room.tenant_name || 'No tenant assigned'}</Text>
+                    <View style={{ flex: 1, paddingRight: 8 }}>
+                      <Text style={s.roomId} numberOfLines={1}>{room.room_id} {room.room_name ? `- ${room.room_name}` : ''}</Text>
+                      <Text style={s.tenantName} numberOfLines={1}>{room.tenant_name || 'No tenant assigned'}</Text>
                     </View>
                   </View>
-                  <StatusBadge status={room.status} size="sm" style={{ width: 95 }} />
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                    <StatusBadge status={room.status} size="sm" style={{ width: 95 }} />
+                    <TouchableOpacity 
+                      style={s.moreBtn} 
+                      onPress={(e) => { e.stopPropagation(); setActionMenuRoom(room); setActionMenuVisible(true); }}
+                    >
+                      <Ionicons name="ellipsis-horizontal" size={20} color={COLORS.textMuted} />
+                    </TouchableOpacity>
+                  </View>
                 </View>
 
                 {room.status === 'occupied' && room.tenant_start_date && (
@@ -492,7 +529,7 @@ export default function RoomsScreen() {
                       </View>
                       <View style={[s.consumptionItem, { alignItems: 'center' }]}>
                         <Text style={s.consumptionLabel}>Cost</Text>
-                        <Text style={[s.consumptionValue, { color: COLORS.warning }]} adjustsFontSizeToFit numberOfLines={1}>₱{(Number(consumptionData[room.room_id].current.totalEnergy || 0) * rate).toFixed(2)}</Text>
+                        <Text style={[s.consumptionValue, { color: COLORS.warning }]} adjustsFontSizeToFit numberOfLines={1}>₱{Number(consumptionData[room.room_id].current.totalCost || 0).toFixed(2)}</Text>
                       </View>
                       <View style={[s.consumptionItem, { alignItems: 'flex-end' }]}>
                         <Text style={s.consumptionLabel}>vs Last Mo.</Text>
@@ -500,109 +537,6 @@ export default function RoomsScreen() {
                           {consumptionData[room.room_id].diff > 0 ? '+' : ''}{Number(consumptionData[room.room_id].diff || 0).toFixed(2)}
                         </Text>
                       </View>
-                    </View>
-
-                    <View style={s.cardActions}>
-                      <TouchableOpacity
-                        style={s.actionBtn}
-                        activeOpacity={0.7}
-                        onPress={(e) => {
-                          e.stopPropagation && e.stopPropagation(); setReportRoom(room); setReportModalVisible(true);
-                          getAvailableBillingCycles(room.room_id).then(res => {
-                            if (res && res.length > 0) {
-                              setAvailableCycles(res);
-                              setSelectedPdfCycle(res[0]);
-                            } else {
-                              setAvailableCycles([]);
-                              setSelectedPdfCycle(null);
-                            }
-                            setSelectedPdfWeek(null);
-                          }).catch(err => {
-                            console.error("Failed to fetch billing cycles", err);
-                          });
-                        }}
-                      >
-                        <Ionicons name="document-text-outline" size={16} color={COLORS.info} />
-                        <Text style={[s.actionBtnText, { color: COLORS.info }]}>Report</Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={s.actionBtn}
-                        activeOpacity={0.7}
-                        onPress={(e) => { e.stopPropagation && e.stopPropagation(); setHistoryRoomId(room.room_id); setHistoryModalVisible(true); }}
-                      >
-                        <Ionicons name="time-outline" size={16} color={COLORS.primary} />
-                        <Text style={[s.actionBtnText, { color: COLORS.primary }]}>History</Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={s.actionBtn}
-                        activeOpacity={0.7}
-                        onPress={(e) => {
-                          e.stopPropagation && e.stopPropagation();
-                          setCashRoom(room);
-                          setCashModalVisible(true);
-                          getAvailableBillingCycles(room.room_id).then(res => {
-                            const unpaid = (res || []).filter(c => c.payment_status === 'unpaid' || c.payment_status === 'overdue');
-                            setCashCycles(unpaid);
-                            if (unpaid.length > 0) setSelectedCashCycle(unpaid[0]);
-                            else setSelectedCashCycle(null);
-                          }).catch(err => console.error("Failed to fetch billing cycles for cash", err));
-                        }}
-                      >
-                        <Ionicons name="cash-outline" size={16} color={COLORS.success} />
-                        <Text style={[s.actionBtnText, { color: COLORS.success }]}>Cash</Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={s.actionBtn}
-                        activeOpacity={0.7}
-                        onPress={async (e) => {
-                          e.stopPropagation && e.stopPropagation();
-                          try {
-                            const vacant = await getVacantRooms();
-                            if (vacant && vacant.length > 0) {
-                              setVacantRoomsList(vacant);
-                              setTransferFromRoom(room);
-                              setTransferModalVisible(true);
-                            } else {
-                              showModal({ type: 'warning', title: 'No Vacant Rooms', message: 'There are no vacant rooms available for transfer.' });
-                            }
-                          } catch (err) {
-                            showModal({ type: 'error', title: 'Error', message: err.message || 'Failed to fetch vacant rooms' });
-                          }
-                        }}
-                      >
-                        <Ionicons name="swap-horizontal" size={16} color={COLORS.warning} />
-                        <Text style={[s.actionBtnText, { color: COLORS.warning }]}>Transfer</Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={s.actionBtn}
-                        activeOpacity={0.7}
-                        onPress={(e) => {
-                          e.stopPropagation && e.stopPropagation();
-                          setRevokeRoom(room);
-                          setRevokeModalVisible(true);
-                        }}
-                      >
-                        <Ionicons name="log-out-outline" size={16} color={COLORS.danger} />
-                        <Text style={[s.actionBtnText, { color: COLORS.danger }]}>Remove</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={s.actionBtn}
-                        activeOpacity={0.7}
-                        onPress={(e) => {
-                          e.stopPropagation && e.stopPropagation();
-                          setIsEditMode(true);
-                          setRoomFormData({ ...room, monthly_rent: room.monthly_rent?.toString() || '', utility_rate: room.utility_rate?.toString() || '', max_occupancy: room.max_occupancy?.toString() || '1' });
-                          setRoomFormErrors({});
-                          setRoomModalVisible(true);
-                        }}
-                      >
-                        <Ionicons name="create-outline" size={16} color={COLORS.textPrimary} />
-                        <Text style={[s.actionBtnText, { color: COLORS.textPrimary }]}>Edit</Text>
-                      </TouchableOpacity>
                     </View>
                   </>
                 )}
@@ -613,83 +547,6 @@ export default function RoomsScreen() {
                       <Text style={s.codeLabel}>Access Code:</Text>
                       <Text style={s.codeValue}>{room.tenant_code || '—'}</Text>
                     </View>
-                    <View style={s.cardActions}>
-                      {(room.status === 'vacant' || room.status === 'on_process') && (
-                        <TouchableOpacity
-                          style={s.actionBtn}
-                          activeOpacity={0.7}
-                          onPress={() => {
-                            setSelectedRoom(room);
-                            setTenantEmail('');
-                            setEmailError('');
-                            setStartDate(new Date().toISOString().split('T')[0]);
-                            setSendModalVisible(true);
-                          }}
-                        >
-                          <Ionicons name="mail-outline" size={16} color={COLORS.primary} />
-                          <Text style={[s.actionBtnText, { color: COLORS.primary }]}>Invitation</Text>
-                        </TouchableOpacity>
-                      )}
-                      {room.status === 'on_process' && (
-                        <TouchableOpacity
-                          style={s.actionBtn}
-                          activeOpacity={0.7}
-                          onPress={async () => {
-                            try {
-                              await updateRoomStatus(room.room_id, 'vacant', null, null);
-                              setGeneralSuccessData({
-                                title: 'Room Reset',
-                                message: `${room.room_id} is now officially vacant.`,
-                                icon: 'home-outline'
-                              });
-                              setGeneralSuccessVisible(true);
-                              loadRooms();
-                            } catch (err) {
-                              showModal({ type: 'error', title: 'Error', message: err.message || 'Failed to update room status' });
-                            }
-                          }}
-                        >
-                          <Ionicons name="refresh-outline" size={16} color={COLORS.warning} />
-                          <Text style={[s.actionBtnText, { color: COLORS.warning }]}>Reset</Text>
-                        </TouchableOpacity>
-                      )}
-                      <TouchableOpacity
-                        style={s.actionBtn}
-                        activeOpacity={0.7}
-                        onPress={() => {
-                          setRegenRoom(room);
-                          setRegenConfirmVisible(true);
-                        }}
-                      >
-                        <Ionicons name="key-outline" size={16} color={COLORS.info} />
-                        <Text style={[s.actionBtnText, { color: COLORS.info }]}>Regenerate</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={s.actionBtn}
-                        activeOpacity={0.7}
-                        onPress={() => {
-                          setIsEditMode(true);
-                          setRoomFormData({ ...room, monthly_rent: room.monthly_rent?.toString() || '', utility_rate: room.utility_rate?.toString() || '', max_occupancy: room.max_occupancy?.toString() || '1' });
-                          setRoomFormErrors({});
-                          setRoomModalVisible(true);
-                        }}
-                      >
-                        <Ionicons name="create-outline" size={16} color={COLORS.textPrimary} />
-                        <Text style={[s.actionBtnText, { color: COLORS.textPrimary }]}>Edit</Text>
-                      </TouchableOpacity>
-
-                      {room.status === 'archived' ? (
-                        <TouchableOpacity style={s.actionBtn} activeOpacity={0.7} onPress={() => openRestoreModal(room)}>
-                          <Ionicons name="refresh-outline" size={16} color={COLORS.success} />
-                          <Text style={[s.actionBtnText, { color: COLORS.success }]}>Restore</Text>
-                        </TouchableOpacity>
-                      ) : (
-                        <TouchableOpacity style={s.actionBtn} activeOpacity={0.7} onPress={() => handleToggleRoomStatus(room)}>
-                          <Ionicons name="archive-outline" size={16} color={COLORS.danger} />
-                          <Text style={[s.actionBtnText, { color: COLORS.danger }]}>Archive</Text>
-                        </TouchableOpacity>
-                      )}
-                    </View>
                   </>
                 )}
               </GlassCard>
@@ -697,6 +554,7 @@ export default function RoomsScreen() {
           ))}
         </View>
       </ScrollView>
+
 
       {/* Send Code Modal */}
       <Modal visible={sendModalVisible} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setSendModalVisible(false)}>
@@ -1299,6 +1157,174 @@ export default function RoomsScreen() {
             </View>
           </View>
         </View>
+      </Modal>
+
+      {/* Action Menu Modal */}
+      <Modal visible={actionMenuVisible} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setActionMenuVisible(false)}>
+        <TouchableOpacity style={s.overlay} activeOpacity={1} onPress={() => setActionMenuVisible(false)}>
+          <View style={[s.modal, { padding: 0, paddingBottom: 16 }]} onStartShouldSetResponder={() => true}>
+            <View style={s.menuHeader}>
+              <Text style={s.menuTitle}>Manage {actionMenuRoom?.room_id}</Text>
+              <TouchableOpacity onPress={() => setActionMenuVisible(false)}>
+                <Ionicons name="close" size={24} color={COLORS.textMuted} />
+              </TouchableOpacity>
+            </View>
+            
+            <ScrollView style={{ maxHeight: 400 }} showsVerticalScrollIndicator={false}>
+              {actionMenuRoom?.status === 'occupied' && (
+                <>
+                  <TouchableOpacity style={s.menuItem} onPress={() => {
+                    setActionMenuVisible(false);
+                    setReportRoom(actionMenuRoom); setReportModalVisible(true);
+                    getAvailableBillingCycles(actionMenuRoom.room_id).then(res => {
+                      if (res && res.length > 0) {
+                        setAvailableCycles(res);
+                        setSelectedPdfCycle(res[0]);
+                      } else {
+                        setAvailableCycles([]);
+                        setSelectedPdfCycle(null);
+                      }
+                      setSelectedPdfWeek(null);
+                    }).catch(err => console.error("Failed to fetch billing cycles", err));
+                  }}>
+                    <View style={[s.menuIconWrap, { backgroundColor: 'rgba(59,130,246,0.1)' }]}>
+                      <Ionicons name="document-text-outline" size={20} color={COLORS.info} />
+                    </View>
+                    <Text style={s.menuItemText}>Generate Report</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity style={s.menuItem} onPress={() => { setActionMenuVisible(false); setHistoryRoomId(actionMenuRoom.room_id); setHistoryModalVisible(true); }}>
+                    <View style={[s.menuIconWrap, { backgroundColor: 'rgba(16,185,129,0.1)' }]}>
+                      <Ionicons name="time-outline" size={20} color={COLORS.primary} />
+                    </View>
+                    <Text style={s.menuItemText}>View History</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity style={s.menuItem} onPress={() => {
+                    setActionMenuVisible(false);
+                    setCashRoom(actionMenuRoom);
+                    setCashModalVisible(true);
+                    getAvailableBillingCycles(actionMenuRoom.room_id).then(res => {
+                      const unpaid = (res || []).filter(c => c.payment_status === 'unpaid' || c.payment_status === 'overdue');
+                      setCashCycles(unpaid);
+                      if (unpaid.length > 0) setSelectedCashCycle(unpaid[0]);
+                      else setSelectedCashCycle(null);
+                    });
+                  }}>
+                    <View style={[s.menuIconWrap, { backgroundColor: 'rgba(34,197,94,0.1)' }]}>
+                      <Ionicons name="cash-outline" size={20} color={COLORS.success} />
+                    </View>
+                    <Text style={s.menuItemText}>Log Cash Payment</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity style={s.menuItem} onPress={async () => {
+                    setActionMenuVisible(false);
+                    try {
+                      const vacant = await getVacantRooms();
+                      if (vacant && vacant.length > 0) {
+                        setVacantRoomsList(vacant);
+                        setTransferFromRoom(actionMenuRoom);
+                        setTransferModalVisible(true);
+                      } else {
+                        showModal({ type: 'warning', title: 'No Vacant Rooms', message: 'There are no vacant rooms available for transfer.' });
+                      }
+                    } catch (err) {
+                      showModal({ type: 'error', title: 'Error', message: err.message || 'Failed to fetch vacant rooms' });
+                    }
+                  }}>
+                    <View style={[s.menuIconWrap, { backgroundColor: 'rgba(245,158,11,0.1)' }]}>
+                      <Ionicons name="swap-horizontal" size={20} color={COLORS.warning} />
+                    </View>
+                    <Text style={s.menuItemText}>Transfer Tenant</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity style={s.menuItem} onPress={() => { setActionMenuVisible(false); setRevokeRoom(actionMenuRoom); setRevokeModalVisible(true); }}>
+                    <View style={[s.menuIconWrap, { backgroundColor: 'rgba(239,68,68,0.1)' }]}>
+                      <Ionicons name="log-out-outline" size={20} color={COLORS.danger} />
+                    </View>
+                    <Text style={s.menuItemText}>Remove Tenant</Text>
+                  </TouchableOpacity>
+                </>
+              )}
+
+              {actionMenuRoom?.status !== 'occupied' && (
+                <>
+                  {(actionMenuRoom?.status === 'vacant' || actionMenuRoom?.status === 'on_process') && (
+                    <TouchableOpacity style={s.menuItem} onPress={() => {
+                      setActionMenuVisible(false);
+                      setSelectedRoom(actionMenuRoom);
+                      setTenantEmail('');
+                      setEmailError('');
+                      setStartDate(new Date().toISOString().split('T')[0]);
+                      setSendModalVisible(true);
+                    }}>
+                      <View style={[s.menuIconWrap, { backgroundColor: 'rgba(16,185,129,0.1)' }]}>
+                        <Ionicons name="mail-outline" size={20} color={COLORS.primary} />
+                      </View>
+                      <Text style={s.menuItemText}>Send Invitation</Text>
+                    </TouchableOpacity>
+                  )}
+
+                  {actionMenuRoom?.status === 'on_process' && (
+                    <TouchableOpacity style={s.menuItem} onPress={async () => {
+                      setActionMenuVisible(false);
+                      try {
+                        await updateRoomStatus(actionMenuRoom.room_id, 'vacant', null, null);
+                        setGeneralSuccessData({ title: 'Room Reset', message: `${actionMenuRoom.room_id} is now officially vacant.`, icon: 'home-outline' });
+                        setGeneralSuccessVisible(true);
+                        loadRooms();
+                      } catch (err) {
+                        showModal({ type: 'error', title: 'Error', message: err.message || 'Failed to update room status' });
+                      }
+                    }}>
+                      <View style={[s.menuIconWrap, { backgroundColor: 'rgba(245,158,11,0.1)' }]}>
+                        <Ionicons name="refresh-outline" size={20} color={COLORS.warning} />
+                      </View>
+                      <Text style={s.menuItemText}>Reset to Vacant</Text>
+                    </TouchableOpacity>
+                  )}
+
+                  <TouchableOpacity style={s.menuItem} onPress={() => { setActionMenuVisible(false); setRegenRoom(actionMenuRoom); setRegenConfirmVisible(true); }}>
+                    <View style={[s.menuIconWrap, { backgroundColor: 'rgba(59,130,246,0.1)' }]}>
+                      <Ionicons name="key-outline" size={20} color={COLORS.info} />
+                    </View>
+                    <Text style={s.menuItemText}>Regenerate Access Code</Text>
+                  </TouchableOpacity>
+
+                  {actionMenuRoom?.status === 'archived' ? (
+                    <TouchableOpacity style={s.menuItem} onPress={() => { setActionMenuVisible(false); openRestoreModal(actionMenuRoom); }}>
+                      <View style={[s.menuIconWrap, { backgroundColor: 'rgba(34,197,94,0.1)' }]}>
+                        <Ionicons name="refresh-outline" size={20} color={COLORS.success} />
+                      </View>
+                      <Text style={s.menuItemText}>Restore Room</Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <TouchableOpacity style={s.menuItem} onPress={() => { setActionMenuVisible(false); handleToggleRoomStatus(actionMenuRoom); }}>
+                      <View style={[s.menuIconWrap, { backgroundColor: 'rgba(239,68,68,0.1)' }]}>
+                        <Ionicons name="archive-outline" size={20} color={COLORS.danger} />
+                      </View>
+                      <Text style={s.menuItemText}>Archive Room</Text>
+                    </TouchableOpacity>
+                  )}
+                </>
+              )}
+
+              {/* Edit Room is always available */}
+              <TouchableOpacity style={s.menuItem} onPress={() => {
+                setActionMenuVisible(false);
+                setIsEditMode(true);
+                setRoomFormData({ ...actionMenuRoom, monthly_rent: actionMenuRoom?.monthly_rent?.toString() || '', utility_rate: actionMenuRoom?.utility_rate?.toString() || '', max_occupancy: actionMenuRoom?.max_occupancy?.toString() || '1' });
+                setRoomFormErrors({});
+                setRoomModalVisible(true);
+              }}>
+                <View style={[s.menuIconWrap, { backgroundColor: 'rgba(255,255,255,0.05)' }]}>
+                  <Ionicons name="create-outline" size={20} color={COLORS.textPrimary} />
+                </View>
+                <Text style={s.menuItemText}>Edit Room Info</Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
       </Modal>
 
     </View>

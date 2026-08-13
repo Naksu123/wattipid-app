@@ -53,13 +53,21 @@ export default function AnalyticsScreen() {
 
   const roomId = user?.room_id || 'Room 1';
 
+  const getLocalDateStr = (d) => {
+    if (!d) return null;
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   // ─── Data Loading ────────────────────────────────────────────────────────────
   const loadStatsData = useCallback(async () => {
     if (!user || !roomId) return;
     const tenantName = user?.name;
     const targetYear = selectedDate.getFullYear();
     const targetMonth = selectedDate.getMonth() + 1; // 1-12
-    const targetDateStr = selectedDate.toISOString().split('T')[0];
+    const targetDateStr = getLocalDateStr(selectedDate);
 
     const [data, comp, today, week, month, cyclesData, fetchedRateStr] = await Promise.all([
       getConsumptionHistory(roomId, period, tenantName, targetYear, targetMonth, targetDateStr),
@@ -122,8 +130,8 @@ export default function AnalyticsScreen() {
   const loadHistoryData = useCallback(async () => {
     if (!user || !roomId) return;
     const tenantName = user?.name;
-    const startStr = historyStartDate ? historyStartDate.toISOString().split('T')[0] : null;
-    const endStr = historyEndDate ? historyEndDate.toISOString().split('T')[0] : null;
+    const startStr = getLocalDateStr(historyStartDate);
+    const endStr = getLocalDateStr(historyEndDate);
     const txns = await getTransactionHistory(roomId, 500, historyFilter, tenantName, 0, startStr, endStr);
     setTransactions(txns || []);
   }, [roomId, historyFilter, historyStartDate, historyEndDate, user?.name]);
@@ -327,8 +335,8 @@ export default function AnalyticsScreen() {
         else { startDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1); endDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0); }
         reportType = 'Monthly Consumption Analytics Report';
       }
-      const startStr = startDate.toISOString().split('T')[0];
-      const endStr = endDate.toISOString().split('T')[0];
+      const startStr = getLocalDateStr(startDate);
+      const endStr = getLocalDateStr(endDate);
       const [fetchedHistory, fetchedComp] = await Promise.all([
         getTransactionHistory(roomId, 300, 'daily', user?.name, 0, startStr, endStr),
         getConsumptionComparison(roomId, period, user?.name)

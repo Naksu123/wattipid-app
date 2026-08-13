@@ -16,6 +16,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { globalStyles } from '../styles/global.styles';
 
 import { NotificationProvider } from '@/contexts/NotificationContext';
+import ErrorBoundary from '@/components/ErrorBoundary';
 
 // Custom dark theme to match Wattipid brand
 const WattipidTheme = {
@@ -86,11 +87,11 @@ function RootLayoutContent() {
   }
 
   return (
-    <>
+    <ErrorBoundary>
       <Slot />
       <GlobalToast />
       <NotificationBanner />
-    </>
+    </ErrorBoundary>
   );
 }
 
