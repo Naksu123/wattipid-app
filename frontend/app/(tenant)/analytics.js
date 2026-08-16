@@ -51,6 +51,15 @@ export default function AnalyticsScreen() {
   const [historyLimit, setHistoryLimit] = useState(20);
   const [forecast, setForecast] = useState(null);
 
+  // --- NEW PERFORMANCE STATES ---
+  const [loadingPeriod, setLoadingPeriod] = useState(false);
+  const [loadingForecast, setLoadingForecast] = useState(false);
+  const [forecastError, setForecastError] = useState(false);
+  
+  const cacheRef = React.useRef({});
+  const coreAbortRef = React.useRef(null);
+  const forecastAbortRef = React.useRef(null);
+
   const roomId = user?.room_id || 'Room 1';
 
   const getLocalDateStr = (d) => {
@@ -62,70 +71,133 @@ export default function AnalyticsScreen() {
   };
 
   // ─── Data Loading ────────────────────────────────────────────────────────────
-  const loadStatsData = useCallback(async () => {
+  const loadStatsData = useCallback(async (isBackgroundRefresh = false) => {
     if (!user || !roomId) return;
+
+    if (coreAbortRef.current) coreAbortRef.current.abort();
+    coreAbortRef.current = new AbortController();
+    const options = { signal: coreAbortRef.current.signal };
+
     const tenantName = user?.name;
     const targetYear = selectedDate.getFullYear();
     const targetMonth = selectedDate.getMonth() + 1; // 1-12
     const targetDateStr = getLocalDateStr(selectedDate);
+    const cacheKey = `${period}-${targetYear}-${targetMonth}-${targetDateStr}`;
 
-    const [data, comp, today, week, month, cyclesData, fetchedRateStr] = await Promise.all([
-      getConsumptionHistory(roomId, period, tenantName, targetYear, targetMonth, targetDateStr),
-      getConsumptionComparison(roomId, period, tenantName),
-      getTotalConsumptionToday(roomId, tenantName),
-      getTotalConsumptionWeek(roomId, tenantName),
-      getTotalConsumptionMonth(roomId, tenantName),
-      getAvailableBillingCycles(roomId),
-      getSetting('rate_per_kwh')
-    ]);
-
-    const fetchedRate = parseFloat(fetchedRateStr || '12.50');
-    setRate(fetchedRate);
-
-    if (cyclesData && cyclesData.length > 0) {
-      setAvailableCycles(cyclesData);
-      if (!selectedPdfCycle) setSelectedPdfCycle(cyclesData[0]);
-      if (!historyStartDate) {
-        setHistoryStartDate(new Date(cyclesData[0].cycle_start));
-        setHistoryEndDate(new Date(cyclesData[0].cycle_end));
-      }
+    if (cacheRef.current[cacheKey] && !isBackgroundRefresh && !refreshing) {
+        const cached = cacheRef.current[cacheKey];
+        setHistory(cached.history);
+        setComparison(cached.comp);
+        setTodayUsage(cached.todayUsage);
+        setWeekUsage(cached.weekUsage);
+        setMonthUsage(cached.monthUsage);
+        setRate(cached.rate);
+        
+        if (period === 'daily') {
+          setHourlyBreakdown([...cached.history].reverse());
+          setBreakdown([]);
+        } else {
+          setBreakdown([...cached.history].reverse());
+          setHourlyBreakdown([]);
+        }
+        setLoadingPeriod(false);
+    } else if (!isBackgroundRefresh) {
+        setLoadingPeriod(true);
     }
-
-    const alignedData = (data || []).map(item => ({
-      ...item,
-      cost: (item.energy || item.totalEnergy || 0) * fetchedRate,
-      totalCost: (item.totalEnergy || item.energy || 0) * fetchedRate
-    }));
-
-    // Sort chronologically (ascending) for the chart
-    const ascendingData = [...alignedData].sort((a, b) => {
-      const dateA = new Date(a.group_date || a.day || a.timestamp || a.cycle_start || 0).getTime();
-      const dateB = new Date(b.group_date || b.day || b.timestamp || b.cycle_start || 0).getTime();
-      if (dateA !== dateB && !isNaN(dateA) && !isNaN(dateB)) return dateA - dateB;
-      if (a.hour !== undefined && b.hour !== undefined) return a.hour - b.hour;
-      if (a.month !== undefined && b.month !== undefined) return a.month - b.month;
-      return 0;
-    });
-
-    setHistory(ascendingData);
-    setComparison(comp);
-    setTodayUsage({ ...today, totalCost: (today?.totalEnergy || 0) * fetchedRate });
-    setWeekUsage({ ...week, totalCost: (week?.totalEnergy || 0) * fetchedRate });
-    setMonthUsage({ ...month, totalCost: (month?.totalEnergy || 0) * fetchedRate });
 
     try {
-      const forecastData = await getMonthlyForecast(roomId, tenantName);
-      setForecast(forecastData);
-    } catch (_e) {}
+      const [data, comp, today, week, month, cyclesData, fetchedRateStr] = await Promise.all([
+        getConsumptionHistory(roomId, period, tenantName, targetYear, targetMonth, targetDateStr, options),
+        getConsumptionComparison(roomId, period, tenantName, options),
+        getTotalConsumptionToday(roomId, tenantName, options),
+        getTotalConsumptionWeek(roomId, tenantName, options),
+        getTotalConsumptionMonth(roomId, tenantName, options),
+        getAvailableBillingCycles(roomId, options),
+        getSetting('rate_per_kwh')
+      ]);
 
-    if (period === 'daily') {
-      setHourlyBreakdown([...ascendingData].reverse()); // descending for table
-      setBreakdown([]);
-    } else {
-      setBreakdown([...ascendingData].reverse()); // descending for table
-      setHourlyBreakdown([]);
+      const fetchedRate = parseFloat(fetchedRateStr || '12.50');
+      setRate(fetchedRate);
+
+      if (cyclesData && cyclesData.length > 0) {
+        setAvailableCycles(cyclesData);
+        if (!selectedPdfCycle) setSelectedPdfCycle(cyclesData[0]);
+        if (!historyStartDate) {
+          setHistoryStartDate(new Date(cyclesData[0].cycle_start));
+          setHistoryEndDate(new Date(cyclesData[0].cycle_end));
+        }
+      }
+
+      const alignedData = (data || []).map(item => ({
+        ...item,
+        cost: (item.energy || item.totalEnergy || 0) * fetchedRate,
+        totalCost: (item.totalEnergy || item.energy || 0) * fetchedRate
+      }));
+
+      const ascendingData = [...alignedData].sort((a, b) => {
+        const dateA = new Date(a.group_date || a.day || a.timestamp || a.cycle_start || 0).getTime();
+        const dateB = new Date(b.group_date || b.day || b.timestamp || b.cycle_start || 0).getTime();
+        if (dateA !== dateB && !isNaN(dateA) && !isNaN(dateB)) return dateA - dateB;
+        if (a.hour !== undefined && b.hour !== undefined) return a.hour - b.hour;
+        if (a.month !== undefined && b.month !== undefined) return a.month - b.month;
+        return 0;
+      });
+
+      const nextTodayUsage = { ...today, totalCost: (today?.totalEnergy || 0) * fetchedRate };
+      const nextWeekUsage = { ...week, totalCost: (week?.totalEnergy || 0) * fetchedRate };
+      const nextMonthUsage = { ...month, totalCost: (month?.totalEnergy || 0) * fetchedRate };
+
+      setHistory(ascendingData);
+      setComparison(comp);
+      setTodayUsage(nextTodayUsage);
+      setWeekUsage(nextWeekUsage);
+      setMonthUsage(nextMonthUsage);
+
+      if (period === 'daily') {
+        setHourlyBreakdown([...ascendingData].reverse());
+        setBreakdown([]);
+      } else {
+        setBreakdown([...ascendingData].reverse());
+        setHourlyBreakdown([]);
+      }
+
+      cacheRef.current[cacheKey] = {
+          history: ascendingData,
+          comp,
+          todayUsage: nextTodayUsage,
+          weekUsage: nextWeekUsage,
+          monthUsage: nextMonthUsage,
+          rate: fetchedRate
+      };
+    } catch (e) {
+      if (e.message !== 'canceled' && e.name !== 'CanceledError') {
+         console.warn('[Analytics] Core load error:', e.message);
+      }
+    } finally {
+      setLoadingPeriod(false);
     }
-  }, [roomId, period, selectedDate, historyStartDate, selectedPdfCycle, user?.name]);
+  }, [roomId, period, selectedDate, historyStartDate, selectedPdfCycle, user?.name, refreshing]);
+
+  const loadForecastData = useCallback(async () => {
+    if (!user || !roomId) return;
+    
+    if (forecastAbortRef.current) forecastAbortRef.current.abort();
+    forecastAbortRef.current = new AbortController();
+    const options = { signal: forecastAbortRef.current.signal };
+    
+    setLoadingForecast(true);
+    setForecastError(false);
+    try {
+      const forecastData = await getMonthlyForecast(roomId, user?.name, options);
+      setForecast(forecastData);
+    } catch (e) {
+      if (e.message !== 'canceled' && e.name !== 'CanceledError') {
+         setForecastError(true);
+      }
+    } finally {
+      setLoadingForecast(false);
+    }
+  }, [roomId, user?.name]);
 
   const loadHistoryData = useCallback(async () => {
     if (!user || !roomId) return;
@@ -138,9 +210,10 @@ export default function AnalyticsScreen() {
 
   useEffect(() => {
     loadStatsData();
-    const interval = setInterval(loadStatsData, 60000);
+    loadForecastData();
+    const interval = setInterval(() => { loadStatsData(true); loadForecastData(); }, 60000);
     return () => clearInterval(interval);
-  }, [loadStatsData]);
+  }, [loadStatsData, loadForecastData]);
 
   useEffect(() => {
     loadHistoryData();
@@ -150,7 +223,8 @@ export default function AnalyticsScreen() {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadStatsData();
+    await loadStatsData(true);
+    await loadForecastData();
     await loadHistoryData();
     setRefreshing(false);
   };
@@ -430,15 +504,24 @@ export default function AnalyticsScreen() {
 
         {/* ── Period Summary Card ─────────────────────────────────────────────── */}
         <View style={{ marginBottom: SPACING.sm }}>
-          <Text style={{ fontSize: 14, fontWeight: '600', color: COLORS.textSecondary, marginBottom: 8, marginLeft: 4 }}>Period Summary</Text>
-          <GlassCard style={s.financialCard}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, marginLeft: 4, marginRight: 4 }}>
+            <Text style={{ fontSize: 14, fontWeight: '600', color: COLORS.textSecondary }}>Period Summary</Text>
+            {loadingPeriod && (
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <ActivityIndicator size="small" color={COLORS.primary} style={{ marginRight: 4, transform: [{ scale: 0.7 }] }} />
+                <Text style={{ fontSize: 11, color: COLORS.primary, fontWeight: '500' }}>Updating...</Text>
+              </View>
+            )}
+          </View>
+          <GlassCard style={[s.financialCard, loadingPeriod && { opacity: 0.6 }]}>
             <View style={s.financialRow}>
               <View style={s.financialBlock}>
-                <Text style={s.financialLabel}>Total Cost</Text>
+                <Text style={s.financialLabel}>Consumption Cost</Text>
                 <View style={s.financialValueRow}>
                   <Text style={s.financialPrefix}>₱</Text>
                   <Text style={s.financialValue} numberOfLines={1} adjustsFontSizeToFit>{totalCost.toFixed(2)}</Text>
                 </View>
+                <Text style={{fontSize: 10, color: COLORS.textMuted, marginTop: 2}}>Calendar period only. Excludes fees/rent.</Text>
               </View>
               
               <View style={[s.financialBlock, { alignItems: 'flex-end' }]}>
@@ -473,12 +556,15 @@ export default function AnalyticsScreen() {
         {/* ══════════════════════════════════════════════════════════════════════ */}
         {/* ── Charts View ─────────────────────────────────────────────────────── */}
         {activeView === 'charts' && (
-          <>
+          <View style={loadingPeriod ? { opacity: 0.6 } : {}}>
             {/* Bar Chart */}
             <GlassCard style={s.chartCard}>
-              <View style={s.chartHeader}>
-                <Text style={s.chartTitle}>Electricity Consumption</Text>
-                <Text style={s.chartUnit}>{period === 'daily' ? 'Wh' : 'kWh'}</Text>
+              <View style={[s.chartHeader, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
+                <View>
+                  <Text style={s.chartTitle}>Electricity Consumption</Text>
+                  <Text style={s.chartUnit}>{period === 'daily' ? 'Wh' : 'kWh'}</Text>
+                </View>
+                {loadingPeriod && <ActivityIndicator size="small" color={COLORS.primary} />}
               </View>
 
               {energyData.length > 0 ? (
@@ -526,7 +612,7 @@ export default function AnalyticsScreen() {
                 ))}
               </GlassCard>
             )}
-          </>
+          </View>
         )}
 
         {/* ══════════════════════════════════════════════════════════════════════ */}

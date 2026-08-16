@@ -4,12 +4,12 @@ import apiClient from './apiClient';
  * Bridge function to maintain compatibility with legacy components
  * while using the new Secure API Client (Axios).
  */
-export async function apiCall(action, data = {}) {
+export async function apiCall(action, data = {}, config = {}) {
   try {
     const response = await apiClient.post('/api.php', {
       action,
       ...data
-    });
+    }, config);
 
     // Return data property to match legacy expectations
     return response.data.data;

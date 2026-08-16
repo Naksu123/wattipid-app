@@ -194,8 +194,8 @@ export async function logConsumption(roomId, voltage, current, power, energy, co
   await apiCall('logConsumption', { roomId, voltage, current, power, energy, cost });
 }
 
-export async function getConsumptionHistory(roomId, period = 'daily', tenantName = null, year = null, month = null, dateStr = null) {
-  const data = await apiCall('getConsumptionHistory', { roomId, period, tenantName, year, month, dateStr });
+export async function getConsumptionHistory(roomId, period = 'daily', tenantName = null, year = null, month = null, dateStr = null, options = {}) {
+  const data = await apiCall('getConsumptionHistory', { roomId, period, tenantName, year, month, dateStr }, options);
   return (data || []).map(d => ({
     ...d,
     energy: parseFloat(d.totalEnergy || d.energy || 0),
@@ -206,18 +206,18 @@ export async function getConsumptionHistory(roomId, period = 'daily', tenantName
   }));
 }
 
-export async function getTotalConsumptionToday(roomId, tenantName = null) {
-  const data = await apiCall('getTotalConsumptionToday', { roomId, tenantName });
+export async function getTotalConsumptionToday(roomId, tenantName = null, options = {}) {
+  const data = await apiCall('getTotalConsumptionToday', { roomId, tenantName }, options);
   return data ? { totalEnergy: parseFloat(data.totalEnergy || 0), totalCost: parseFloat(data.totalCost || 0) } : { totalEnergy: 0, totalCost: 0 };
 }
 
-export async function getTotalConsumptionWeek(roomId, tenantName = null) {
-  const data = await apiCall('getTotalConsumptionWeek', { roomId, tenantName });
+export async function getTotalConsumptionWeek(roomId, tenantName = null, options = {}) {
+  const data = await apiCall('getTotalConsumptionWeek', { roomId, tenantName }, options);
   return data ? { totalEnergy: parseFloat(data.totalEnergy || 0), totalCost: parseFloat(data.totalCost || 0), entryCount: parseInt(data.entryCount || 0) } : { totalEnergy: 0, totalCost: 0, entryCount: 0 };
 }
 
-export async function getTotalConsumptionMonth(roomId, tenantName = null) {
-  const data = await apiCall('getTotalConsumptionMonth', { roomId, tenantName });
+export async function getTotalConsumptionMonth(roomId, tenantName = null, options = {}) {
+  const data = await apiCall('getTotalConsumptionMonth', { roomId, tenantName }, options);
   return data ? { totalEnergy: parseFloat(data.totalEnergy || 0), totalCost: parseFloat(data.totalCost || 0) } : { totalEnergy: 0, totalCost: 0 };
 }
 
@@ -226,12 +226,12 @@ export async function getTransactionHistory(roomId, limit = 50, filter = 'minute
   return data || [];
 }
 
-export async function getAvailableBillingCycles(roomId) {
-  return await apiCall('getAvailableBillingCycles', { roomId }) || [];
+export async function getAvailableBillingCycles(roomId, options = {}) {
+  return await apiCall('getAvailableBillingCycles', { roomId }, options) || [];
 }
 
-export async function getConsumptionComparison(roomId, period = 'weekly', tenantName = null) {
-  const data = await apiCall('getConsumptionComparison', { roomId, period, tenantName });
+export async function getConsumptionComparison(roomId, period = 'weekly', tenantName = null, options = {}) {
+  const data = await apiCall('getConsumptionComparison', { roomId, period, tenantName }, options);
   
   const current = {
     totalEnergy: parseFloat(data?.current?.totalEnergy || 0),

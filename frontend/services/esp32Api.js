@@ -57,6 +57,10 @@ export async function fetchRealtimeData(roomId) {
     return data;
   } catch (error) {
     _consecutiveFailures++;
+    // If it's a network error, return a specific flag so the context can show "Reconnecting" instead of zeroing data
+    if (error.message && (error.message.includes('internet') || error.message.includes('connect') || error.message.includes('longer'))) {
+       return { networkError: true };
+    }
     return null;
   }
 }

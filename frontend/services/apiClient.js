@@ -75,26 +75,37 @@ apiClient.interceptors.response.use(
       return Promise.resolve({ data: { success: false, message: 'Logging out' } });
     }
 
-    // Initialize retry count for network errors (Phase 5)
-    if (originalRequest && !originalRequest._retryCount) {
-        originalRequest._retryCount = 0;
-    }
+    // Phase 5: Implement safe retry mechanism with exponential backoff
+    // Only retry GET requests or explicitly idempotent POST requests
+    const isGet = originalRequest?.method?.toLowerCase() === 'get';
+    const action = originalRequest?.data?.action || '';
+    const isIdempotentPost = originalRequest?.idempotent === true || 
+                             action.startsWith('get') || 
+                             action.startsWith('sync') ||
+                             action === 'toggleRelay'; // toggling relay is mostly safe to retry
 
-    // Phase 5: Implement retry mechanism (Retry Request 3 Times)
-    if (originalRequest && (error.message === 'Network Error' || error.code === 'ECONNABORTED' || error.response?.status >= 500)) {
+    const canRetry = isGet || isIdempotentPost;
+    const isNetworkError = error.message === 'Network Error' || error.code === 'ECONNABORTED' || error.response?.status >= 500;
+
+    if (originalRequest && isNetworkError && canRetry) {
         if (originalRequest._retryCount < 3) {
             originalRequest._retryCount++;
-            console.log(`[Network] Retrying request (${originalRequest._retryCount}/3)...`);
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            const backoffMs = Math.pow(2, originalRequest._retryCount) * 1000; // 2s, 4s, 8s
+            console.log(`[Network] Retrying request (${originalRequest._retryCount}/3) in ${backoffMs}ms...`);
+            await new Promise(resolve => setTimeout(resolve, backoffMs));
             return apiClient(originalRequest);
         }
     }
 
     // Phase 7: Replace raw Axios errors with user-friendly messages
-    if (error.message === 'Network Error' || error.code === 'ECONNABORTED') {
-        error.message = 'No internet connection detected. Unable to reach the Wattipid server.';
+    if (error.code === 'ECONNABORTED') {
+        error.message = 'Your request is taking longer than expected. Please check your connection.';
+    } else if (error.message === 'Network Error') {
+        error.message = 'Unable to connect. Please check your internet connection.';
     } else if (error.response?.status >= 500) {
-        error.message = 'Unable to process your request at this time. Server is currently unavailable.';
+        error.message = 'The server is temporarily unavailable. We are trying to reconnect.';
+    } else if (error.response?.status === 429) {
+        error.message = 'Too many requests. Please wait a moment.';
     }
 
     const isAuthRoute = originalRequest?.url?.includes('action=login') || originalRequest?.url?.includes('action=register');

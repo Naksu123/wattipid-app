@@ -97,8 +97,8 @@ export async function updateAlertSettings(roomId, settings) {
 /**
  * Get monthly consumption forecast.
  */
-export async function getMonthlyForecast(roomId, tenantName = null) {
-  return await apiCall('getMonthlyForecast', { roomId, tenantName });
+export async function getMonthlyForecast(roomId, tenantName = null, options = {}) {
+  return await apiCall('getMonthlyForecast', { roomId, tenantName }, options);
 }
 
 /**

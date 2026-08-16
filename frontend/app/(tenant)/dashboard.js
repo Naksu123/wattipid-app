@@ -44,6 +44,7 @@ export default function DashboardScreen() {
   const [relayOn, setRelayOn] = useState(true);
   const [budget, setBudgetData] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [debugVisible, setDebugVisible] = useState(false);
   const lastNotifyTime = useRef(0);
 
   const roomId = user?.room_id || 'Room 1';
@@ -202,25 +203,15 @@ export default function DashboardScreen() {
     setRefreshing(false);
   };
 
-  // Use the accurate total cost from the current active billing cycle for LIVE, but the Invoice Amount for the Bill card
-  const activeMonthCost = monthUsage.totalCost || 0;
+  // Calculate dynamic cost based on exact energy and rate to ensure matching between apps
+  const enforcedRate = rate || 12.50;
+  // Use exact live bill cost from backend (which includes fees) for the active month cost
+  const activeMonthCost = monthUsage?.totalCost !== undefined ? parseFloat(monthUsage.totalCost) : (monthUsage?.totalEnergy || 0) * enforcedRate;
   
-  // For the "Current Bill" Card, use the billing cycle's grand total if it's a completed invoice
+  // ALWAYS show the Live Bill for the active cycle in the Live Cost widget
   let invoiceAmountDue = activeMonthCost;
-  if (billingCycle && billingCycle.status === 'completed') {
-       let grandTotal = parseFloat(billingCycle.grand_total || 0);
-       if (grandTotal === 0) {
-           grandTotal = parseFloat(billingCycle.electricity_charge || 0) + 
-                        parseFloat(billingCycle.penalty_amount || 0) + 
-                        parseFloat(billingCycle.monthly_rent || 0) + 
-                        parseFloat(billingCycle.previous_balance || 0) + 
-                        parseFloat(billingCycle.additional_charges || 0) - 
-                        parseFloat(billingCycle.discounts || 0);
-       }
-       if (grandTotal === 0) grandTotal = parseFloat(billingCycle.total_cost || 0) + parseFloat(billingCycle.penalty_amount || 0);
-       
-       invoiceAmountDue = grandTotal - parseFloat(billingCycle.amount_paid || 0);
-  }
+  let isShowingPreviousInvoice = false;
+
 
   const budgetPct = budget && budget.daily_allowance > 0 ? (todayUsage.totalCost / budget.daily_allowance) * 100 : 0;
 
@@ -402,26 +393,47 @@ export default function DashboardScreen() {
 
         {/* Financial Overview */}
         <Text style={ms.sectionTitle}>Live Cost</Text>
-        <GlassCard style={ms.financialCard}>
-          <View style={ms.financialRow}>
-            <View style={ms.financialBlock}>
-              <Text style={ms.financialLabel}>Total Amount Due</Text>
-              <View style={ms.financialValueRow}>
-                <Text style={ms.financialPrefix}>₱</Text>
-                <AnimatedNumber value={offline ? 0 : Number(activeMonthCost || 0)} style={ms.financialValue} />
+        <TouchableOpacity onLongPress={() => setDebugVisible(!debugVisible)} delayLongPress={800}>
+          <GlassCard style={ms.financialCard}>
+            <View style={ms.financialRow}>
+              <View style={ms.financialBlock}>
+                <Text style={ms.financialLabel}>{isShowingPreviousInvoice ? 'Outstanding Balance' : 'Current Cycle Cost'}</Text>
+                <View style={ms.financialValueRow}>
+                  <Text style={ms.financialPrefix}>₱</Text>
+                  <AnimatedNumber value={Number(invoiceAmountDue || 0)} style={ms.financialValue} />
+                </View>
+                {!isShowingPreviousInvoice && monthUsage?.cycle_end && (
+                   <Text style={{fontSize: 10, color: COLORS.textMuted, marginTop: 4}}>Live projection until {new Date(monthUsage.cycle_end).toLocaleDateString(undefined, {month: 'short', day: 'numeric'})}</Text>
+                )}
+              </View>
+              
+              <View style={[ms.financialBlock, { alignItems: 'flex-end' }]}>
+                <Text style={ms.financialLabel}>Energy Today</Text>
+                <View style={ms.financialValueRow}>
+                  <AnimatedNumber value={Number(todayUsage.totalEnergy || 0)} style={ms.financialValue} />
+                  <Text style={ms.financialUnit}>kWh</Text>
+                </View>
               </View>
             </View>
-            
-            <View style={[ms.financialBlock, { alignItems: 'flex-end' }]}>
-              <Text style={ms.financialLabel}>Energy Today</Text>
-              <View style={ms.financialValueRow}>
-                <AnimatedNumber value={offline ? 0 : Number(todayUsage.totalEnergy || 0)} style={ms.financialValue} />
-                <Text style={ms.financialUnit}>kWh</Text>
-              </View>
-            </View>
+        {debugVisible && (
+          <View style={{ marginTop: 12, padding: 12, backgroundColor: 'rgba(0,0,0,0.8)', borderRadius: 8 }}>
+            <Text style={{ color: '#0f0', fontWeight: 'bold', marginBottom: 4 }}>--- DEBUG BILLING ---</Text>
+            <Text style={{ color: '#fff', fontSize: 10 }}>isShowingPreviousInvoice: {String(isShowingPreviousInvoice)}</Text>
+            <Text style={{ color: '#fff', fontSize: 10 }}>billingCycle.status: {billingCycle?.status}</Text>
+            <Text style={{ color: '#fff', fontSize: 10 }}>billingCycle.grand_total: ₱{billingCycle?.grand_total}</Text>
+            <Text style={{ color: '#fff', fontSize: 10 }}>billingCycle.amount_paid: ₱{billingCycle?.amount_paid}</Text>
+            <Text style={{ color: '#fff', fontSize: 10 }}>monthUsage.totalEnergy: {monthUsage?.totalEnergy} kWh</Text>
+            <Text style={{ color: '#fff', fontSize: 10 }}>monthUsage.totalCost: ₱{monthUsage?.totalCost}</Text>
+            <Text style={{ color: '#fff', fontSize: 10 }}>rate: ₱{rate}</Text>
+            <Text style={{ color: '#fff', fontSize: 10 }}>activeMonthCost: ₱{activeMonthCost}</Text>
+            <Text style={{ color: '#fff', fontSize: 10 }}>final invoiceAmountDue: ₱{invoiceAmountDue}</Text>
+            <TouchableOpacity onPress={() => setDebugVisible(false)} style={{ marginTop: 8 }}>
+              <Text style={{ color: '#f00' }}>Close Debug</Text>
+            </TouchableOpacity>
           </View>
+        )}
           
-          {/* Breakdown Section */}
+        {/* Breakdown Section */}
           {(!offline && (monthUsage.monthlyRent > 0 || monthUsage.additionalCharges > 0 || monthUsage.penalty > 0 || monthUsage.previousBalance > 0)) && (
             <View style={{ marginTop: 15, paddingTop: 15, borderTopWidth: 1, borderTopColor: COLORS.border, gap: 8 }}>
               <Text style={{ fontFamily: 'Inter-SemiBold', fontSize: 13, color: COLORS.textMuted, marginBottom: 5 }}>TOTAL BREAKDOWN</Text>
@@ -484,7 +496,8 @@ export default function DashboardScreen() {
               <Text style={ms.budgetText}>₱{Number(todayUsage.totalCost || 0).toFixed(2)} / ₱{Number(budget.daily_allowance || 0).toFixed(2)}</Text>
             </View>
           )}
-        </GlassCard>
+          </GlassCard>
+        </TouchableOpacity>
 
         {/* Smart Tip Card */}
         {(smartTip || randomTip) && !tipDismissed && (

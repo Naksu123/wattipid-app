@@ -17,6 +17,8 @@ import { globalStyles } from '../styles/global.styles';
 
 import { NotificationProvider } from '@/contexts/NotificationContext';
 import ErrorBoundary from '@/components/ErrorBoundary';
+import { NetworkProvider } from '@/contexts/NetworkContext';
+import NetworkStatusBar from '@/components/ui/NetworkStatusBar';
 
 // Custom dark theme to match Wattipid brand
 const WattipidTheme = {
@@ -88,6 +90,7 @@ function RootLayoutContent() {
 
   return (
     <ErrorBoundary>
+      <NetworkStatusBar />
       <Slot />
       <GlobalToast />
       <NotificationBanner />
@@ -118,16 +121,18 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ThemeProvider value={WattipidTheme}>
-        <AuthProvider>
-          <SyncProvider>
-            <ModalProvider>
-              <NotificationProvider>
-                <StatusBar style="light" />
-                <RootLayoutContent />
-              </NotificationProvider>
-            </ModalProvider>
-          </SyncProvider>
-        </AuthProvider>
+        <NetworkProvider>
+          <AuthProvider>
+            <SyncProvider>
+              <ModalProvider>
+                <NotificationProvider>
+                  <StatusBar style="light" />
+                  <RootLayoutContent />
+                </NotificationProvider>
+              </ModalProvider>
+            </SyncProvider>
+          </AuthProvider>
+        </NetworkProvider>
       </ThemeProvider>
     </GestureHandlerRootView>
   );

@@ -115,8 +115,8 @@ export default function RoomsScreen() {
       const mappedRooms = (roomData || []).map(r => {
         const roomRate = (r.utility_rate && parseFloat(r.utility_rate) > 0) ? parseFloat(r.utility_rate) : currentRate;
         
-        // If currCost is not provided by backend (legacy support), recalculate it
-        const currentCost = r.currCost !== undefined ? parseFloat(r.currCost) : (r.currEnergy || 0) * roomRate;
+        // Enforce exact calculation based on energy and rate to match Tenant App
+        const currentCost = (r.currEnergy || 0) * roomRate;
         const previousCost = r.prevCost !== undefined ? parseFloat(r.prevCost) : (r.prevEnergy || 0) * roomRate;
 
         return {
@@ -164,8 +164,8 @@ export default function RoomsScreen() {
         const mappedRooms = (roomData || []).map(r => {
           const roomRate = (r.utility_rate && parseFloat(r.utility_rate) > 0) ? parseFloat(r.utility_rate) : currentRate;
           
-          // If currCost is not provided by backend (legacy support), recalculate it
-          const currentCost = r.currCost !== undefined ? parseFloat(r.currCost) : (r.currEnergy || 0) * roomRate;
+          // Enforce exact calculation based on energy and rate to match Tenant App
+          const currentCost = (r.currEnergy || 0) * roomRate;
           const previousCost = r.prevCost !== undefined ? parseFloat(r.prevCost) : (r.prevEnergy || 0) * roomRate;
 
           return {
@@ -528,11 +528,11 @@ export default function RoomsScreen() {
                         <Text style={s.consumptionValue} adjustsFontSizeToFit numberOfLines={1}>{Number(consumptionData[room.room_id].current.totalEnergy || 0).toFixed(2)} kWh</Text>
                       </View>
                       <View style={[s.consumptionItem, { alignItems: 'center' }]}>
-                        <Text style={s.consumptionLabel}>Cost</Text>
+                        <Text style={s.consumptionLabel}>Electricity Cost</Text>
                         <Text style={[s.consumptionValue, { color: COLORS.warning }]} adjustsFontSizeToFit numberOfLines={1}>₱{Number(consumptionData[room.room_id].current.totalCost || 0).toFixed(2)}</Text>
                       </View>
                       <View style={[s.consumptionItem, { alignItems: 'flex-end' }]}>
-                        <Text style={s.consumptionLabel}>vs Last Mo.</Text>
+                        <Text style={s.consumptionLabel}>vs Last Mo. (kWh)</Text>
                         <Text style={[s.consumptionValue, { color: consumptionData[room.room_id].diff > 0 ? COLORS.danger : COLORS.primary }]} adjustsFontSizeToFit numberOfLines={1}>
                           {consumptionData[room.room_id].diff > 0 ? '+' : ''}{Number(consumptionData[room.room_id].diff || 0).toFixed(2)}
                         </Text>

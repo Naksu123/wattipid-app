@@ -55,6 +55,7 @@ export const ConsumptionProvider = ({ children }) => {
 
         if (result.data.month) {
           setMonthUsage({
+            ...result.data.month,
             totalEnergy: result.data.month.totalEnergy || 0,
             totalCost: result.data.month.totalCost || 0,
             cycle_start: result.data.month.cycle_start || null,
@@ -69,10 +70,24 @@ export const ConsumptionProvider = ({ children }) => {
     }
   }, [roomId]);
 
+  const [reconnecting, setReconnecting] = useState(false);
+
   const fetchRealtimeDataLoop = useCallback(async () => {
     if (!roomId) return;
     try {
       const sensorData = await fetchRealtimeData(roomId);
+
+      if (sensorData && sensorData.networkError) {
+        // Network dropped. Preserve last known data and show reconnecting.
+        setReconnecting(true);
+        return;
+      }
+
+      if (reconnecting) {
+        // Connection restored!
+        setReconnecting(false);
+        fetchStaticConsumption(); // Fetch authoritative data to fix any missed deltas
+      }
 
       if (!sensorData) {
         setDeviceOnline(false);
@@ -130,7 +145,7 @@ export const ConsumptionProvider = ({ children }) => {
     } catch (err) {
       console.warn('Real-time fetch error:', err);
     }
-  }, [roomId, rate]);
+  }, [roomId, rate, reconnecting, fetchStaticConsumption]);
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -147,6 +162,7 @@ export const ConsumptionProvider = ({ children }) => {
     <ConsumptionContext.Provider value={{
       data,
       deviceOnline,
+      reconnecting,
       lastSeen,
       rate,
       todayUsage,

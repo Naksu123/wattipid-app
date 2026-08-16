@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const ENVIRONMENTS = {
-  local: 'http://172.20.10.12/wattipid_backend',
+  local: 'http://192.168.254.110/wattipid_backend',
   tunnel: 'https://bright-seals-roll.loca.lt/wattipid_backend',
   //hostinger: 'https://YOUR_DOMAIN/wattipid_backend', 
   //production: 'https://wattipid-backend.infinityfreeapp.com',
@@ -11,7 +11,7 @@ const STORAGE_KEY = '@wattipid_api_env';
 
 // Active: Local mode for XAMPP
 export const API_URL = ENVIRONMENTS.local;
-console.log('🌍 [NETWORK] App is trying to connect to:', API_URL);
+console.log(' [NETWORK] App is trying to connect to:', API_URL);
 
 export async function getBaseUrl() {
   // Hardcode for troubleshooting to ensure phone uses the correct PC IP

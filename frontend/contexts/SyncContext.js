@@ -69,14 +69,27 @@ export const SyncProvider = ({ children }) => {
       });
 
       // apiCall bridge returns response.data.data, so there is no .success property here
-      if (res) {
-        lastSyncTimeRef.current = res.server_timestamp;
-        
-        if (res.new_notifications_count > 0) {
-          setUnreadCount(prev => prev + res.new_notifications_count);
-        }
+        if (res) {
+          lastSyncTimeRef.current = res.server_timestamp;
+          
+          if (res.new_notifications_count > 0) {
+            setUnreadCount(prev => prev + res.new_notifications_count);
+            
+            // Trigger toast for actual notifications
+            if (res.new_notifications && Array.isArray(res.new_notifications)) {
+              import('react-native').then(({ DeviceEventEmitter }) => {
+                res.new_notifications.forEach(notif => {
+                  DeviceEventEmitter.emit('showToast', { 
+                    message: notif.message, 
+                    type: notif.severity === 'critical' ? 'error' : 'warning',
+                    duration: 6000
+                  });
+                });
+              });
+            }
+          }
 
-        // If the server says there's a major update (payment, bill, activity)
+          // If the server says there's a major update (payment, bill, activity)
         if (res.trigger_full_refresh) {
           setGlobalRefreshTick(prev => prev + 1);
         }

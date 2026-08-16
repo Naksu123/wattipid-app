@@ -132,6 +132,23 @@ export default function TenantPaymentScreen() {
         }
     };
 
+    const [verifying, setVerifying] = useState(false);
+
+    const verifyPaymentSuccess = async () => {
+        try {
+            const response = await getAvailableBillingCycles(user.room_id);
+            const cycles = response?.data || response || [];
+            const targetCycle = cycles.find(c => c.id === billingCycle.id);
+            
+            if (targetCycle && (targetCycle.payment_status === 'pending_verification' || targetCycle.payment_status === 'paid')) {
+                return true;
+            }
+            return false;
+        } catch (e) {
+            return false;
+        }
+    };
+
     const handleSubmit = async () => {
         if (!paymentMethod) {
             showModal({ type: 'error', title: 'Error', message: 'Please select a payment method.' });
@@ -144,8 +161,8 @@ export default function TenantPaymentScreen() {
         }
 
         setSubmitting(true);
+        setVerifying(false);
         try {
-            // Determine amount due (grand_total - amount_paid)
             let grandTotal = parseFloat(billingCycle.grand_total || 0);
             if (grandTotal === 0) {
                  grandTotal = parseFloat(billingCycle.electricity_charge || 0) + 
@@ -188,11 +205,35 @@ export default function TenantPaymentScreen() {
             setStep(4);
             fetchData();
         } catch (err) {
-            console.error('[TenantPayment] Submit error:', err);
-            showModal({ type: 'error', title: 'Error', message: typeof err === 'string' ? err : (err?.message || 'Failed to submit payment.') });
-        } finally {
-            setSubmitting(false);
+            const errorMsg = typeof err === 'string' ? err : (err?.message || 'Failed to submit payment.');
+            
+            // If it's a network/timeout error, verify before failing
+            if (errorMsg.includes('connect') || errorMsg.includes('longer than expected') || errorMsg.includes('unavailable')) {
+                console.warn('[TenantPayment] Connection unstable. Verifying if payment succeeded on backend...');
+                setVerifying(true);
+                
+                // Wait briefly before verifying to allow backend to process
+                await new Promise(res => setTimeout(res, 2000));
+                
+                const verified = await verifyPaymentSuccess();
+                if (verified) {
+                    console.log('[TenantPayment] Payment was actually successful despite network error.');
+                    showModal({ type: 'success', title: 'Success', message: 'Payment was successfully submitted despite network issues.' });
+                    setStep(4);
+                    fetchData();
+                    setSubmitting(false);
+                    setVerifying(false);
+                    return;
+                } else {
+                    console.warn('[TenantPayment] Payment verification failed. Safe to retry.');
+                    showModal({ type: 'error', title: 'Connection Issue', message: 'Connection was lost before we could confirm your payment. Please verify your internet and try again.' });
+                }
+            } else {
+                showModal({ type: 'error', title: 'Error', message: errorMsg });
+            }
         }
+        setSubmitting(false);
+        setVerifying(false);
     };
 
     if (loading) {
@@ -411,9 +452,18 @@ export default function TenantPaymentScreen() {
                                     <TouchableOpacity 
                                         style={[styles.nextBtn, styles.submitBtn]} 
                                         onPress={handleSubmit}
-                                        disabled={submitting}
+                                        disabled={submitting || verifying}
                                     >
-                                        {submitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitBtnText}>Submit Payment</Text>}
+                                        {(submitting || verifying) ? (
+                                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                                <ActivityIndicator color="#fff" style={{ marginRight: 8 }} />
+                                                <Text style={styles.submitBtnText}>
+                                                    {verifying ? 'Checking payment status...' : 'Submitting...'}
+                                                </Text>
+                                            </View>
+                                        ) : (
+                                            <Text style={styles.submitBtnText}>Submit Payment</Text>
+                                        )}
                                     </TouchableOpacity>
                                 </View>
                             </View>
