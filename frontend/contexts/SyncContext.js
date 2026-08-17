@@ -79,10 +79,10 @@ export const SyncProvider = ({ children }) => {
             if (res.new_notifications && Array.isArray(res.new_notifications)) {
               import('react-native').then(({ DeviceEventEmitter }) => {
                 res.new_notifications.forEach(notif => {
-                  DeviceEventEmitter.emit('showToast', { 
+                  DeviceEventEmitter.emit('showBanner', { 
+                    title: notif.severity === 'critical' ? 'Urgent Alert' : 'Notification',
                     message: notif.message, 
-                    type: notif.severity === 'critical' ? 'error' : 'warning',
-                    duration: 6000
+                    type: notif.severity === 'critical' ? 'error' : 'info'
                   });
                 });
               });

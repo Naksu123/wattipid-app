@@ -3,6 +3,8 @@ import { View, Text, ScrollView, RefreshControl, TouchableOpacity, Animated, Eas
 import { useIsFocused } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useCopilot, CopilotStep, walkthroughable } from 'react-native-copilot';
+import { useTourAutoStart, useTourContext } from '@/contexts/TourContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSync } from '@/contexts/SyncContext';
 import { fetchRealtimeData } from '../../services/esp32Api';
@@ -24,6 +26,8 @@ import { useConsumption } from '@/contexts/ConsumptionContext';
 let globalLastAlertKey = null;
 let globalLastTipKey = null;
 let globalTipDismissed = false;
+
+const CopilotGlassCard = walkthroughable(GlassCard);
 
 export default function DashboardScreen() {
   const { user, isAuthenticated } = useAuth();
@@ -55,6 +59,10 @@ export default function DashboardScreen() {
   const [unreadCount, setUnreadCount] = useState(0); 
   const [paymentInsights, setPaymentInsights] = useState(null);
   const [activities, setActivities] = useState([]);
+
+  // Copilot Tour
+  const { currentTourScreen } = useTourContext();
+  useTourAutoStart('dashboard', !loading);
 
   // Live Pulse Animation
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -330,7 +338,8 @@ export default function DashboardScreen() {
 
         <Text style={ms.sectionTitle}>Live Sensor</Text>
         {/* Live Sensor Widget */}
-        <GlassCard gradient style={[ms.gaugeCard, offline && { opacity: 0.8 }]}>
+        <CopilotStep active={currentTourScreen === 'dashboard'} text="This is the Live Sensor. It shows your real-time power draw (in Watts) directly from the IoT submeter in your room." order={1} name="sensor">
+        <CopilotGlassCard gradient style={[ms.gaugeCard, offline && { opacity: 0.8 }]}>
           <View style={ms.liveIndicatorWrap}>
             <Animated.View style={[ms.liveDot, { backgroundColor: offline ? COLORS.danger : '#10B981', opacity: offline ? 1 : pulseAnim }]} />
             <Text style={ms.liveText}>{offline ? 'Offline' : 'Live Data'}</Text>
@@ -389,12 +398,14 @@ export default function DashboardScreen() {
               </View>
             </>
           )}
-        </GlassCard>
+        </CopilotGlassCard>
+        </CopilotStep>
 
         {/* Financial Overview */}
         <Text style={ms.sectionTitle}>Live Cost</Text>
         <TouchableOpacity onLongPress={() => setDebugVisible(!debugVisible)} delayLongPress={800}>
-          <GlassCard style={ms.financialCard}>
+          <CopilotStep active={currentTourScreen === 'dashboard'} text="This shows your live estimated cost for the current billing cycle and how much energy you've used today." order={2} name="financials">
+          <CopilotGlassCard style={ms.financialCard}>
             <View style={ms.financialRow}>
               <View style={ms.financialBlock}>
                 <Text style={ms.financialLabel}>{isShowingPreviousInvoice ? 'Outstanding Balance' : 'Current Cycle Cost'}</Text>
@@ -496,7 +507,8 @@ export default function DashboardScreen() {
               <Text style={ms.budgetText}>₱{Number(todayUsage.totalCost || 0).toFixed(2)} / ₱{Number(budget.daily_allowance || 0).toFixed(2)}</Text>
             </View>
           )}
-          </GlassCard>
+          </CopilotGlassCard>
+          </CopilotStep>
         </TouchableOpacity>
 
         {/* Smart Tip Card */}

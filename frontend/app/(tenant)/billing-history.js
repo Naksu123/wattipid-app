@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, TextInput, BackHandler, RefreshControl } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -34,7 +34,7 @@ export default function TenantBillingHistoryScreen() {
             setLoading(false);
             setRefreshing(false);
         }
-    }, [user?.room_id, showModal]);
+    }, [user?.room_id]);
 
     useEffect(() => {
         fetchHistory();

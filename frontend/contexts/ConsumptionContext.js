@@ -124,8 +124,14 @@ export const ConsumptionProvider = ({ children }) => {
            setMonthUsage(prev => {
              const newEnergy = parseFloat(prev.totalEnergy || 0) + delta;
              const newCost = parseFloat(prev.totalCost || 0) + (delta * rate);
-             monthUsageRef.current = { ...prev, totalEnergy: newEnergy, totalCost: newCost };
-             return { ...prev, totalEnergy: newEnergy, totalCost: newCost };
+             
+             // Keep electricityCharge perfectly in sync with real-time delta
+             const newElectricityCharge = prev.electricityCharge !== undefined 
+                ? parseFloat(prev.electricityCharge || 0) + (delta * rate) 
+                : newCost;
+             
+             monthUsageRef.current = { ...prev, totalEnergy: newEnergy, totalCost: newCost, electricityCharge: newElectricityCharge };
+             return { ...prev, totalEnergy: newEnergy, totalCost: newCost, electricityCharge: newElectricityCharge };
            });
         }
         lastCumulativeEnergyRef.current = currentEnergy;
@@ -144,17 +150,27 @@ export const ConsumptionProvider = ({ children }) => {
       }
     } catch (err) {
       console.warn('Real-time fetch error:', err);
+    } finally {
+      // Schedule the next fetch ONLY AFTER this one completes
+      if (realtimerRef.current !== false) {
+        realtimerRef.current = setTimeout(fetchRealtimeDataLoop, 2000);
+      }
     }
   }, [roomId, rate, reconnecting, fetchStaticConsumption]);
+
+  const realtimerRef = useRef(null);
 
   useEffect(() => {
     if (!isAuthenticated) return;
 
+    realtimerRef.current = true; // flag to allow scheduling
     fetchStaticConsumption().then(() => fetchRealtimeDataLoop());
-    const realtimeInterval = setInterval(fetchRealtimeDataLoop, 1000);
 
     return () => {
-      clearInterval(realtimeInterval);
+      if (realtimerRef.current !== null && realtimerRef.current !== true && realtimerRef.current !== false) {
+        clearTimeout(realtimerRef.current);
+      }
+      realtimerRef.current = false; // flag to stop scheduling
     };
   }, [isAuthenticated, fetchStaticConsumption, fetchRealtimeDataLoop]);
 

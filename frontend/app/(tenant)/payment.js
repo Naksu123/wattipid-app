@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, TouchableOpacity, Image, ActivityIndicator, ScrollView, TextInput } from 'react-native';
 import { useRouter } from 'expo-router';
-import { getAvailableBillingCycles, getSetting } from '../../services/database';
+import { getAvailableBillingCycles, getMultipleSettings } from '../../services/database';
 import { submitPayment } from '../../services/paymentService';
 import { useAuth } from '../../contexts/AuthContext';
 import { useModal } from '../../contexts/ModalContext';
@@ -61,19 +61,19 @@ export default function TenantPaymentScreen() {
                 setBillingCycle(latestInvoice || null);
             }
 
-            // Fetch landlord settings for payment methods
-            const [gName, gNum, gQr, mName, mNum, mQr] = await Promise.all([
-                getSetting('gcash_name'), getSetting('gcash_number'), getSetting('gcash_qr'),
-                getSetting('maya_name'), getSetting('maya_number'), getSetting('maya_qr')
+            // Fetch landlord settings for payment methods in a single request
+            const settings = await getMultipleSettings([
+                'gcash_name', 'gcash_number', 'gcash_qr',
+                'maya_name', 'maya_number', 'maya_qr'
             ]);
             
             setLandlordInfo({
-                gcash_name: gName || 'Not configured',
-                gcash_number: gNum || 'Not configured',
-                gcash_qr: gQr || null,
-                maya_name: mName || 'Not configured',
-                maya_number: mNum || 'Not configured',
-                maya_qr: mQr || null
+                gcash_name: settings?.gcash_name || 'Not configured',
+                gcash_number: settings?.gcash_number || 'Not configured',
+                gcash_qr: settings?.gcash_qr || null,
+                maya_name: settings?.maya_name || 'Not configured',
+                maya_number: settings?.maya_number || 'Not configured',
+                maya_qr: settings?.maya_qr || null
             });
 
         } catch (err) {

@@ -2,11 +2,16 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useAuth } from '../../../contexts/AuthContext';
-import { useModal } from '../../../contexts/ModalContext';
+import { useCopilot, CopilotStep, walkthroughable } from 'react-native-copilot';
+import { useTourAutoStart, useTourContext } from '@/contexts/TourContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { useModal } from '@/contexts/ModalContext';
 import { getAvailableBillingCycles, getBillingDetails } from '../../../services/database';
 import GlassCard from '../../../components/ui/GlassCard';
 import { COLORS, FONT_SIZE, FONT_WEIGHT, SPACING, RADIUS } from '../../../styles/theme';
+
+const CopilotGlassCard = walkthroughable(GlassCard);
+const CopilotView = walkthroughable(View);
 
 export default function TenantBillingScreen() {
     const { user } = useAuth();
@@ -16,6 +21,10 @@ export default function TenantBillingScreen() {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [expandedSection, setExpandedSection] = useState('electricity');
+    
+    const { currentTourScreen } = useTourContext();
+
+    useTourAutoStart('billing', !loading);
 
     const fetchBillingDetails = useCallback(async () => {
         try {
@@ -147,7 +156,8 @@ export default function TenantBillingScreen() {
                     </View>
                 </GlassCard>
 
-                <GlassCard style={styles.amountDueCard} premium>
+                <CopilotStep active={currentTourScreen === 'billing'} text="This is your total amount due for the current billing cycle. You can also quickly see its status and the due date here." order={9} name="amountDue">
+                <CopilotGlassCard style={styles.amountDueCard} premium>
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.xs, width: '100%' }}>
                         <Text style={[styles.amountDueLabel, { marginBottom: 0 }]}>Current Amount Due</Text>
                         
@@ -178,7 +188,8 @@ export default function TenantBillingScreen() {
                             <Text style={styles.payButtonText}>Pay Now</Text>
                         </TouchableOpacity>
                     )}
-                </GlassCard>
+                </CopilotGlassCard>
+                </CopilotStep>
 
                 <View style={styles.actionRow}>
                     <TouchableOpacity style={styles.actionBtn} onPress={() => router.push('/(tenant)/billing-history')}>
@@ -193,7 +204,8 @@ export default function TenantBillingScreen() {
 
                 <Text style={styles.sectionTitle}>Billing Breakdown</Text>
                 
-                <GlassCard style={styles.breakdownContainer}>
+                <CopilotStep active={currentTourScreen === 'billing'} text="Tap these sections to see exactly how your electricity, rent, and other charges are calculated." order={10} name="breakdown">
+                <CopilotGlassCard style={styles.breakdownContainer}>
                     {parseFloat(monthly_rent || 0) > 0 && (
                         <View style={styles.accordionItem}>
                             <TouchableOpacity style={styles.accordionHeader} onPress={() => toggleSection('rent')}>
@@ -346,6 +358,23 @@ export default function TenantBillingScreen() {
                             ₱{computedGrandTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </Text>
                     </View>
+                </CopilotGlassCard>
+                </CopilotStep>
+
+                <Text style={styles.sectionTitle}>Important Notes</Text>
+                <GlassCard style={styles.notesCard}>
+                    <View style={styles.noteItem}>
+                        <Ionicons name="information-circle-outline" size={16} color={COLORS.textSecondary} />
+                        <Text style={styles.noteText}>Invoices are generated on the {billingDetails.cycle_start ? new Date(billingDetails.cycle_start).getDate() : '1st'} of each month.</Text>
+                    </View>
+                    <View style={styles.noteItem}>
+                        <Ionicons name="warning-outline" size={16} color={COLORS.warning} />
+                        <Text style={styles.noteText}>A penalty fee applies for payments made after the due date.</Text>
+                    </View>
+                    <View style={styles.noteItem}>
+                        <Ionicons name="help-circle-outline" size={16} color={COLORS.textSecondary} />
+                        <Text style={styles.noteText}>Contact your landlord if you notice discrepancies in your reading.</Text>
+                    </View>
                 </GlassCard>
             </ScrollView>
         </View>
@@ -385,7 +414,7 @@ const styles = StyleSheet.create({
     actionBtn: { flex: 1, flexDirection: 'row', backgroundColor: 'rgba(16, 185, 129, 0.05)', paddingVertical: 14, borderRadius: RADIUS.md, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(16, 185, 129, 0.2)' },
     actionBtnText: { marginLeft: 8, fontSize: FONT_SIZE.sm, fontWeight: FONT_WEIGHT.bold, color: COLORS.primary },
 
-    sectionTitle: { fontSize: FONT_SIZE.xs, fontWeight: FONT_WEIGHT.bold, color: COLORS.textSecondary, letterSpacing: 1, marginBottom: SPACING.sm, marginLeft: SPACING.xs },
+    sectionTitle: { fontSize: FONT_SIZE.xs, fontWeight: FONT_WEIGHT.bold, color: COLORS.textSecondary, letterSpacing: 1, marginTop: SPACING.xl, marginBottom: SPACING.sm, marginLeft: SPACING.xs },
     breakdownContainer: { padding: 0, overflow: 'hidden' },
     
     accordionItem: { borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.03)', paddingHorizontal: SPACING.lg },
@@ -410,5 +439,9 @@ const styles = StyleSheet.create({
     
     totalComputationRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: SPACING.lg, paddingVertical: SPACING.xl, backgroundColor: 'rgba(255,255,255,0.02)' },
     totalComputationLabel: { fontSize: 15, fontWeight: '600', color: COLORS.textPrimary },
-    totalComputationValue: { fontSize: 24, fontWeight: '300', color: COLORS.textPrimary }
+    totalComputationValue: { fontSize: 24, fontWeight: '300', color: COLORS.textPrimary },
+    
+    notesCard: { padding: SPACING.md, marginBottom: SPACING.xl },
+    noteItem: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: SPACING.sm, gap: 8 },
+    noteText: { flex: 1, fontSize: 13, color: COLORS.textSecondary, lineHeight: 20 }
 });

@@ -79,13 +79,6 @@ export default function OverviewScreen() {
   const statistics = data?.statistics || {};
   const liveElectricity = data?.liveElectricity || { todayEnergyKwh: 0, livePeakPowerW: 0 };
 
-  const quickActions = [
-    { icon: 'bed-outline', label: 'Rooms', route: '/(landlord)/rooms' },
-    { icon: 'wallet-outline', label: 'Payments', route: '/(landlord)/payments' },
-    { icon: 'warning-outline', label: 'Penalties', route: '/(landlord)/penalties' },
-    { icon: 'settings-outline', label: 'Settings', route: '/(landlord)/settings' },
-  ];
-
   const unpaidBills = data?.unpaidBills || [];
 
   return (
@@ -115,17 +108,6 @@ export default function OverviewScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={COLORS.primary} />}
       >
-        {/* Quick Actions */}
-        <View style={styles.quickActionsContainer}>
-          {quickActions.map((action, idx) => (
-            <TouchableOpacity key={idx} style={styles.quickActionBtn} onPress={() => router.push(action.route)}>
-              <View style={styles.quickActionIconWrap}>
-                <Ionicons name={action.icon} size={24} color={COLORS.primary} />
-              </View>
-              <Text style={styles.quickActionLabel}>{action.label}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
 
         {/* Live Consumption Monitor */}
         <LiveConsumptionWidget 

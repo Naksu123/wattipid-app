@@ -2,6 +2,9 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, ScrollView, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, Animated, Easing } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
+import { useCopilot, CopilotStep, walkthroughable } from 'react-native-copilot';
+import { useTourAutoStart, useTourContext } from '@/contexts/TourContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useModal } from '../../contexts/ModalContext';
 import { useConsumption } from '../../contexts/ConsumptionContext';
@@ -14,6 +17,9 @@ import { COLORS, GRADIENTS } from '@/styles/theme';
 import s from '@/styles/tenant/budget.styles';
 
 const BUDGET_TABS = ['daily', 'weekly', 'monthly'];
+
+const CopilotView = walkthroughable(View);
+const CopilotGlassCard = walkthroughable(GlassCard);
 
 export default function BudgetScreen() {
   const { user } = useAuth();
@@ -30,6 +36,10 @@ export default function BudgetScreen() {
   const [resetVisible, setResetVisible] = useState(false);
   const [budgetConfirm, setBudgetConfirm] = useState(null); // inline confirmation message
   const [billingCycle, setBillingCycle] = useState(null);
+  
+  const { currentTourScreen } = useTourContext();
+
+  useTourAutoStart('budget', true);
 
   const loadData = useCallback(async () => {
     if (!user || !roomId) return;
@@ -40,8 +50,15 @@ export default function BudgetScreen() {
       getConsumptionComparison(roomId, compPeriod, user?.name),
     ]);
     if (b) { 
-      setBudgetData(b); 
-      setMonthlyBudgetInput(String(b.monthly_budget || '')); 
+      if (parseFloat(b.monthly_budget) > 0) {
+        setBudgetData(b); 
+        setMonthlyBudgetInput(String(b.monthly_budget || '')); 
+      } else {
+        setBudgetData(null); // Treat 0 as disabled/reset budget
+        setMonthlyBudgetInput('');
+      }
+    } else {
+      setBudgetData(null);
     }
     if (bc) {
       setBillingCycle(bc);
@@ -284,7 +301,8 @@ export default function BudgetScreen() {
 
         {/* Budget Overview with Tabs */}
         {budgetData && !editing && (
-          <View>
+          <CopilotStep active={currentTourScreen === 'budget'} text="This is your Budget Overview. It tracks your expenses in real-time. Use these tabs to see your daily, weekly, or monthly allowance." order={7} name="overview">
+          <CopilotView>
             {/* Period Tabs */}
             <View style={s.tabRow}>
               {BUDGET_TABS.map(tab => (
@@ -310,11 +328,13 @@ export default function BudgetScreen() {
               </View>
 
               {/* Modern Alert Badge */}
-              <View style={[s.alertBadgeContainer, { backgroundColor: statusInfo.bg, borderColor: statusInfo.border }]}>
+              <CopilotStep active={currentTourScreen === 'budget'} text="This status indicator tells you if you're under budget, approaching your limit, or if you've exceeded it." order={8} name="statusBadge">
+              <CopilotView style={[s.alertBadgeContainer, { backgroundColor: statusInfo.bg, borderColor: statusInfo.border }]}>
                 <Text style={[s.alertBadgeText, { color: statusInfo.color }]}>
                   {statusInfo.text}
                 </Text>
-              </View>
+              </CopilotView>
+              </CopilotStep>
 
               {/* Main Action Buttons */}
               <View style={s.mainActionRow}>
@@ -378,10 +398,11 @@ export default function BudgetScreen() {
                 </Text>
               </View>
             </GlassCard>
-          </View>
+          </CopilotView>
+          </CopilotStep>
         )}
 
-        {/* Comparison Card */}
+        {/* Transactions / Payments */}
         {comparison && (comparison.current.totalCost > 0 || comparison.previous.totalCost > 0) && (
           <GlassCard style={s.compCard}>
             <View style={s.compHeader}>

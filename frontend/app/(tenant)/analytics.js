@@ -3,6 +3,9 @@ import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshCon
 import { Ionicons } from '@expo/vector-icons';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
+import { useRouter } from 'expo-router';
+import { useCopilot, CopilotStep, walkthroughable } from 'react-native-copilot';
+import { useTourAutoStart, useTourContext } from '@/contexts/TourContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useModal } from '../../contexts/ModalContext';
 import {
@@ -22,18 +25,20 @@ const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct'
 const MONTH_FULL = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const DAY_NAMES = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 
+const CopilotView = walkthroughable(View);
+const CopilotGlassCard = walkthroughable(GlassCard);
+
 export default function AnalyticsScreen() {
   const { user } = useAuth();
   const { showModal } = useModal();
+  const { currentTourScreen } = useTourContext();
   const [period, setPeriod] = useState('weekly');
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [history, setHistory] = useState([]);
   const [comparison, setComparison] = useState(null);
   const [breakdown, setBreakdown] = useState([]);
   const [hourlyBreakdown, setHourlyBreakdown] = useState([]);
-  const [todayUsage, setTodayUsage] = useState({ totalEnergy: 0, totalCost: 0 });
-  const [weekUsage, setWeekUsage] = useState({ totalEnergy: 0, totalCost: 0 });
-  const [monthUsage, setMonthUsage] = useState({ totalEnergy: 0, totalCost: 0 });
+
   const [rate, setRate] = useState(12.50);
   const [availableCycles, setAvailableCycles] = useState([]);
   const [selectedPdfCycle, setSelectedPdfCycle] = useState(null);
@@ -55,10 +60,23 @@ export default function AnalyticsScreen() {
   const [loadingPeriod, setLoadingPeriod] = useState(false);
   const [loadingForecast, setLoadingForecast] = useState(false);
   const [forecastError, setForecastError] = useState(false);
+  const [loadingPdfId, setLoadingPdfId] = useState(null);
+  
+  const router = useRouter();
   
   const cacheRef = React.useRef({});
   const coreAbortRef = React.useRef(null);
   const forecastAbortRef = React.useRef(null);
+
+  useTourAutoStart('analytics', !loadingPeriod);
+
+  // Clean up abort controllers on unmount
+  useEffect(() => {
+    return () => {
+      if (coreAbortRef.current) coreAbortRef.current.abort();
+      if (forecastAbortRef.current) forecastAbortRef.current.abort();
+    };
+  }, []);
 
   const roomId = user?.room_id || 'Room 1';
 
@@ -88,10 +106,6 @@ export default function AnalyticsScreen() {
         const cached = cacheRef.current[cacheKey];
         setHistory(cached.history);
         setComparison(cached.comp);
-        setTodayUsage(cached.todayUsage);
-        setWeekUsage(cached.weekUsage);
-        setMonthUsage(cached.monthUsage);
-        setRate(cached.rate);
         
         if (period === 'daily') {
           setHourlyBreakdown([...cached.history].reverse());
@@ -106,27 +120,12 @@ export default function AnalyticsScreen() {
     }
 
     try {
-      const [data, comp, today, week, month, cyclesData, fetchedRateStr] = await Promise.all([
+      const [data, comp] = await Promise.all([
         getConsumptionHistory(roomId, period, tenantName, targetYear, targetMonth, targetDateStr, options),
-        getConsumptionComparison(roomId, period, tenantName, options),
-        getTotalConsumptionToday(roomId, tenantName, options),
-        getTotalConsumptionWeek(roomId, tenantName, options),
-        getTotalConsumptionMonth(roomId, tenantName, options),
-        getAvailableBillingCycles(roomId, options),
-        getSetting('rate_per_kwh')
+        getConsumptionComparison(roomId, period, tenantName, options)
       ]);
 
-      const fetchedRate = parseFloat(fetchedRateStr || '12.50');
-      setRate(fetchedRate);
-
-      if (cyclesData && cyclesData.length > 0) {
-        setAvailableCycles(cyclesData);
-        if (!selectedPdfCycle) setSelectedPdfCycle(cyclesData[0]);
-        if (!historyStartDate) {
-          setHistoryStartDate(new Date(cyclesData[0].cycle_start));
-          setHistoryEndDate(new Date(cyclesData[0].cycle_end));
-        }
-      }
+      const fetchedRate = rate || 12.50; // Use state rate or default
 
       const alignedData = (data || []).map(item => ({
         ...item,
@@ -139,19 +138,12 @@ export default function AnalyticsScreen() {
         const dateB = new Date(b.group_date || b.day || b.timestamp || b.cycle_start || 0).getTime();
         if (dateA !== dateB && !isNaN(dateA) && !isNaN(dateB)) return dateA - dateB;
         if (a.hour !== undefined && b.hour !== undefined) return a.hour - b.hour;
-        if (a.month !== undefined && b.month !== undefined) return a.month - b.month;
+        if (a.month !== undefined && b.month !== undefined) return a.month - month;
         return 0;
       });
 
-      const nextTodayUsage = { ...today, totalCost: (today?.totalEnergy || 0) * fetchedRate };
-      const nextWeekUsage = { ...week, totalCost: (week?.totalEnergy || 0) * fetchedRate };
-      const nextMonthUsage = { ...month, totalCost: (month?.totalEnergy || 0) * fetchedRate };
-
       setHistory(ascendingData);
       setComparison(comp);
-      setTodayUsage(nextTodayUsage);
-      setWeekUsage(nextWeekUsage);
-      setMonthUsage(nextMonthUsage);
 
       if (period === 'daily') {
         setHourlyBreakdown([...ascendingData].reverse());
@@ -163,11 +155,7 @@ export default function AnalyticsScreen() {
 
       cacheRef.current[cacheKey] = {
           history: ascendingData,
-          comp,
-          todayUsage: nextTodayUsage,
-          weekUsage: nextWeekUsage,
-          monthUsage: nextMonthUsage,
-          rate: fetchedRate
+          comp
       };
     } catch (e) {
       if (e.message !== 'canceled' && e.name !== 'CanceledError') {
@@ -176,7 +164,30 @@ export default function AnalyticsScreen() {
     } finally {
       setLoadingPeriod(false);
     }
-  }, [roomId, period, selectedDate, historyStartDate, selectedPdfCycle, user?.name, refreshing]);
+  }, [roomId, period, selectedDate, user?.name, refreshing, rate]);
+
+  const loadStaticData = useCallback(async () => {
+    if (!user || !roomId) return;
+    try {
+      const [cyclesData, fetchedRateStr] = await Promise.all([
+        getAvailableBillingCycles(roomId),
+        getSetting('rate_per_kwh')
+      ]);
+      const fetchedRate = parseFloat(fetchedRateStr || '12.50');
+      setRate(fetchedRate);
+
+      if (cyclesData && cyclesData.length > 0) {
+        setAvailableCycles(cyclesData);
+        if (!selectedPdfCycle) setSelectedPdfCycle(cyclesData[0]);
+        if (!historyStartDate) {
+          setHistoryStartDate(new Date(cyclesData[0].cycle_start));
+          setHistoryEndDate(new Date(cyclesData[0].cycle_end));
+        }
+      }
+    } catch (e) {
+      console.warn('[Analytics] Static load error:', e.message);
+    }
+  }, [roomId, user?.name, selectedPdfCycle, historyStartDate]);
 
   const loadForecastData = useCallback(async () => {
     if (!user || !roomId) return;
@@ -207,6 +218,10 @@ export default function AnalyticsScreen() {
     const txns = await getTransactionHistory(roomId, 500, historyFilter, tenantName, 0, startStr, endStr);
     setTransactions(txns || []);
   }, [roomId, historyFilter, historyStartDate, historyEndDate, user?.name]);
+
+  useEffect(() => {
+    loadStaticData();
+  }, [loadStaticData]);
 
   useEffect(() => {
     loadStatsData();
@@ -477,16 +492,18 @@ export default function AnalyticsScreen() {
 
 
         {/* ── Period Tabs ─────────────────────────────────────────────────────── */}
-        <View style={s.periodRow}>
-          {PERIODS.map(p => (
-            <TouchableOpacity key={p} onPress={() => setPeriod(p)}
-              style={[s.periodBtn, period === p && s.periodActive]} activeOpacity={0.7}>
-              <Text style={[s.periodText, period === p && s.periodTextActive]}>
-                {p === 'daily' ? 'DAY' : p === 'weekly' ? 'WEEK' : p === 'monthly' ? 'MONTH' : 'YEAR'}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+        <CopilotStep active={currentTourScreen === 'analytics'} text="Use these tabs to switch between your daily, weekly, monthly, and yearly electricity consumption trends." order={3} name="periodTabs">
+          <CopilotView style={s.periodRow}>
+            {PERIODS.map(p => (
+              <TouchableOpacity key={p} onPress={() => setPeriod(p)}
+                style={[s.periodBtn, period === p && s.periodActive]} activeOpacity={0.7}>
+                <Text style={[s.periodText, period === p && s.periodTextActive]}>
+                  {p === 'daily' ? 'DAY' : p === 'weekly' ? 'WEEK' : p === 'monthly' ? 'MONTH' : 'YEAR'}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </CopilotView>
+        </CopilotStep>
 
         {/* ── Date Navigation ─────────────────────────────────────────────────── */}
         <View style={s.dateNav}>
@@ -503,7 +520,8 @@ export default function AnalyticsScreen() {
         </View>
 
         {/* ── Period Summary Card ─────────────────────────────────────────────── */}
-        <View style={{ marginBottom: SPACING.sm }}>
+        <CopilotStep active={currentTourScreen === 'analytics'} text="This Period Summary shows your total consumption, total cost, and daily average for the selected time range." order={4} name="summary">
+        <CopilotView style={{ marginBottom: SPACING.sm }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, marginLeft: 4, marginRight: 4 }}>
             <Text style={{ fontSize: 14, fontWeight: '600', color: COLORS.textSecondary }}>Period Summary</Text>
             {loadingPeriod && (
@@ -538,7 +556,8 @@ export default function AnalyticsScreen() {
               </View>
             </View>
           </GlassCard>
-        </View>
+        </CopilotView>
+        </CopilotStep>
 
         {/* ── View Toggle ─────────────────────────────────────────────────────── */}
         <View style={{ marginBottom: SPACING.lg }}>

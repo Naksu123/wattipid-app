@@ -1,5 +1,6 @@
 import React, { createContext, useState, useContext, useEffect, useRef } from 'react';
 import * as Notifications from 'expo-notifications';
+import { DeviceEventEmitter } from 'react-native';
 import { useSync } from './SyncContext';
 
 const NotificationContext = createContext({});
@@ -27,6 +28,17 @@ export const NotificationProvider = ({ children }) => {
     } catch (e) {
       console.log('Foreground push listener not active.');
     }
+
+    const bannerListener = DeviceEventEmitter.addListener('showBanner', (config) => {
+      showBanner(config.title, config.message, config.type, config.data);
+    });
+
+    return () => {
+      if (notificationListener.current) {
+        notificationListener.current.remove();
+      }
+      bannerListener.remove();
+    };
   }, [forceSync]);
 
   /**

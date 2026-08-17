@@ -1,3 +1,4 @@
+import axios from 'axios';
 import apiClient from './apiClient';
 
 /**
@@ -15,7 +16,10 @@ export async function apiCall(action, data = {}, config = {}) {
     return response.data.data;
   } catch (error) {
     const message = error.response?.data?.message || error.message;
-    console.warn(`[API Bridge Error] ${action}:`, message);
+    const isCanceled = axios.isCancel(error) || message === 'canceled' || error.name === 'CanceledError';
+    if (!isCanceled) {
+      console.warn(`[API Bridge Error] ${action}:`, message);
+    }
 
     // Some legacy callers expect the full response or null on fail
     if (error.response?.status === 401) {

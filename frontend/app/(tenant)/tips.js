@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, RefreshControl, Animated, ActivityIndicator, FlatList, TextInput } from 'react-native';
+import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useCopilot, CopilotStep, walkthroughable } from 'react-native-copilot';
+import { useTourAutoStart, useTourContext } from '@/contexts/TourContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { fetchRealtimeData } from '../../services/esp32Api';
 import { generateDynamicTips } from '../../services/tipsEngine';
@@ -23,9 +26,13 @@ const SORT_OPTIONS = [
   { id: 'oldest', label: 'Oldest' },
 ];
 
+const CopilotGlassCard = walkthroughable(GlassCard);
+const CopilotView = walkthroughable(View);
+
 export default function TipsScreen() {
   const { user } = useAuth();
   const roomId = user?.room_id || 'Room 1';
+  const { currentTourScreen } = useTourContext();
   
   const [activeTab, setActiveTab] = useState('community');
   const [refreshing, setRefreshing] = useState(false);
@@ -52,6 +59,8 @@ export default function TipsScreen() {
   const [showSortMenu, setShowSortMenu] = useState(false);
   const [browseLoading, setBrowseLoading] = useState(false);
   const [browseError, setBrowseError] = useState(null);
+
+  useTourAutoStart('tips', !loading && !browseLoading);
 
   const dynamicCategories = useMemo(() => {
     const cats = allTips.reduce((acc, tip) => {
@@ -418,7 +427,8 @@ export default function TipsScreen() {
           {/* Fixed Header Section */}
           <View style={{ paddingHorizontal: 20, paddingTop: 60 }}>
             {/* Tab Selector */}
-            <View style={s.tabRow}>
+            <CopilotStep active={currentTourScreen === 'tips'} text="Switch between General Community Tips, automated Smart Insights, or Browse all tips." order={5} name="tabs">
+            <CopilotView style={s.tabRow}>
               {TABS.map(tab => (
                 <TouchableOpacity 
                   key={tab.id} 
@@ -433,7 +443,8 @@ export default function TipsScreen() {
                   <Text style={[s.tabText, activeTab === tab.id && s.tabTextActive]}>{tab.label}</Text>
                 </TouchableOpacity>
               ))}
-            </View>
+            </CopilotView>
+            </CopilotStep>
           </View>
 
           {browseLoading && allTips.length === 0 ? (
@@ -474,7 +485,8 @@ export default function TipsScreen() {
         /* ================= COMMUNITY & SMART TABS (ScrollView) ================= */
         <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={COLORS.primary} />}>
           {/* Tab Selector */}
-          <View style={s.tabRow}>
+          <CopilotStep text="Switch between General Community Tips, automated Smart Insights, or Browse all tips." order={1} name="tabs">
+          <CopilotView style={s.tabRow}>
             {TABS.map(tab => (
               <TouchableOpacity 
                 key={tab.id} 
@@ -489,7 +501,8 @@ export default function TipsScreen() {
                 <Text style={[s.tabText, activeTab === tab.id && s.tabTextActive]}>{tab.label}</Text>
               </TouchableOpacity>
             ))}
-          </View>
+          </CopilotView>
+          </CopilotStep>
 
           {/* ================= COMMUNITY TAB ================= */}
           {activeTab === 'community' && (
@@ -512,7 +525,8 @@ export default function TipsScreen() {
                       <Ionicons name="sparkles" size={16} color={COLORS.primary} />
                       <Text style={{ color: COLORS.primary, fontSize: 13, fontWeight: '700', letterSpacing: 0.5 }}>RECOMMENDED FOR YOU</Text>
                     </View>
-                    <GlassCard gradient style={[s.interactiveCard, { borderLeftWidth: 3, borderLeftColor: COLORS.primary }]}>
+                    <CopilotStep active={currentTourScreen === 'tips'} text="This is your daily recommended tip! Tap the heart to show your support." order={6} name="recommendation">
+                    <CopilotGlassCard gradient style={[s.interactiveCard, { borderLeftWidth: 3, borderLeftColor: COLORS.primary }]}>
                       {loading ? (
                         <ActivityIndicator color={COLORS.primary} size="large" />
                       ) : currentTip ? (
@@ -550,7 +564,8 @@ export default function TipsScreen() {
                           </TouchableOpacity>
                         </>
                       ) : null}
-                    </GlassCard>
+                    </CopilotGlassCard>
+                    </CopilotStep>
                   </Animated.View>
 
                   {/* ---- Tip of the Day ---- */}

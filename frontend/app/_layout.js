@@ -1,7 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter, useSegments, Slot } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { View, Text, ActivityIndicator } from 'react-native';
+import { View, Text, ActivityIndicator, LogBox } from 'react-native';
+
+// Suppress harmless React Native deprecation warnings caused by 3rd-party libraries
+LogBox.ignoreLogs([
+  'ProgressBarAndroid has been extracted',
+  'SafeAreaView has been deprecated',
+  'Clipboard has been extracted',
+  'InteractionManager has been deprecated',
+  'PushNotificationIOS has been extracted'
+]);
 import { AuthProvider , useAuth } from '@/contexts/AuthContext';
 import { getDatabase } from '../services/database';
 import { initNotifications, setupNotificationResponseHandler } from '../services/notificationService';
@@ -19,6 +28,9 @@ import { NotificationProvider } from '@/contexts/NotificationContext';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import { NetworkProvider } from '@/contexts/NetworkContext';
 import NetworkStatusBar from '@/components/ui/NetworkStatusBar';
+import { CopilotProvider } from 'react-native-copilot';
+import { CustomTooltip } from '@/components/ui/TourTooltip';
+import { TourProvider } from '@/contexts/TourContext';
 
 // Custom dark theme to match Wattipid brand
 const WattipidTheme = {
@@ -126,8 +138,12 @@ export default function RootLayout() {
             <SyncProvider>
               <ModalProvider>
                 <NotificationProvider>
-                  <StatusBar style="light" />
-                  <RootLayoutContent />
+                  <TourProvider>
+                    <CopilotProvider stopOnOutsideClick androidStatusBarVisible tooltipComponent={CustomTooltip}>
+                      <StatusBar style="light" />
+                      <RootLayoutContent />
+                    </CopilotProvider>
+                  </TourProvider>
                 </NotificationProvider>
               </ModalProvider>
             </SyncProvider>

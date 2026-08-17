@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Platform, Animated } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Platform, Animated, InteractionManager } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../styles/theme';
 
@@ -20,7 +20,7 @@ const LABELS = {
 };
 
 // Excluded routes
-const HIDDEN_ROUTES = ['manage-tips', 'audit', 'notifications', 'manual', 'payment-settings'];
+const HIDDEN_ROUTES = ['manage-tips', 'audit', 'notifications', 'manual', 'payment-settings', 'user-manual'];
 
 const TabBarItem = ({ isFocused, onPress, onLongPress, routeName }) => {
   const scaleAnim = useRef(new Animated.Value(isFocused ? 1 : 0)).current;
@@ -105,7 +105,10 @@ export default function LandlordTabBar({ state, descriptors, navigation }) {
             });
 
             if (!isFocused && !event.defaultPrevented) {
-              navigation.navigate({ name: route.name, merge: true });
+              // Defer navigation to allow the touch animation (scale) to start smoothly
+              requestAnimationFrame(() => {
+                navigation.navigate({ name: route.name, merge: true });
+              });
             }
           };
 

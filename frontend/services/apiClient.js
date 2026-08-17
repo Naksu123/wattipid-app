@@ -50,15 +50,25 @@ apiClient.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+// --- TOKEN REFRESH QUEUE ---
+let isRefreshing = false;
+let failedQueue = [];
+
+const processQueue = (error, token = null) => {
+  failedQueue.forEach(prom => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token);
+    }
+  });
+  failedQueue = [];
+};
+
 // --- RESPONSE INTERCEPTOR ---
 apiClient.interceptors.response.use(
   (response) => {
     const isPolling = response.config.url?.includes('syncState') || response.config.url?.includes('getLatestConsumption') || response.config.data?.includes('syncState') || response.config.data?.includes('getLatestConsumption');
-
-    // Robust Logging (Phase 1) - DISABLED FOR SECURITY
-    // if (!isPolling) {
-    //     console.log("Response:", response.status, response.config.url);
-    // }
 
     // Basic JSON check
     if (typeof response.data === 'string' && (response.data.includes('<?php') || response.data.includes('require_once'))) {
@@ -112,7 +122,19 @@ apiClient.interceptors.response.use(
 
     // Handle 401 Session Expiration
     if (error.response?.status === 401 && !originalRequest._retry && !isAuthRoute) {
+      if (isRefreshing) {
+        return new Promise(function(resolve, reject) {
+          failedQueue.push({ resolve, reject });
+        }).then(token => {
+          originalRequest.headers.Authorization = 'Bearer ' + token;
+          return apiClient(originalRequest);
+        }).catch(err => {
+          return Promise.reject(err);
+        });
+      }
+
       originalRequest._retry = true;
+      isRefreshing = true;
 
       try {
         const refreshToken = await Storage.getItem('refresh_token');
@@ -124,6 +146,8 @@ apiClient.interceptors.response.use(
             DeviceEventEmitter.emit('forceLogout');
             DeviceEventEmitter.emit('showToast', { message: 'Session Expired. Please log in again.', type: 'error' });
           }
+          processQueue(error, null);
+          isRefreshing = false;
           return Promise.resolve({ data: { success: false, message: 'Session expired' } });
         }
 
@@ -133,7 +157,13 @@ apiClient.interceptors.response.use(
           await Storage.setItem('user_token', token);
           await Storage.setItem('refresh_token', newRefreshToken);
           originalRequest.headers.Authorization = `Bearer ${token}`;
+          
+          processQueue(null, token);
+          isRefreshing = false;
+          
           return apiClient(originalRequest);
+        } else {
+          throw new Error('Refresh failed');
         }
       } catch (refreshError) {
         await Storage.deleteItem('user_token');
@@ -143,6 +173,8 @@ apiClient.interceptors.response.use(
           DeviceEventEmitter.emit('forceLogout');
           DeviceEventEmitter.emit('showToast', { message: 'Session Expired. Please log in again.', type: 'error' });
         }
+        processQueue(error, null); // Reject queued requests with original 401 error
+        isRefreshing = false;
         return Promise.resolve({ data: { success: false, message: 'Session expired' } });
       }
     }
@@ -150,7 +182,8 @@ apiClient.interceptors.response.use(
     // Show friendly toast message
     const isSyncRoute = originalRequest?.url?.includes('action=syncTenantData') || originalRequest?.url?.includes('action=syncLandlordData') || originalRequest?.url?.includes('action=syncState') || originalRequest?.data?.action === 'syncState' || originalRequest?.data?.includes?.('syncState');
     const isReminderRoute = originalRequest?.data?.action === 'send_manual_reminder';
-    if (!isLoggingOut && !isAuthRoute && !isSyncRoute && !isReminderRoute) {
+    const isCanceled = axios.isCancel(error) || error.message === 'canceled' || error.name === 'CanceledError';
+    if (!isLoggingOut && !isAuthRoute && !isSyncRoute && !isReminderRoute && !isCanceled) {
         const userMessage = error.response?.data?.message || 'Unable to process your request at this time. Server is currently unavailable.';
         DeviceEventEmitter.emit('showToast', { message: userMessage, type: 'error', duration: 4000 });
     }

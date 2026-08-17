@@ -98,19 +98,21 @@ export const AuthProvider = ({ children }) => {
 
   const logout = async () => {
     setIsLoggingOut(true);
-    try {
-      await apiClient.post('/api.php?action=logout');
-    } catch (e) {
+    
+    // 1. Optimistic UI Update - Clear local session instantly
+    Storage.deleteItem('user_token');
+    Storage.deleteItem('refresh_token');
+    Storage.deleteItem('user_data');
+    setUser(null);
+    setIsAuthenticated(false);
+    
+    // 2. Background API call (non-blocking)
+    apiClient.post('/api.php?action=logout').catch((e) => {
       console.log('Logout API error', e);
-    } finally {
-      await Storage.deleteItem('user_token');
-      await Storage.deleteItem('refresh_token');
-      await Storage.deleteItem('user_data');
-      setUser(null);
-      setIsAuthenticated(false);
-      // Reset flag after a short delay to let any in-flight requests resolve
-      setTimeout(() => setIsLoggingOut(false), 2000);
-    }
+    }).finally(() => {
+      // Reset flag after a short delay
+      setTimeout(() => setIsLoggingOut(false), 1000);
+    });
   };
 
   const verifyEmail = async (email, code) => {

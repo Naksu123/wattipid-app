@@ -2,6 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Switch, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useCopilot, CopilotStep, walkthroughable } from 'react-native-copilot';
+import { useTourAutoStart, useTourContext } from '../../contexts/TourContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useConsumption } from '../../contexts/ConsumptionContext';
 import { useModal } from '../../contexts/ModalContext';
@@ -13,6 +15,9 @@ import { BaseModal, ModalHeader, ModalBody, ModalFooter } from '../../components
 import { COLORS } from '@/styles/theme';
 import s from '@/styles/tenant/settings.styles';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const CopilotGlassCard = walkthroughable(GlassCard);
+const CopilotView = walkthroughable(View);
 
 export default function TenantSettings() {
   const router = useRouter();
@@ -37,6 +42,9 @@ export default function TenantSettings() {
   const [helpVisible, setHelpVisible] = useState(false);
   const [envVisible, setEnvVisible] = useState(false);
   const [tempEnv, setTempEnv] = useState('local');
+  const { currentTourScreen } = useTourContext();
+
+  useTourAutoStart('settings', true); // Settings are fast locally, can start immediately
 
   useEffect(() => { loadSettings(); }, [loadSettings]);
 
@@ -183,7 +191,8 @@ export default function TenantSettings() {
       <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
         <Text style={s.title}>Settings</Text>
 
-        <GlassCard gradient style={s.profileCard}>
+        <CopilotStep active={currentTourScreen === 'settings'} text="This is your profile. You can tap 'Edit Profile' to update your password and other personal details." order={11} name="profile">
+        <CopilotGlassCard gradient style={s.profileCard}>
           <View style={s.avatar}>
             <Ionicons name="person" size={32} color={COLORS.primary} />
           </View>
@@ -196,7 +205,8 @@ export default function TenantSettings() {
               <Text style={s.editBtnText}>Edit Profile</Text>
             </TouchableOpacity>
           </View>
-        </GlassCard>
+        </CopilotGlassCard>
+        </CopilotStep>
 
         <Text style={s.sectionLabel}>Lease Information</Text>
         <GlassCard style={s.accountCard}>
@@ -215,16 +225,15 @@ export default function TenantSettings() {
         </GlassCard>
 
         <Text style={s.sectionLabel}>Notifications</Text>
-        <GlassCard style={s.sectionCard}>
+        <CopilotStep active={currentTourScreen === 'settings'} text="You can customize which alerts you receive here. If you turn off Push Notifications, you will still see them in the app's notification history." order={12} name="notifications">
+        <CopilotGlassCard style={s.sectionCard}>
           <ToggleItem icon="notifications-outline" label="Push Notifications" value={notifEnabled} onToggle={toggleNotif} iconColor="#10B981" iconBg="rgba(16, 185, 129, 0.15)" />
           <View style={s.divider} />
           <ToggleItem icon="flash-outline" label="Usage Alerts" value={isUsageEnabled} onToggle={setUsageEnabled} disabled={!notifEnabled} iconColor="#F59E0B" iconBg="rgba(245, 158, 11, 0.15)" />
           <View style={s.divider} />
           <ToggleItem icon="card-outline" label="Billing Reminders" value={isBillingEnabled} onToggle={setBillingEnabled} disabled={!notifEnabled} iconColor="#3B82F6" iconBg="rgba(59, 130, 246, 0.15)" />
-
-
-        </GlassCard>
-
+        </CopilotGlassCard>
+        </CopilotStep>
 
         <Text style={s.sectionLabel}>Data Management</Text>
         <GlassCard style={s.menuCard}>
@@ -233,6 +242,7 @@ export default function TenantSettings() {
 
         <Text style={s.sectionLabel}>Support</Text>
         <GlassCard style={s.menuCard}>
+          <MenuItem icon="book-outline" label="User Manual" onPress={() => router.push('/(tenant)/user-manual')} iconColor="#10B981" iconBg="rgba(16,185,129,0.15)" />
           <MenuItem icon="help-circle-outline" label="Help & Support" onPress={() => setHelpVisible(true)} iconColor="#8B5CF6" iconBg="rgba(139, 92, 246, 0.15)" />
           <MenuItem icon="document-text-outline" label="Terms and Conditions" onPress={() => router.push('/terms')} iconColor="#A1A1AA" iconBg="rgba(255, 255, 255, 0.05)" />
           <MenuItem icon="information-circle-outline" label="About Wattipid" value="v2.0.0" onPress={() => setAboutVisible(true)} iconColor="#A1A1AA" iconBg="rgba(255, 255, 255, 0.05)" />

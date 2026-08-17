@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Platform, Animated } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Platform, Animated, InteractionManager } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../styles/theme';
 
@@ -22,7 +22,7 @@ const LABELS = {
 };
 
 // Excluded routes
-const HIDDEN_ROUTES = ['notifications', 'edit-profile', 'pdf-viewer', 'billing-history', 'payment'];
+const HIDDEN_ROUTES = ['notifications', 'edit-profile', 'pdf-viewer', 'billing-history', 'payment', 'user-manual'];
 
 const TabBarItem = ({ isFocused, onPress, onLongPress, routeName }) => {
   const scaleAnim = useRef(new Animated.Value(isFocused ? 1 : 0)).current;
@@ -111,7 +111,9 @@ export default function TenantTabBar({ state, descriptors, navigation }) {
             });
 
             if (!isFocused && !event.defaultPrevented) {
-              navigation.navigate({ name: route.name, merge: true });
+              requestAnimationFrame(() => {
+                navigation.navigate({ name: route.name, merge: true });
+              });
             }
           };
 

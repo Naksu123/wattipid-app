@@ -320,7 +320,13 @@ export async function getBillingCycle(roomId) {
 
 // ============ SETTINGS ============
 export async function getSetting(key) {
-  return await apiCall('getSetting', { key });
+  const data = await apiCall('getSetting', { key });
+  return data;
+}
+
+export async function getMultipleSettings(keys) {
+  const data = await apiCall('getMultipleSettings', { keys });
+  return data;
 }
 
 export async function setSetting(key, value) {

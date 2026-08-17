@@ -36,6 +36,7 @@ export default function TenantLayout() {
         <Tabs.Screen name="pdf-viewer" options={{ href: null, tabBarStyle: { display: 'none' } }} />
         <Tabs.Screen name="billing-history" options={{ href: null, tabBarStyle: { display: 'none' } }} />
         <Tabs.Screen name="payment" options={{ href: null, tabBarStyle: { display: 'none' } }} />
+        <Tabs.Screen name="user-manual" options={{ href: null, tabBarStyle: { display: 'none' } }} />
       </Tabs>
       </ConsumptionProvider>
 

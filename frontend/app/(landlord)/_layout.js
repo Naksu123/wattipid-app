@@ -24,6 +24,7 @@ export default function LandlordLayout() {
       <Tabs.Screen name="notifications" options={{ href: null, tabBarStyle: { display: 'none' } }} />
       <Tabs.Screen name="manual" options={{ href: null, tabBarStyle: { display: 'none' } }} />
       <Tabs.Screen name="payment-settings" options={{ href: null, tabBarStyle: { display: 'none' } }} />
+      <Tabs.Screen name="user-manual" options={{ href: null, tabBarStyle: { display: 'none' } }} />
     </Tabs>
   );
 }

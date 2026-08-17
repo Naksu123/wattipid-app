@@ -196,6 +196,7 @@ export default function LandlordSettings() {
 
         <Text style={styles.groupTitle}>SYSTEM CONFIG</Text>
         <GlassCard style={styles.menuCard}>
+          <MenuItem icon="book-outline" label="App User Manual" value="How to use the Wattipid app" onPress={() => router.push('/(landlord)/user-manual')} />
           <MenuItem icon="book-outline" label="Installation & User Manual" value="System documentation & wiring" onPress={() => router.push('/(landlord)/manual')} />
           <MenuItem icon="document-text-outline" label="Terms and Conditions" value="System Legal Policies" onPress={() => router.push('/terms')} />
           <MenuItem icon="information-circle-outline" label="About System" value="Wattipid v2.1.0-prod" onPress={() => setAboutVisible(true)} />
