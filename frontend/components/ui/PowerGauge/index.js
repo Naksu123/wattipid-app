@@ -1,8 +1,6 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, Animated, Easing } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
-
-const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 import { COLORS } from '@/styles/theme';
 import styles from './styles';
 import AnimatedNumber from '../AnimatedNumber';
@@ -13,25 +11,36 @@ export default function PowerGauge({ value = 0, maxValue = 2000, unit = 'W', lab
   const circumference = 2 * Math.PI * radius;
   
   // Cap percentage for the ring visual at 100%
-  const percentage = Math.min(value / maxValue, 1);
+  const percentage = Math.min(Math.max((Number(value) || 0) / (Number(maxValue) || 2000), 0), 1);
   
-  const animatedDashoffset = useRef(new Animated.Value(circumference)).current;
+  const animValue = useRef(new Animated.Value(0)).current;
+  const [currentProgress, setCurrentProgress] = useState(percentage);
 
   useEffect(() => {
-    const targetOffset = circumference * (1 - percentage);
-    Animated.timing(animatedDashoffset, {
-      toValue: targetOffset,
+    const listenerId = animValue.addListener(({ value: val }) => {
+      setCurrentProgress(val);
+    });
+
+    Animated.timing(animValue, {
+      toValue: percentage,
       duration: 600,
       easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
+      useNativeDriver: false,
     }).start();
-  }, [percentage, circumference, animatedDashoffset]);
+
+    return () => {
+      animValue.removeListener(listenerId);
+      animValue.stopAnimation();
+    };
+  }, [percentage, animValue]);
 
   const getColor = () => {
     if (percentage < 0.5) return COLORS.primary; // Green
     if (percentage < 0.8) return COLORS.warning; // Orange
     return COLORS.danger; // Red
   };
+
+  const safeOffset = circumference * (1 - Math.min(Math.max(currentProgress, 0), 1));
 
   return (
     <View style={styles.container}>
@@ -46,7 +55,7 @@ export default function PowerGauge({ value = 0, maxValue = 2000, unit = 'W', lab
           fill="none"
         />
         {/* Progress circle */}
-        <AnimatedCircle
+        <Circle
           cx={size / 2}
           cy={size / 2}
           r={radius}
@@ -55,7 +64,7 @@ export default function PowerGauge({ value = 0, maxValue = 2000, unit = 'W', lab
           fill="none"
           strokeLinecap="round"
           strokeDasharray={`${circumference}`}
-          strokeDashoffset={animatedDashoffset}
+          strokeDashoffset={safeOffset}
           rotation="-90"
           origin={`${size / 2}, ${size / 2}`}
         />

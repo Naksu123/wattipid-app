@@ -1,134 +1,128 @@
-import React from 'react';
+import React, { useRef, useEffect, useCallback } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING, RADIUS } from '../../styles/theme';
 import { useTourContext, TOUR_SCREEN_NAMES, TOUR_STEP_BOUNDARIES } from '../../contexts/TourContext';
+import { useCopilot } from 'react-native-copilot';
 
-export const CustomTooltip = ({
-  isFirstStep,
-  isLastStep,
-  handleNext,
-  handlePrev,
-  handleStop,
-  currentStep,
-}) => {
+export const CustomTooltip = () => {
+  const { goToNext, stop, isLastStep, currentStep } = useCopilot();
   const { 
     isContinuousTour, 
     currentTourScreen, 
     goToNextScreen, 
-    goToPrevScreen, 
     stopTour,
-    sequenceCurrentIndex,
-    sequenceTotal 
+    finishTour,
+    registerNextStepHandler
   } = useTourContext();
 
   const currentScreenBoundary = currentTourScreen ? TOUR_STEP_BOUNDARIES[currentTourScreen] : null;
-  const isScreenFirstStep = currentScreenBoundary ? currentStep?.order === currentScreenBoundary.first : isFirstStep;
-  const isScreenLastStep = currentScreenBoundary ? currentStep?.order === currentScreenBoundary.last : isLastStep;
+  const isScreenLastStep = !!isLastStep || (currentScreenBoundary ? currentStep?.order === currentScreenBoundary.last : false);
 
-  const handleNextPress = () => {
+  const currentStepNum = currentScreenBoundary
+    ? Math.max(1, (currentStep?.order || currentScreenBoundary.first) - currentScreenBoundary.first + 1)
+    : (currentStep?.order || 1);
+  const totalScreenSteps = currentScreenBoundary
+    ? (currentScreenBoundary.last - currentScreenBoundary.first + 1)
+    : 1;
+
+  // Debounce transition lock to prevent double-skipping or rapid click bugs
+  const lastPressRef = useRef(0);
+
+  const handleNextPress = useCallback(() => {
+    const now = Date.now();
+    if (now - lastPressRef.current < 450) {
+      return;
+    }
+    lastPressRef.current = now;
+
     if (isScreenLastStep) {
-      handleStop(); // clean up current overlay
+      stop(); // clean up current overlay
       if (isContinuousTour) {
-        // give it a brief moment to unmount before routing to prevent visual jump
-        setTimeout(() => goToNextScreen(), 100);
+        // slight delay to prevent transition glitch
+        setTimeout(() => goToNextScreen(), 120);
       } else {
-        stopTour();
+        // Finished a single-feature tour
+        finishTour();
       }
     } else {
-      handleNext();
+      goToNext();
     }
-  };
+  }, [isScreenLastStep, stop, isContinuousTour, goToNextScreen, finishTour, goToNext]);
 
-  const handlePrevPress = () => {
-    if (isScreenFirstStep) {
-      handleStop();
-      if (isContinuousTour && sequenceCurrentIndex > 1) {
-        setTimeout(() => goToPrevScreen(), 100);
-      }
-    } else {
-      handlePrev();
-    }
-  };
+  // Register the single source of truth next handler with TourContext
+  useEffect(() => {
+    registerNextStepHandler(handleNextPress);
+    return () => {
+      registerNextStepHandler(null);
+    };
+  }, [handleNextPress, registerNextStepHandler]);
 
   const handleSkipPress = () => {
-    handleStop();
-    stopTour();
+    stop();
+    stopTour(true);
   };
 
-  // Determine button text
-  let nextText = 'Next';
-  if (isScreenLastStep) {
-    nextText = isContinuousTour && sequenceCurrentIndex < sequenceTotal ? 'Next Screen' : 'Finish';
-  }
-
-  let showPrevBtn = !isScreenFirstStep;
-  // If we are in continuous tour and not on the first screen, show Prev even on first step of screen
-  if (isContinuousTour && isScreenFirstStep && sequenceCurrentIndex > 1) {
-    showPrevBtn = true;
-  }
+  const screenTitle = currentTourScreen ? TOUR_SCREEN_NAMES[currentTourScreen] : 'Feature Guide';
 
   return (
-    <View style={styles.tooltipContainer}>
+    <TouchableOpacity 
+      activeOpacity={0.96} 
+      onPress={handleNextPress} 
+      style={styles.tooltipContainer}
+    >
+      {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <Ionicons name="information-circle" size={24} color={COLORS.primary} />
-          <Text style={styles.title}>Feature Tour</Text>
+          <Ionicons name="sparkles" size={18} color={COLORS.primary} />
+          <Text style={styles.title}>{screenTitle}</Text>
         </View>
         
-        {isContinuousTour && currentTourScreen && (
-          <View style={styles.macroProgress}>
-            <Text style={styles.macroProgressText}>
-              {TOUR_SCREEN_NAMES[currentTourScreen]} • {sequenceCurrentIndex}/{sequenceTotal}
-            </Text>
-          </View>
-        )}
+        <View style={styles.macroProgress}>
+          <Text style={styles.macroProgressText}>
+            Step {currentStepNum} of {totalScreenSteps}
+          </Text>
+        </View>
       </View>
       
-      <Text style={styles.description}>{currentStep?.text}</Text>
+      {/* Step Explanation */}
+      <Text style={styles.description}>{currentStep?.text || ''}</Text>
+
+      {/* Subtle Tap to Continue Hint */}
+      <View style={styles.tapHintRow}>
+        <Ionicons name="finger-print-outline" size={13} color="rgba(255, 255, 255, 0.45)" />
+        <Text style={styles.tapHintText}>Tap anywhere to continue</Text>
+      </View>
       
+      {/* Footer */}
       <View style={styles.footer}>
         <View style={styles.stepCounter}>
-          <Text style={styles.stepText}>Step {currentStep?.order}</Text>
+          <Text style={styles.stepText}>
+            Step {currentStepNum} of {totalScreenSteps}
+          </Text>
         </View>
         
-        <View style={styles.actionButtons}>
-          <TouchableOpacity onPress={handleSkipPress} style={styles.skipButton}>
-            <Text style={styles.skipText}>Skip Tour</Text>
-          </TouchableOpacity>
-          
-          <View style={styles.navButtons}>
-            {showPrevBtn && (
-              <TouchableOpacity onPress={handlePrevPress} style={styles.prevButton}>
-                <Ionicons name="arrow-back" size={16} color={COLORS.textPrimary} />
-                <Text style={styles.prevText}>Back</Text>
-              </TouchableOpacity>
-            )}
-            
-            <TouchableOpacity onPress={handleNextPress} style={styles.nextButton}>
-              <Text style={styles.nextText}>{nextText}</Text>
-              <Ionicons name={isScreenLastStep && nextText === 'Finish' ? "checkmark" : "arrow-forward"} size={16} color="#fff" />
-            </TouchableOpacity>
-          </View>
-        </View>
+        <TouchableOpacity onPress={handleSkipPress} style={styles.skipButton} activeOpacity={0.7}>
+          <Text style={styles.skipText}>Skip Tour</Text>
+        </TouchableOpacity>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 };
 
 const styles = StyleSheet.create({
   tooltipContainer: {
-    backgroundColor: 'rgba(15, 23, 42, 0.95)',
+    backgroundColor: '#0F172A',
     borderRadius: RADIUS.lg,
     padding: SPACING.md,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: 'rgba(255, 255, 255, 0.14)',
     width: '100%',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.5,
-    shadowRadius: 15,
-    elevation: 10,
+    shadowOpacity: 0.6,
+    shadowRadius: 16,
+    elevation: 12,
   },
   header: {
     flexDirection: 'row',
@@ -139,94 +133,73 @@ const styles = StyleSheet.create({
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
   },
   title: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+    letterSpacing: -0.2,
   },
   macroProgress: {
-    backgroundColor: 'rgba(59, 130, 246, 0.15)',
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
     paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingVertical: 3,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.25)',
   },
   macroProgressText: {
-    color: '#3B82F6',
+    color: '#10B981',
     fontSize: 11,
     fontWeight: '700',
   },
   description: {
-    color: COLORS.textSecondary,
-    fontSize: 14,
+    color: '#E2E8F0',
+    fontSize: 13,
     lineHeight: 20,
-    marginBottom: SPACING.lg,
+    marginBottom: SPACING.sm,
+  },
+  tapHintRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    marginBottom: SPACING.sm,
+    paddingVertical: 2,
+  },
+  tapHintText: {
+    color: 'rgba(226, 232, 240, 0.45)',
+    fontSize: 11,
+    fontWeight: '500',
+    letterSpacing: 0.2,
   },
   footer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.1)',
-    paddingTop: SPACING.md,
+    borderTopColor: 'rgba(255, 255, 255, 0.08)',
+    paddingTop: SPACING.sm,
   },
   stepCounter: {
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
   },
   stepText: {
-    color: COLORS.primary,
-    fontSize: 12,
+    color: COLORS.textMuted,
+    fontSize: 11,
     fontWeight: '600',
   },
-  actionButtons: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-  },
   skipButton: {
-    paddingHorizontal: 6,
-    paddingVertical: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
   },
   skipText: {
     color: COLORS.textMuted,
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '500',
-  },
-  navButtons: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  prevButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderRadius: RADIUS.md,
-  },
-  prevText: {
-    color: COLORS.textPrimary,
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  nextButton: {
-    backgroundColor: COLORS.primary,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: RADIUS.md,
-  },
-  nextText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: 'bold',
   },
 });

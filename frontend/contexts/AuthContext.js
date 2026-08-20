@@ -171,6 +171,13 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const updateUserData = async (partialData) => {
+    if (!user) return;
+    const updatedUser = { ...user, ...partialData };
+    await Storage.setObject('user_data', updatedUser);
+    setUser(updatedUser);
+  };
+
   return (
     <AuthContext.Provider value={{ 
       user, 
@@ -183,7 +190,8 @@ export const AuthProvider = ({ children }) => {
       verifyEmail,
       resendVerificationCode,
       updateProfile,
-      changePassword
+      changePassword,
+      updateUserData
     }}>
       {children}
     </AuthContext.Provider>

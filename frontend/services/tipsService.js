@@ -1,49 +1,111 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiClient from './apiClient';
 
 /**
  * Wattipid Smart Tips Service
  * 
  * Features:
- * - Server-side smart recommendation (no-repeat within 24h)
- * - Local seen-tip cache as fallback deduplication
- * - Tip of the Day (deterministic per calendar day)
- * - Trending tips (engagement-weighted)
- * - Optimistic like with server truth sync
+ * - Persistent per-user history in AsyncStorage (@wattipid_tip_history_${userId})
+ * - Multi-factor scoring recommendation engine (Behavior relevance + rotation + category diversity)
+ * - Batch recommendations for Smart Insights without duplicates
+ * - Deterministic Tip of the Day with cross-section deduplication
+ * - Trending tips with exclusion support
+ * - Optimistic like and view logging
  */
 
-// Local memory cache of recently seen tip IDs (survives tab switches but resets on app restart)
-let _seenTipIds = [];
-let _lastCategory = null;
-const MAX_LOCAL_HISTORY = 20;
+const MAX_HISTORY_LENGTH = 40;
+const MAX_CATEGORY_HISTORY = 10;
 
-function trackSeen(tipId) {
-  if (tipId && !_seenTipIds.includes(tipId)) {
-    _seenTipIds.push(tipId);
-    if (_seenTipIds.length > MAX_LOCAL_HISTORY) {
-      _seenTipIds = _seenTipIds.slice(-MAX_LOCAL_HISTORY);
+const getStorageKey = (userId) => `@wattipid_tip_history_${userId || 'guest'}`;
+
+// In-memory session cache for fast access
+const _memHistory = {};
+
+async function getUserHistory(userId) {
+  const key = getStorageKey(userId);
+  if (_memHistory[key]) return _memHistory[key];
+  try {
+    const raw = await AsyncStorage.getItem(key);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      _memHistory[key] = {
+        seenTipIds: Array.isArray(parsed.seenTipIds) ? parsed.seenTipIds : [],
+        categoryHistory: Array.isArray(parsed.categoryHistory) ? parsed.categoryHistory : [],
+        lastCategory: parsed.lastCategory || null
+      };
+      return _memHistory[key];
     }
+  } catch (_e) {
+    // Ignore storage read error
   }
+  _memHistory[key] = { seenTipIds: [], categoryHistory: [], lastCategory: null };
+  return _memHistory[key];
 }
 
-function trackCategory(category) {
-  if (category) _lastCategory = category;
+async function recordSeen(userId, tipId, category) {
+  if (!tipId) return;
+  const history = await getUserHistory(userId);
+  const numId = Number(tipId);
+
+  // Update seenTipIds (sliding window)
+  const filtered = history.seenTipIds.filter(id => id !== numId);
+  filtered.push(numId);
+  history.seenTipIds = filtered.slice(-MAX_HISTORY_LENGTH);
+
+  // Update category history
+  if (category) {
+    history.categoryHistory.push(category);
+    history.categoryHistory = history.categoryHistory.slice(-MAX_CATEGORY_HISTORY);
+    history.lastCategory = category;
+  }
+
+  const key = getStorageKey(userId);
+  _memHistory[key] = history;
+
+  try {
+    await AsyncStorage.setItem(key, JSON.stringify(history));
+  } catch (_e) {
+    // Ignore storage write error
+  }
 }
 
 export const tipsService = {
   /**
    * Get a smart, non-repeating tip recommendation for the current user.
-   * The backend excludes tips the user has viewed in the last 24 hours,
-   * rotates categories, and applies engagement-weighted ranking.
    */
-  getSmartRecommendation: async () => {
+  getSmartRecommendation: async (options = {}) => {
+    const { 
+      user = null, 
+      excludeIds = [], 
+      lastCategory = null, 
+      recentCategories = [], 
+      relevantCategories = [] 
+    } = options;
+
+    const userId = user?.id || 0;
+    const history = await getUserHistory(userId);
+
+    const mergedExclude = Array.from(new Set([
+      ...history.seenTipIds.slice(-30),
+      ...excludeIds.map(Number)
+    ]));
+
+    const effectiveLastCat = lastCategory || history.lastCategory;
+    const effectiveRecentCats = recentCategories.length > 0 
+      ? recentCategories 
+      : history.categoryHistory.slice(-5);
+
     try {
       const response = await apiClient.post('/api.php?action=getSmartRecommendation', {
-        exclude_ids: _seenTipIds.slice(-10), // Send last 10 as extra safety
-        last_category: _lastCategory,
+        exclude_ids: mergedExclude,
+        last_category: effectiveLastCat,
+        recent_categories: effectiveRecentCats,
+        relevant_categories: relevantCategories,
       });
+
       if (response.data.success && response.data.data) {
-        trackSeen(response.data.data.id);
-        trackCategory(response.data.data.category);
+        const tip = response.data.data;
+        await recordSeen(userId, tip.id, tip.category);
       }
       return response.data;
     } catch (error) {
@@ -53,49 +115,60 @@ export const tipsService = {
   },
 
   /**
-   * Get a random tip (legacy fallback). Uses local dedup.
+   * Batch Smart Recommendations: Returns multiple diverse, non-repeating tips for Smart Insights
    */
-  getRandomTip: async () => {
-    try {
-      // Use smart recommendation if available (authenticated users)
-      const smartRes = await apiClient.post('/api.php?action=getSmartRecommendation', {
-        exclude_ids: _seenTipIds.slice(-10),
-        last_category: _lastCategory,
-      });
-      if (smartRes.data.success && smartRes.data.data) {
-        trackSeen(smartRes.data.data.id);
-        trackCategory(smartRes.data.data.category);
-        return smartRes.data;
-      }
-    } catch (e) {
-      // Fallback to legacy random if smart endpoint fails
-    }
+  getSmartRecommendationsBatch: async (options = {}) => {
+    const { 
+      user = null, 
+      count = 3, 
+      excludeIds = [], 
+      lastCategory = null, 
+      recentCategories = [], 
+      relevantCategories = [] 
+    } = options;
+
+    const userId = user?.id || 0;
+    const history = await getUserHistory(userId);
+
+    const mergedExclude = Array.from(new Set([
+      ...history.seenTipIds.slice(-30),
+      ...excludeIds.map(Number)
+    ]));
+
+    const effectiveLastCat = lastCategory || history.lastCategory;
+    const effectiveRecentCats = recentCategories.length > 0 
+      ? recentCategories 
+      : history.categoryHistory.slice(-5);
 
     try {
-      const response = await apiClient.post('/api.php?action=getElectricityTips');
+      const response = await apiClient.post('/api.php?action=getSmartRecommendationsBatch', {
+        count,
+        exclude_ids: mergedExclude,
+        last_category: effectiveLastCat,
+        recent_categories: effectiveRecentCats,
+        relevant_categories: relevantCategories,
+      });
+
       if (response.data.success && Array.isArray(response.data.data)) {
-        const tips = response.data.data;
-        // Local dedup: filter out recently seen tips
-        const unseenTips = tips.filter(t => !_seenTipIds.includes(t.id));
-        const pool = unseenTips.length > 0 ? unseenTips : tips;
-        const chosen = pool[Math.floor(Math.random() * pool.length)];
-        trackSeen(chosen.id);
-        trackCategory(chosen.category);
-        response.data.data = chosen;
+        for (const tip of response.data.data) {
+          await recordSeen(userId, tip.id, tip.category);
+        }
       }
       return response.data;
     } catch (error) {
-      console.error('Error fetching random tip:', error);
+      console.error('Error fetching batch recommendations:', error);
       return { success: false, message: error.message };
     }
   },
 
   /**
-   * Get the Tip of the Day (same tip for all users on a given calendar day)
+   * Get the Tip of the Day (same tip for all users on a given calendar day, with exclusion support)
    */
-  getTipOfTheDay: async () => {
+  getTipOfTheDay: async (excludeIds = []) => {
     try {
-      const response = await apiClient.post('/api.php?action=getTipOfTheDay');
+      const response = await apiClient.post('/api.php?action=getTipOfTheDay', {
+        exclude_ids: excludeIds.map(Number)
+      });
       return response.data;
     } catch (error) {
       console.error('Error fetching tip of the day:', error);
@@ -104,11 +177,14 @@ export const tipsService = {
   },
 
   /**
-   * Get trending tips (most engaged)
+   * Get trending tips (most engaged, with exclusion support)
    */
-  getTrendingTips: async (limit = 5) => {
+  getTrendingTips: async (limit = 3, excludeIds = []) => {
     try {
-      const response = await apiClient.post('/api.php?action=getTrendingTips', { limit });
+      const response = await apiClient.post('/api.php?action=getTrendingTips', { 
+        limit,
+        exclude_ids: excludeIds.map(Number)
+      });
       return response.data;
     } catch (error) {
       console.error('Error fetching trending tips:', error);
@@ -127,7 +203,6 @@ export const tipsService = {
       }
       return response.data;
     } catch (error) {
-      // Suppressed console.error to prevent console spam during 5-second polling if network drops
       return { success: false, message: error.message };
     }
   },
@@ -146,26 +221,31 @@ export const tipsService = {
   },
 
   /**
-   * Increment views for a specific tip
+   * Increment views for a specific tip and record in user history
    */
-  viewTip: async (id) => {
+  viewTip: async (id, userId = null) => {
     try {
       const response = await apiClient.post('/api.php?action=viewTip', { id });
-      trackSeen(id);
+      if (userId && id) {
+        await recordSeen(userId, id);
+      }
       return response.data;
     } catch (error) {
-      console.error('Error viewing tip:', error);
-      // Fail silently for views so it doesn't interrupt UX
       return { success: false };
     }
   },
 
   /**
-   * Reset the local seen-tips cache (useful on logout)
+   * Reset local history (e.g. on user logout)
    */
-  resetSeenCache: () => {
-    _seenTipIds = [];
-    _lastCategory = null;
+  resetSeenCache: (userId = null) => {
+    if (userId) {
+      const key = getStorageKey(userId);
+      delete _memHistory[key];
+      AsyncStorage.removeItem(key).catch(() => {});
+    } else {
+      Object.keys(_memHistory).forEach(k => delete _memHistory[k]);
+    }
   },
 
   // --- Admin/Landlord CRUD Operations ---

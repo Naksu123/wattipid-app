@@ -377,8 +377,6 @@ export default StyleSheet.create({
     color: COLORS.textMuted,
     fontWeight: FONT_WEIGHT.medium
   },
-  gaugeCard: {
-  },
   quickActionsScroll: {
     marginBottom: SPACING.lg
   },

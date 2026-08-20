@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter, useSegments, Slot } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { View, Text, ActivityIndicator, LogBox } from 'react-native';
+import { View, Text, ActivityIndicator, LogBox, Platform, StatusBar as RNStatusBar } from 'react-native';
 
 // Suppress harmless React Native deprecation warnings caused by 3rd-party libraries
 LogBox.ignoreLogs([
@@ -30,7 +30,9 @@ import { NetworkProvider } from '@/contexts/NetworkContext';
 import NetworkStatusBar from '@/components/ui/NetworkStatusBar';
 import { CopilotProvider } from 'react-native-copilot';
 import { CustomTooltip } from '@/components/ui/TourTooltip';
-import { TourProvider } from '@/contexts/TourContext';
+import { TourProvider, useTourContext } from '@/contexts/TourContext';
+import WelcomeTourModal from '@/components/ui/WelcomeTourModal';
+import TourCompletionModal from '@/components/ui/TourCompletionModal';
 
 // Custom dark theme to match Wattipid brand
 const WattipidTheme = {
@@ -106,7 +108,31 @@ function RootLayoutContent() {
       <Slot />
       <GlobalToast />
       <NotificationBanner />
+      <WelcomeTourModal />
+      <TourCompletionModal />
     </ErrorBoundary>
+  );
+}
+
+function CopilotTourWrapper({ children }) {
+  const { handleTourOverlayPress } = useTourContext();
+
+  return (
+    <CopilotProvider 
+      stopOnOutsideClick={false}
+      onOverlayPress={handleTourOverlayPress}
+      androidStatusBarVisible={false} 
+      verticalOffset={Platform.OS === 'android' ? (RNStatusBar.currentHeight || 0) : 0}
+      margin={10}
+      tooltipComponent={CustomTooltip}
+      tooltipStyle={{
+        backgroundColor: 'transparent',
+        padding: 0,
+        overflow: 'visible',
+      }}
+    >
+      {children}
+    </CopilotProvider>
   );
 }
 
@@ -139,10 +165,10 @@ export default function RootLayout() {
               <ModalProvider>
                 <NotificationProvider>
                   <TourProvider>
-                    <CopilotProvider stopOnOutsideClick androidStatusBarVisible tooltipComponent={CustomTooltip}>
+                    <CopilotTourWrapper>
                       <StatusBar style="light" />
                       <RootLayoutContent />
-                    </CopilotProvider>
+                    </CopilotTourWrapper>
                   </TourProvider>
                 </NotificationProvider>
               </ModalProvider>

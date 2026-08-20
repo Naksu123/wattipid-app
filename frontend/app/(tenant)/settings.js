@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Switch, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useCopilot, CopilotStep, walkthroughable } from 'react-native-copilot';
-import { useTourAutoStart, useTourContext } from '../../contexts/TourContext';
+import { CopilotStep, walkthroughable } from 'react-native-copilot';
+import { useTourAutoStart } from '../../contexts/TourContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useConsumption } from '../../contexts/ConsumptionContext';
 import { useModal } from '../../contexts/ModalContext';
@@ -42,9 +42,8 @@ export default function TenantSettings() {
   const [helpVisible, setHelpVisible] = useState(false);
   const [envVisible, setEnvVisible] = useState(false);
   const [tempEnv, setTempEnv] = useState('local');
-  const { currentTourScreen } = useTourContext();
-
-  useTourAutoStart('settings', true); // Settings are fast locally, can start immediately
+  const scrollViewRef = useRef(null);
+  useTourAutoStart('settings', true, scrollViewRef); // Settings are fast locally, can start immediately
 
   useEffect(() => { loadSettings(); }, [loadSettings]);
 
@@ -188,65 +187,96 @@ export default function TenantSettings() {
 
   return (
     <View style={s.container}>
-      <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        ref={scrollViewRef} 
+        contentContainerStyle={s.scroll} 
+        showsVerticalScrollIndicator={false}
+        scrollEventThrottle={16}
+        onScroll={(e) => {
+          if (scrollViewRef.current) {
+            scrollViewRef.current._scrollY = e.nativeEvent.contentOffset.y;
+          }
+        }}
+      >
         <Text style={s.title}>Settings</Text>
 
-        <CopilotStep active={currentTourScreen === 'settings'} text="This is your profile. You can tap 'Edit Profile' to update your password and other personal details." order={11} name="profile">
-        <CopilotGlassCard gradient style={s.profileCard}>
-          <View style={s.avatar}>
-            <Ionicons name="person" size={32} color={COLORS.primary} />
-          </View>
-          <View style={s.profileInfo}>
-            <Text style={s.profileName}>{user?.name || 'Tenant'}</Text>
-            <Text style={s.profileEmail}>{user?.email || ''}</Text>
-            <Text style={s.profileRole}>Tenant • Room {user?.room_id || 'N/A'}</Text>
-            <TouchableOpacity onPress={() => router.push('/(tenant)/edit-profile')} style={s.editBtn}>
-              <Ionicons name="create-outline" size={16} color={COLORS.primary} />
-              <Text style={s.editBtnText}>Edit Profile</Text>
-            </TouchableOpacity>
-          </View>
-        </CopilotGlassCard>
+        {/* Step 1 of 5: Profile */}
+        <CopilotStep text="Profile allows you to view and manage your personal account information." order={19} name="settings_profile">
+          <CopilotView>
+            <GlassCard gradient style={s.profileCard}>
+              <View style={s.avatar}>
+                <Ionicons name="person" size={32} color={COLORS.primary} />
+              </View>
+              <View style={s.profileInfo}>
+                <Text style={s.profileName}>{user?.name || 'Tenant'}</Text>
+                <Text style={s.profileEmail}>{user?.email || ''}</Text>
+                <Text style={s.profileRole}>Tenant • Room {user?.room_id || 'N/A'}</Text>
+                <TouchableOpacity onPress={() => router.push('/(tenant)/edit-profile')} style={s.editBtn}>
+                  <Ionicons name="create-outline" size={16} color={COLORS.primary} />
+                  <Text style={s.editBtnText}>Edit Profile</Text>
+                </TouchableOpacity>
+              </View>
+            </GlassCard>
+          </CopilotView>
         </CopilotStep>
 
-        <Text style={s.sectionLabel}>Lease Information</Text>
-        <GlassCard style={s.accountCard}>
-          <View style={s.accountRow}>
-            <Text style={s.soaLabel}>Move-In Date</Text>
-            <Text style={s.soaValue}>
-              {monthUsage?.tenant_start_date ? new Date(monthUsage.tenant_start_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : '--'}
-            </Text>
-          </View>
-          <View style={[s.accountRow, { borderBottomWidth: 0 }]}>
-            <Text style={s.soaLabel}>Account Status</Text>
-            <View style={{ backgroundColor: 'rgba(16, 185, 129, 0.15)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 }}>
-              <Text style={{ color: COLORS.success, fontSize: 11, fontWeight: 'bold' }}>Active</Text>
-            </View>
-          </View>
-        </GlassCard>
-
-        <Text style={s.sectionLabel}>Notifications</Text>
-        <CopilotStep active={currentTourScreen === 'settings'} text="You can customize which alerts you receive here. If you turn off Push Notifications, you will still see them in the app's notification history." order={12} name="notifications">
-        <CopilotGlassCard style={s.sectionCard}>
-          <ToggleItem icon="notifications-outline" label="Push Notifications" value={notifEnabled} onToggle={toggleNotif} iconColor="#10B981" iconBg="rgba(16, 185, 129, 0.15)" />
-          <View style={s.divider} />
-          <ToggleItem icon="flash-outline" label="Usage Alerts" value={isUsageEnabled} onToggle={setUsageEnabled} disabled={!notifEnabled} iconColor="#F59E0B" iconBg="rgba(245, 158, 11, 0.15)" />
-          <View style={s.divider} />
-          <ToggleItem icon="card-outline" label="Billing Reminders" value={isBillingEnabled} onToggle={setBillingEnabled} disabled={!notifEnabled} iconColor="#3B82F6" iconBg="rgba(59, 130, 246, 0.15)" />
-        </CopilotGlassCard>
+        {/* Step 2 of 5: Lease Information */}
+        <CopilotStep text="Lease Information contains important information about your current room or rental agreement." order={20} name="settings_lease">
+          <CopilotView>
+            <Text style={s.sectionLabel}>Lease Information</Text>
+            <GlassCard style={s.accountCard}>
+              <View style={s.accountRow}>
+                <Text style={s.soaLabel}>Move-In Date</Text>
+                <Text style={s.soaValue}>
+                  {monthUsage?.tenant_start_date ? new Date(monthUsage.tenant_start_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : '--'}
+                </Text>
+              </View>
+              <View style={[s.accountRow, { borderBottomWidth: 0 }]}>
+                <Text style={s.soaLabel}>Account Status</Text>
+                <View style={{ backgroundColor: 'rgba(16, 185, 129, 0.15)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 }}>
+                  <Text style={{ color: COLORS.success, fontSize: 11, fontWeight: 'bold' }}>Active</Text>
+                </View>
+              </View>
+            </GlassCard>
+          </CopilotView>
         </CopilotStep>
 
-        <Text style={s.sectionLabel}>Data Management</Text>
-        <GlassCard style={s.menuCard}>
-          <MenuItem icon="trash-outline" label="Clear Consumption History" onPress={() => setClearDataVisible(true)} danger />
-        </GlassCard>
+        {/* Step 3 of 5: Notifications */}
+        <CopilotStep text="Notification settings allow you to manage how Wattipid sends important alerts and updates, such as billing reminders, budget warnings, and other system notifications." order={21} name="settings_notifications">
+          <CopilotView>
+            <Text style={s.sectionLabel}>Notifications</Text>
+            <GlassCard style={s.sectionCard}>
+              <ToggleItem icon="notifications-outline" label="Push Notifications" value={notifEnabled} onToggle={toggleNotif} iconColor="#10B981" iconBg="rgba(16, 185, 129, 0.15)" />
+              <View style={s.divider} />
+              <ToggleItem icon="flash-outline" label="Usage Alerts" value={isUsageEnabled} onToggle={setUsageEnabled} disabled={!notifEnabled} iconColor="#F59E0B" iconBg="rgba(245, 158, 11, 0.15)" />
+              <View style={s.divider} />
+              <ToggleItem icon="card-outline" label="Billing Reminders" value={isBillingEnabled} onToggle={setBillingEnabled} disabled={!notifEnabled} iconColor="#3B82F6" iconBg="rgba(59, 130, 246, 0.15)" />
+            </GlassCard>
+          </CopilotView>
+        </CopilotStep>
 
-        <Text style={s.sectionLabel}>Support</Text>
-        <GlassCard style={s.menuCard}>
-          <MenuItem icon="book-outline" label="User Manual" onPress={() => router.push('/(tenant)/user-manual')} iconColor="#10B981" iconBg="rgba(16,185,129,0.15)" />
-          <MenuItem icon="help-circle-outline" label="Help & Support" onPress={() => setHelpVisible(true)} iconColor="#8B5CF6" iconBg="rgba(139, 92, 246, 0.15)" />
-          <MenuItem icon="document-text-outline" label="Terms and Conditions" onPress={() => router.push('/terms')} iconColor="#A1A1AA" iconBg="rgba(255, 255, 255, 0.05)" />
-          <MenuItem icon="information-circle-outline" label="About Wattipid" value="v2.0.0" onPress={() => setAboutVisible(true)} iconColor="#A1A1AA" iconBg="rgba(255, 255, 255, 0.05)" />
-        </GlassCard>
+        {/* Step 4 of 5: Data Management */}
+        <CopilotStep text="Data Management allows you to manage your Wattipid account data and related data settings." order={22} name="settings_data">
+          <CopilotView>
+            <Text style={s.sectionLabel}>Data Management</Text>
+            <GlassCard style={s.menuCard}>
+              <MenuItem icon="trash-outline" label="Clear Consumption History" onPress={() => setClearDataVisible(true)} danger />
+            </GlassCard>
+          </CopilotView>
+        </CopilotStep>
+
+        {/* Step 5 of 5: Support & User Manual */}
+        <CopilotStep text="Support provides assistance when you need help using Wattipid. It also provides access to the User Manual and Interactive Tour so you can learn how to use the different features of the application." order={23} name="settings_support">
+          <CopilotView>
+            <Text style={s.sectionLabel}>Support</Text>
+            <GlassCard style={s.menuCard}>
+              <MenuItem icon="book-outline" label="User Manual" onPress={() => router.push('/(tenant)/user-manual')} iconColor="#10B981" iconBg="rgba(16,185,129,0.15)" />
+              <MenuItem icon="help-circle-outline" label="Help & Support" onPress={() => setHelpVisible(true)} iconColor="#8B5CF6" iconBg="rgba(139, 92, 246, 0.15)" />
+              <MenuItem icon="document-text-outline" label="Terms and Conditions" onPress={() => router.push('/terms')} iconColor="#A1A1AA" iconBg="rgba(255, 255, 255, 0.05)" />
+              <MenuItem icon="information-circle-outline" label="About Wattipid" value="v2.0.0" onPress={() => setAboutVisible(true)} iconColor="#A1A1AA" iconBg="rgba(255, 255, 255, 0.05)" />
+            </GlassCard>
+          </CopilotView>
+        </CopilotStep>
 
         <GlassCard style={s.menuCard}>
           <MenuItem icon="log-out-outline" label="Sign out" onPress={() => setLogoutVisible(true)} danger />

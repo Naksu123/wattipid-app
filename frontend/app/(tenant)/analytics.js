@@ -68,7 +68,8 @@ export default function AnalyticsScreen() {
   const coreAbortRef = React.useRef(null);
   const forecastAbortRef = React.useRef(null);
 
-  useTourAutoStart('analytics', !loadingPeriod);
+  const scrollViewRef = React.useRef(null);
+  useTourAutoStart('analytics', !loadingPeriod, scrollViewRef);
 
   // Clean up abort controllers on unmount
   useEffect(() => {
@@ -137,8 +138,10 @@ export default function AnalyticsScreen() {
         const dateA = new Date(a.group_date || a.day || a.timestamp || a.cycle_start || 0).getTime();
         const dateB = new Date(b.group_date || b.day || b.timestamp || b.cycle_start || 0).getTime();
         if (dateA !== dateB && !isNaN(dateA) && !isNaN(dateB)) return dateA - dateB;
-        if (a.hour !== undefined && b.hour !== undefined) return a.hour - b.hour;
-        if (a.month !== undefined && b.month !== undefined) return a.month - month;
+        const keysA = Object.keys(a);
+        const keysB = Object.keys(b);
+        if (keysA.includes('hour') && keysB.includes('hour')) return a.hour - b.hour;
+        if (keysA.includes('month') && keysB.includes('month')) return a.month - b.month;
         return 0;
       });
 
@@ -485,14 +488,21 @@ export default function AnalyticsScreen() {
   return (
     <View style={s.container}>
       <ScrollView
+        ref={scrollViewRef}
         contentContainerStyle={s.scroll}
         showsVerticalScrollIndicator={false}
+        scrollEventThrottle={16}
+        onScroll={(e) => {
+          if (scrollViewRef.current) {
+            scrollViewRef.current._scrollY = e.nativeEvent.contentOffset.y;
+          }
+        }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
       >
 
 
-        {/* ── Period Tabs ─────────────────────────────────────────────────────── */}
-        <CopilotStep active={currentTourScreen === 'analytics'} text="Use these tabs to switch between your daily, weekly, monthly, and yearly electricity consumption trends." order={3} name="periodTabs">
+        {/* ── Period Tabs (Step 1 of 5) ─────────────────────────────────────────── */}
+        <CopilotStep text="Use these tabs to switch between daily, weekly, monthly, and yearly electricity analytics." order={4} name="analytics_periodSelector">
           <CopilotView style={s.periodRow}>
             {PERIODS.map(p => (
               <TouchableOpacity key={p} onPress={() => setPeriod(p)}
@@ -519,120 +529,134 @@ export default function AnalyticsScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* ── Period Summary Card ─────────────────────────────────────────────── */}
-        <CopilotStep active={currentTourScreen === 'analytics'} text="This Period Summary shows your total consumption, total cost, and daily average for the selected time range." order={4} name="summary">
-        <CopilotView style={{ marginBottom: SPACING.sm }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, marginLeft: 4, marginRight: 4 }}>
-            <Text style={{ fontSize: 14, fontWeight: '600', color: COLORS.textSecondary }}>Period Summary</Text>
-            {loadingPeriod && (
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <ActivityIndicator size="small" color={COLORS.primary} style={{ marginRight: 4, transform: [{ scale: 0.7 }] }} />
-                <Text style={{ fontSize: 11, color: COLORS.primary, fontWeight: '500' }}>Updating...</Text>
-              </View>
-            )}
-          </View>
-          <GlassCard style={[s.financialCard, loadingPeriod && { opacity: 0.6 }]}>
-            <View style={s.financialRow}>
-              <View style={s.financialBlock}>
-                <Text style={s.financialLabel}>Consumption Cost</Text>
-                <View style={s.financialValueRow}>
-                  <Text style={s.financialPrefix}>₱</Text>
-                  <Text style={s.financialValue} numberOfLines={1} adjustsFontSizeToFit>{totalCost.toFixed(2)}</Text>
+        {/* ── Period Summary Card (Step 2 of 5) ─────────────────────────────────────── */}
+        <CopilotStep text="This section summarizes your electricity consumption cost and average usage for the selected period." order={5} name="analytics_summary">
+          <CopilotView style={{ marginBottom: SPACING.sm }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, marginLeft: 4, marginRight: 4 }}>
+              <Text style={{ fontSize: 14, fontWeight: '600', color: COLORS.textSecondary }}>Period Summary</Text>
+              {loadingPeriod && (
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <ActivityIndicator size="small" color={COLORS.primary} style={{ marginRight: 4, transform: [{ scale: 0.7 }] }} />
+                  <Text style={{ fontSize: 11, color: COLORS.primary, fontWeight: '500' }}>Updating...</Text>
                 </View>
-                <Text style={{fontSize: 10, color: COLORS.textMuted, marginTop: 2}}>Calendar period only. Excludes fees/rent.</Text>
-              </View>
-              
-              <View style={[s.financialBlock, { alignItems: 'flex-end' }]}>
-                <Text style={s.financialLabel}>Daily Average</Text>
-                <View style={s.financialValueRow}>
-                  <Text style={s.financialValue} numberOfLines={1} adjustsFontSizeToFit>{avgEnergy.toFixed(2)}</Text>
-                  <Text style={s.financialUnit}>kWh</Text>
-                </View>
-                {comparison && comparison.energyPctChange !== 0 && (
-                  <Text style={[s.summaryCardTrend, { color: comparison.energyPctChange > 0 ? COLORS.danger : COLORS.success, marginTop: 4 }]}>
-                    {comparison.energyPctChange > 0 ? '↑' : '↓'} {Math.abs(comparison.energyPctChange).toFixed(1)}%
-                  </Text>
-                )}
-              </View>
-            </View>
-          </GlassCard>
-        </CopilotView>
-        </CopilotStep>
-
-        {/* ── View Toggle ─────────────────────────────────────────────────────── */}
-        <View style={{ marginBottom: SPACING.lg }}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.viewToggle}>
-            {VIEW_TABS.map(tab => (
-              <TouchableOpacity key={tab.key} onPress={() => { setActiveView(tab.key); setHistoryLimit(20); }}
-                style={[s.viewTab, activeView === tab.key && s.viewTabActive]} activeOpacity={0.7}>
-                <Ionicons name={tab.icon} size={16} color={activeView === tab.key ? COLORS.primary : COLORS.textMuted} />
-                <Text style={[s.viewTabText, activeView === tab.key && s.viewTabTextActive]}>{tab.label}</Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
-
-        {/* ══════════════════════════════════════════════════════════════════════ */}
-        {/* ── Charts View ─────────────────────────────────────────────────────── */}
-        {activeView === 'charts' && (
-          <View style={loadingPeriod ? { opacity: 0.6 } : {}}>
-            {/* Bar Chart */}
-            <GlassCard style={s.chartCard}>
-              <View style={[s.chartHeader, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
-                <View>
-                  <Text style={s.chartTitle}>Electricity Consumption</Text>
-                  <Text style={s.chartUnit}>{period === 'daily' ? 'Wh' : 'kWh'}</Text>
-                </View>
-                {loadingPeriod && <ActivityIndicator size="small" color={COLORS.primary} />}
-              </View>
-
-              {energyData.length > 0 ? (
-                <WattipidBarChart
-                  labels={labels}
-                  data={energyData}
-                  comparisonData={comparisonChartData}
-                  unit={period === 'daily' ? 'Wh' : 'kWh'}
-                  height={230}
-                  currentIndex={currentIndex}
-                  lowlightIndex={lowestIndex}
-                  accentColor={COLORS.primary}
-                />
-              ) : (
-                <Text style={s.noData}>No consumption data available yet</Text>
               )}
-
-            </GlassCard>
-
-            <Text style={s.disclaimer}>
-              Power consumption is approximate and may differ from the actual value.
-            </Text>
-
-            {/* AI Analysis */}
-            {(insights.length > 0 || recommendation) && (
-              <GlassCard style={s.insightCard}>
-                <View style={s.insightHeader}>
-                  <Ionicons name="sparkles" size={20} color={COLORS.primary} />
-                  <Text style={[s.insightTitle, { color: COLORS.primary }]}>Wattipid Smart Insights</Text>
+            </View>
+            <GlassCard style={[s.financialCard, loadingPeriod && { opacity: 0.6 }]}>
+              <View style={s.financialRow}>
+                <View style={s.financialBlock}>
+                  <Text style={s.financialLabel}>Consumption Cost</Text>
+                  <View style={s.financialValueRow}>
+                    <Text style={s.financialPrefix}>₱</Text>
+                    <Text style={s.financialValue} numberOfLines={1} adjustsFontSizeToFit>{totalCost.toFixed(2)}</Text>
+                  </View>
+                  <Text style={{fontSize: 10, color: COLORS.textMuted, marginTop: 2}}>Calendar period only. Excludes fees/rent.</Text>
                 </View>
                 
-                {recommendation && (
-                  <View style={{ marginBottom: 12 }}>
-                    <Text style={{ fontSize: 13, fontWeight: '500', color: COLORS.textPrimary, lineHeight: 20 }}>
-                      {recommendation}
-                    </Text>
+                <View style={[s.financialBlock, { alignItems: 'flex-end' }]}>
+                  <Text style={s.financialLabel}>Daily Average</Text>
+                  <View style={s.financialValueRow}>
+                    <Text style={s.financialValue} numberOfLines={1} adjustsFontSizeToFit>{avgEnergy.toFixed(2)}</Text>
+                    <Text style={s.financialUnit}>kWh</Text>
                   </View>
-                )}
+                  {comparison && comparison.energyPctChange !== 0 && (
+                    <Text style={[s.summaryCardTrend, { color: comparison.energyPctChange > 0 ? COLORS.danger : COLORS.success, marginTop: 4 }]}>
+                      {comparison.energyPctChange > 0 ? '↑' : '↓'} {Math.abs(comparison.energyPctChange).toFixed(1)}%
+                    </Text>
+                  )}
+                </View>
+              </View>
+            </GlassCard>
+          </CopilotView>
+        </CopilotStep>
 
-                {insights.map((text, i) => (
+        {/* ── Electricity Consumption (Step 3 of 5) ───────────────────────────────── */}
+        <CopilotStep
+          text="View your electricity consumption through charts, detailed breakdowns, and historical records."
+          order={6}
+          name="analytics_consumption"
+        >
+          <CopilotView>
+            {/* ── View Toggle ── */}
+            <View style={{ marginBottom: SPACING.md }}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.viewToggle}>
+                {VIEW_TABS.map(tab => (
+                  <TouchableOpacity key={tab.key} onPress={() => { setActiveView(tab.key); setHistoryLimit(20); }}
+                    style={[s.viewTab, activeView === tab.key && s.viewTabActive]} activeOpacity={0.7}>
+                    <Ionicons name={tab.icon} size={16} color={activeView === tab.key ? COLORS.primary : COLORS.textMuted} />
+                    <Text style={[s.viewTabText, activeView === tab.key && s.viewTabTextActive]}>{tab.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+
+            {/* ── Charts View ── */}
+            {activeView === 'charts' && (
+              <View style={loadingPeriod ? { opacity: 0.6 } : {}}>
+                {/* Bar Chart */}
+                <GlassCard style={s.chartCard}>
+                  <View style={[s.chartHeader, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
+                    <View>
+                      <Text style={s.chartTitle}>Electricity Consumption</Text>
+                      <Text style={s.chartUnit}>{period === 'daily' ? 'Wh' : 'kWh'}</Text>
+                    </View>
+                    {loadingPeriod && <ActivityIndicator size="small" color={COLORS.primary} />}
+                  </View>
+
+                  {energyData.length > 0 ? (
+                    <WattipidBarChart
+                      labels={labels}
+                      data={energyData}
+                      comparisonData={comparisonChartData}
+                      unit={period === 'daily' ? 'Wh' : 'kWh'}
+                      height={230}
+                      currentIndex={currentIndex}
+                      lowlightIndex={lowestIndex}
+                      accentColor={COLORS.primary}
+                    />
+                  ) : (
+                    <Text style={s.noData}>No consumption data available yet</Text>
+                  )}
+                </GlassCard>
+
+                <Text style={s.disclaimer}>
+                  Power consumption is approximate and may differ from the actual value.
+                </Text>
+              </View>
+            )}
+          </CopilotView>
+        </CopilotStep>
+
+        {/* ── Wattipid Smart Insights (Step 4 of 5) ────────────────────────────────── */}
+        <CopilotStep text="Smart Insights analyzes your consumption patterns and provides useful recommendations based on your electricity usage." order={7} name="analytics_insights">
+          <CopilotView style={{ marginTop: 8 }}>
+            <GlassCard style={s.insightCard}>
+              <View style={s.insightHeader}>
+                <Ionicons name="sparkles" size={20} color={COLORS.primary} />
+                <Text style={[s.insightTitle, { color: COLORS.primary }]}>Wattipid Smart Insights</Text>
+              </View>
+              
+              <View style={{ marginBottom: 12 }}>
+                <Text style={{ fontSize: 13, fontWeight: '500', color: COLORS.textPrimary, lineHeight: 20 }}>
+                  {recommendation || "Monitoring your consumption patterns to optimize electricity usage."}
+                </Text>
+              </View>
+
+              {insights.length > 0 ? (
+                insights.map((text, i) => (
                   <View key={i} style={s.insightItem}>
                     <View style={s.insightDot} />
                     <Text style={s.insightText}>{text}</Text>
                   </View>
-                ))}
-              </GlassCard>
-            )}
-          </View>
-        )}
+                ))
+              ) : (
+                <View style={s.insightItem}>
+                  <View style={s.insightDot} />
+                  <Text style={s.insightText}>Keep your appliances energy-efficient to maximize savings.</Text>
+                </View>
+              )}
+            </GlassCard>
+          </CopilotView>
+        </CopilotStep>
 
         {/* ══════════════════════════════════════════════════════════════════════ */}
         {/* ── Breakdown View ──────────────────────────────────────────────────── */}
@@ -837,24 +861,28 @@ export default function AnalyticsScreen() {
           </ModalBody>
         </BaseModal>
 
-        {/* ── PDF Report ──────────────────────────────────────────────────────── */}
-        <GlassCard style={s.reportCard}>
-          <View style={s.reportHeader}>
-            <Ionicons name="document-text" size={18} color={COLORS.info} />
-            <Text style={s.reportTitle}>Generate Report</Text>
-          </View>
-          <Text style={s.reportDesc}>Export a detailed PDF analytics report for the currently viewed {period} period.</Text>
-          <View style={{ marginTop: 12 }}>
-            <TouchableOpacity
-              style={{ backgroundColor: COLORS.info, padding: 14, borderRadius: RADIUS.md, alignItems: 'center', justifyContent: 'center', marginTop: 8, flexDirection: 'row', gap: 8 }}
-              onPress={() => generateReport()} disabled={generatingPdf} activeOpacity={0.7}>
-              {generatingPdf ? <ActivityIndicator size="small" color="#fff" /> : (
-                <><Ionicons name="download-outline" size={18} color="#fff" />
-                <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 14 }}>Download {period.charAt(0).toUpperCase() + period.slice(1)} Report</Text></>
-              )}
-            </TouchableOpacity>
-          </View>
-        </GlassCard>
+        {/* ── PDF Report (Step 5 of 5) ────────────────────────────────────────────── */}
+        <CopilotStep text="Generate a report for the selected period to review or keep a record of your electricity consumption." order={8} name="analytics_report">
+          <CopilotView style={{ marginTop: 8 }}>
+            <GlassCard style={s.reportCard}>
+              <View style={s.reportHeader}>
+                <Ionicons name="document-text" size={18} color={COLORS.info} />
+                <Text style={s.reportTitle}>Generate Report</Text>
+              </View>
+              <Text style={s.reportDesc}>Export a detailed PDF analytics report for the currently viewed {period} period.</Text>
+              <View style={{ marginTop: 12 }}>
+                <TouchableOpacity
+                  style={{ backgroundColor: COLORS.info, padding: 14, borderRadius: RADIUS.md, alignItems: 'center', justifyContent: 'center', marginTop: 8, flexDirection: 'row', gap: 8 }}
+                  onPress={() => generateReport()} disabled={generatingPdf} activeOpacity={0.7}>
+                  {generatingPdf ? <ActivityIndicator size="small" color="#fff" /> : (
+                    <><Ionicons name="download-outline" size={18} color="#fff" />
+                    <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 14 }}>Download {period.charAt(0).toUpperCase() + period.slice(1)} Report</Text></>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </GlassCard>
+          </CopilotView>
+        </CopilotStep>
 
       </ScrollView>
     </View>

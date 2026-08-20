@@ -1,9 +1,7 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, Animated, Easing, StyleSheet } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { COLORS, FONT_SIZE, FONT_WEIGHT } from '@/styles/theme';
-
-const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 export default function AnimatedBudgetRing({
   spent = 0,
@@ -12,33 +10,44 @@ export default function AnimatedBudgetRing({
   label = 'Budget',
   currency = '₱',
 }) {
-  const percentage = limit > 0 ? (spent / limit) : 0;
-  // Cap visual percentage at 100% so the ring doesn't overlap itself
-  const visualPercentage = Math.min(percentage, 1);
+  const safeSpent = Number(spent || 0);
+  const safeLimit = Number(limit || 1);
+  const percentage = safeLimit > 0 ? (safeSpent / safeLimit) : 0;
+  const visualPercentage = Math.min(Math.max(percentage, 0), 1);
   
   const strokeWidth = 12;
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   
-  // Animation Values
-  const animatedDashoffset = useRef(new Animated.Value(circumference)).current;
+  const animValue = useRef(new Animated.Value(0)).current;
+  const [currentProgress, setCurrentProgress] = useState(visualPercentage);
 
   useEffect(() => {
-    const targetOffset = circumference * (1 - visualPercentage);
-    Animated.timing(animatedDashoffset, {
-      toValue: targetOffset,
+    const listenerId = animValue.addListener(({ value }) => {
+      setCurrentProgress(value);
+    });
+
+    Animated.timing(animValue, {
+      toValue: visualPercentage,
       duration: 600,
       easing: Easing.out(Easing.cubic),
-      useNativeDriver: true, // Svg circle dashoffset can be animated natively in some environments, but even if it falls back to JS it's smooth
+      useNativeDriver: false,
     }).start();
-  }, [visualPercentage, circumference, animatedDashoffset]);
+
+    return () => {
+      animValue.removeListener(listenerId);
+      animValue.stopAnimation();
+    };
+  }, [visualPercentage, animValue]);
 
   const getColor = () => {
     if (percentage < 0.75) return '#10B981'; // Green (NORMAL)
     if (percentage < 0.90) return '#F59E0B'; // Orange (APPROACHING)
     if (percentage <= 1.0) return '#EF4444'; // Red (WARNING)
-    return '#E11D48'; // Crimson/Rose (EXCEEDED)
+    return '#8B5CF6'; // Purple (EXCEEDED)
   };
+
+  const safeOffset = circumference * (1 - Math.min(Math.max(currentProgress, 0), 1));
 
   return (
     <View style={[styles.container, { width: size, height: size }]}>
@@ -51,7 +60,7 @@ export default function AnimatedBudgetRing({
           strokeWidth={strokeWidth}
           fill="none"
         />
-        <AnimatedCircle
+        <Circle
           cx={size / 2}
           cy={size / 2}
           r={radius}
@@ -60,17 +69,17 @@ export default function AnimatedBudgetRing({
           fill="none"
           strokeLinecap="round"
           strokeDasharray={`${circumference}`}
-          strokeDashoffset={animatedDashoffset}
+          strokeDashoffset={safeOffset}
           rotation="-90"
           origin={`${size / 2}, ${size / 2}`}
         />
       </Svg>
       <View style={[styles.inner, { width: size, height: size }]}>
         <Text style={[styles.spentAmount, { color: getColor() }]}>
-          {currency}{Number(spent || 0).toFixed(2)}
+          {currency}{safeSpent.toFixed(2)}
         </Text>
         <Text style={styles.limitAmount}>
-          of {currency}{Number(limit || 0).toFixed(2)}
+          of {currency}{safeLimit.toFixed(2)}
         </Text>
         <Text style={[styles.percentage, { color: getColor() }]}>
           {Math.round(percentage * 100)}%

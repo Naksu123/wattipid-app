@@ -20,7 +20,8 @@ export default function UserManualScreen() {
   const manualData = isLandlord ? LANDLORD_MANUAL : TENANT_MANUAL;
   const roleLabel = isLandlord ? 'Landlord' : 'Tenant';
 
-  const { startContinuousTour } = useTourContext();
+  const tourCtx = useTourContext();
+  const startFullTour = tourCtx?.startFullTour || tourCtx?.startContinuousTour || (() => {});
 
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedIds, setExpandedIds] = useState({});
@@ -163,7 +164,7 @@ export default function UserManualScreen() {
       {searchQuery.trim().length > 0 && (
         <View style={s.resultsBar}>
           <Text style={s.resultsText}>
-            {filteredSections.length} {filteredSections.length === 1 ? 'result' : 'results'} for "{searchQuery}"
+            {filteredSections.length} {filteredSections.length === 1 ? 'result' : 'results'} for &quot;{searchQuery}&quot;
           </Text>
           <TouchableOpacity onPress={() => setSearchQuery('')} style={s.clearSearchBtn}>
             <Text style={s.clearSearchText}>Clear</Text>
@@ -178,15 +179,33 @@ export default function UserManualScreen() {
         keyboardShouldPersistTaps="handled"
       >
         {!searchQuery.trim() && !isLandlord && (
-          <View style={{ marginBottom: 24 }}>
+          <View style={{ marginBottom: 20 }}>
+            {/* Full Tour Hero Card */}
             <TouchableOpacity 
-              onPress={startContinuousTour} 
-              style={{ backgroundColor: COLORS.primary, padding: 16, borderRadius: 16, alignItems: 'center', marginBottom: 20, flexDirection: 'row', justifyContent: 'center', gap: 8, shadowColor: COLORS.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 5 }}
+              onPress={startFullTour} 
+              activeOpacity={0.85}
+              style={{ 
+                backgroundColor: '#10B981', 
+                padding: 16, 
+                borderRadius: 18, 
+                alignItems: 'center', 
+                flexDirection: 'row', 
+                justifyContent: 'center', 
+                gap: 12, 
+                shadowColor: '#10B981', 
+                shadowOffset: { width: 0, height: 6 }, 
+                shadowOpacity: 0.35, 
+                shadowRadius: 10, 
+                elevation: 6 
+              }}
             >
-              <Ionicons name="play-circle" size={24} color="#fff" />
-              <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>Start Full Tour</Text>
+              <Ionicons name="play-circle" size={26} color="#fff" />
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: '#fff', fontWeight: '800', fontSize: 15 }}>Start Full Interactive Tour</Text>
+                <Text style={{ color: 'rgba(255, 255, 255, 0.85)', fontSize: 11 }}>Complete walkthrough across all 6 main screens</Text>
+              </View>
+              <Ionicons name="arrow-forward" size={18} color="#fff" />
             </TouchableOpacity>
-
           </View>
         )}
 
@@ -197,7 +216,7 @@ export default function UserManualScreen() {
             </View>
             <Text style={s.emptyTitle}>No results found</Text>
             <Text style={s.emptyText}>
-              Try searching for "budget", "payment", "billing", or "analytics"
+              {'Try searching for "budget", "payment", "billing", or "analytics"'}
             </Text>
           </View>
         ) : (

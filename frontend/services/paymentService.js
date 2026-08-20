@@ -12,11 +12,32 @@ export const submitPayment = async (billingCycleId, roomId, amount, proofUrl, re
             paymentMethod,
             paymentDate
         });
-        if (!response.data.success) throw new Error(response.data.message);
+        if (!response.data.success) throw new Error(response.data.message || "Backend returned an unsuccessful response");
         return response.data;
     } catch (error) {
-        console.error('submitPayment error:', error);
-        throw error.response?.data?.message || error.message || error;
+        // 1. Detailed error logging as requested
+        console.error('submitPayment error details:', {
+            status: error.response?.status,
+            statusText: error.response?.statusText,
+            endpoint: '/api.php?action=submitPayment',
+            message: error.message,
+            responseData: error.response?.data,
+            billingCycleId,
+            roomId,
+            amount
+        });
+
+        // 2. Handle Network Errors Gracefully
+        if (!error.response && error.request) {
+            throw new Error("Unable to connect to the server. Please check your internet connection and try again.");
+        }
+
+        // 3. Fallback to API error message or generic server error
+        if (error.response?.status >= 500) {
+            throw new Error("The payment could not be processed right now. Please try again later.");
+        }
+
+        throw error.response?.data?.message || error.message || "An unexpected error occurred while processing your payment.";
     }
 };
 

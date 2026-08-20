@@ -60,7 +60,8 @@ export default function TipsScreen() {
   const [browseLoading, setBrowseLoading] = useState(false);
   const [browseError, setBrowseError] = useState(null);
 
-  useTourAutoStart('tips', !loading && !browseLoading);
+  const scrollViewRef = useRef(null);
+  useTourAutoStart('tips', !loading && !browseLoading, scrollViewRef);
 
   const dynamicCategories = useMemo(() => {
     const cats = allTips.reduce((acc, tip) => {
@@ -76,14 +77,30 @@ export default function TipsScreen() {
     return { list, counts: cats };
   }, [allTips]);
 
-  const loadCommunityTip = useCallback(async () => {
+  const loadCommunityTip = useCallback(async (currentIdToExclude = null) => {
     try {
       setLoading(true);
       setError(null);
       
-      // Use smart recommendation (server-side no-repeat engine)
-      const res = await tipsService.getSmartRecommendation();
+      // 1. Fetch Tip of the Day first
+      const todRes = await tipsService.getTipOfTheDay();
+      const todTip = todRes.success ? todRes.data : null;
+      if (todTip) setTipOfTheDay(todTip);
+
+      // 2. Fetch Smart Hero Recommendation, strictly excluding Tip of the Day & current tip
+      const heroExclude = [
+        todTip?.id,
+        currentIdToExclude || currentTip?.id
+      ].filter(Boolean);
+
+      const res = await tipsService.getSmartRecommendation({
+        user,
+        excludeIds: heroExclude,
+      });
+
+      let heroTip = null;
       if (res.success && res.data) {
+        heroTip = res.data;
         // Animate transition with scale spring
         Animated.parallel([
           Animated.sequence([
@@ -97,17 +114,18 @@ export default function TipsScreen() {
         ]).start();
         
         setTimeout(() => {
-          setCurrentTip(res.data);
+          setCurrentTip(heroTip);
           setLiked(false);
         }, 200);
       }
 
-      // Also load Tip of the Day and Trending (parallel)
-      const [todRes, trendRes] = await Promise.all([
-        tipsService.getTipOfTheDay(),
-        tipsService.getTrendingTips(3),
-      ]);
-      if (todRes.success && todRes.data) setTipOfTheDay(todRes.data);
+      // 3. Fetch Trending in Dorms, strictly excluding Tip of the Day & Hero tip
+      const trendExclude = [
+        todTip?.id,
+        heroTip?.id || currentTip?.id
+      ].filter(Boolean);
+
+      const trendRes = await tipsService.getTrendingTips(3, trendExclude);
       if (trendRes.success && trendRes.data) setTrendingTips(trendRes.data);
 
     } catch (err) {
@@ -115,18 +133,18 @@ export default function TipsScreen() {
     } finally {
       setLoading(false);
     }
-  }, [fadeAnim]);
+  }, [user, currentTip, fadeAnim, scaleAnim]);
 
   const loadSmartTips = useCallback(async () => {
     try {
       const sensorData = await fetchRealtimeData(roomId);
-      const tips = await generateDynamicTips(roomId, sensorData.power || 0);
+      const tips = await generateDynamicTips(roomId, sensorData.power || 0, user);
       setSmartTips(tips);
       setLastSmartUpdate(new Date());
     } catch (err) {
       console.warn('Smart tips load error:', err);
     }
-  }, [roomId]);
+  }, [roomId, user]);
 
   const loadAllTips = useCallback(async (cat = 'All') => {
     try {
@@ -427,7 +445,7 @@ export default function TipsScreen() {
           {/* Fixed Header Section */}
           <View style={{ paddingHorizontal: 20, paddingTop: 60 }}>
             {/* Tab Selector */}
-            <CopilotStep active={currentTourScreen === 'tips'} text="Switch between General Community Tips, automated Smart Insights, or Browse all tips." order={5} name="tabs">
+            <CopilotStep text="Switch between General Community Tips, automated Smart Insights, or Browse all tips." order={5} name="tabs">
             <CopilotView style={s.tabRow}>
               {TABS.map(tab => (
                 <TouchableOpacity 
@@ -483,25 +501,40 @@ export default function TipsScreen() {
         </View>
       ) : (
         /* ================= COMMUNITY & SMART TABS (ScrollView) ================= */
-        <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={COLORS.primary} />}>
-          {/* Tab Selector */}
-          <CopilotStep text="Switch between General Community Tips, automated Smart Insights, or Browse all tips." order={1} name="tabs">
-          <CopilotView style={s.tabRow}>
-            {TABS.map(tab => (
-              <TouchableOpacity 
-                key={tab.id} 
-                onPress={() => setActiveTab(tab.id)}
-                style={[s.tabBtn, activeTab === tab.id && s.tabActive]}
-              >
-                <Ionicons 
-                  name={tab.icon} 
-                  size={18} 
-                  color={activeTab === tab.id ? COLORS.primary : COLORS.textMuted} 
-                />
-                <Text style={[s.tabText, activeTab === tab.id && s.tabTextActive]}>{tab.label}</Text>
-              </TouchableOpacity>
-            ))}
-          </CopilotView>
+        <ScrollView 
+          ref={scrollViewRef} 
+          contentContainerStyle={s.scroll} 
+          showsVerticalScrollIndicator={false}
+          scrollEventThrottle={16}
+          onScroll={(e) => {
+            if (scrollViewRef.current) {
+              scrollViewRef.current._scrollY = e.nativeEvent.contentOffset.y;
+            }
+          }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={COLORS.primary} />}
+        >
+          {/* Step 1 of 3: General Tips */}
+          <CopilotStep
+            text={`This section provides electricity-saving recommendations to help you improve your energy consumption habits.\n\n• Smart Insights: These tips are based on your electricity consumption behavior.\n• All Tips: Browse the available electricity-saving tips provided by Wattipid.`}
+            order={9}
+            name="tips_general"
+          >
+            <CopilotView style={s.tabRow}>
+              {TABS.map(tab => (
+                <TouchableOpacity 
+                  key={tab.id} 
+                  onPress={() => setActiveTab(tab.id)}
+                  style={[s.tabBtn, activeTab === tab.id && s.tabActive]}
+                >
+                  <Ionicons 
+                    name={tab.icon} 
+                    size={18} 
+                    color={activeTab === tab.id ? COLORS.primary : COLORS.textMuted} 
+                  />
+                  <Text style={[s.tabText, activeTab === tab.id && s.tabTextActive]}>{tab.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </CopilotView>
           </CopilotStep>
 
           {/* ================= COMMUNITY TAB ================= */}
@@ -519,14 +552,13 @@ export default function TipsScreen() {
 
               {!error && (
                 <>
-                  {/* ---- Recommended For You ---- */}
+                  {/* ---- Recommended For You / Community Tip ---- */}
                   <Animated.View style={{ opacity: fadeAnim, transform: [{ scale: scaleAnim }] }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10, gap: 6 }}>
                       <Ionicons name="sparkles" size={16} color={COLORS.primary} />
                       <Text style={{ color: COLORS.primary, fontSize: 13, fontWeight: '700', letterSpacing: 0.5 }}>RECOMMENDED FOR YOU</Text>
                     </View>
-                    <CopilotStep active={currentTourScreen === 'tips'} text="This is your daily recommended tip! Tap the heart to show your support." order={6} name="recommendation">
-                    <CopilotGlassCard gradient style={[s.interactiveCard, { borderLeftWidth: 3, borderLeftColor: COLORS.primary }]}>
+                    <GlassCard gradient style={[s.interactiveCard, { borderLeftWidth: 3, borderLeftColor: COLORS.primary }]}>
                       {loading ? (
                         <ActivityIndicator color={COLORS.primary} size="large" />
                       ) : currentTip ? (
@@ -554,56 +586,71 @@ export default function TipsScreen() {
                             </TouchableOpacity>
                           </View>
                           
-                          {/* Floating Shuffle Button */}
+                          {/* Floating Shuffle/Next Button */}
                           <TouchableOpacity 
                             style={s.refreshBtn} 
-                            onPress={() => loadCommunityTip()}
+                            onPress={() => loadCommunityTip(currentTip?.id)}
                             activeOpacity={0.8}
                           >
                             <Ionicons name="shuffle" size={24} color="#fff" />
                           </TouchableOpacity>
                         </>
-                      ) : null}
-                    </CopilotGlassCard>
-                    </CopilotStep>
+                      ) : (
+                        <Text style={{ color: COLORS.textMuted }}>No recommendations available right now.</Text>
+                      )}
+                    </GlassCard>
                   </Animated.View>
 
-                  {/* ---- Tip of the Day ---- */}
-                  {tipOfTheDay && (
-                    <View style={{ marginTop: 20 }}>
+                  {/* ---- Step 2 of 3: Tip of the Day ---- */}
+                  <CopilotStep
+                    text="Tip of the Day provides a daily electricity-saving recommendation to help you develop better energy-saving habits."
+                    order={10}
+                    name="tips_daily"
+                  >
+                    <CopilotView style={{ marginTop: 20 }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10, gap: 6 }}>
                         <Ionicons name="today" size={16} color={COLORS.warning} />
                         <Text style={{ color: COLORS.warning, fontSize: 13, fontWeight: '700', letterSpacing: 0.5 }}>TIP OF THE DAY</Text>
                       </View>
                       <GlassCard style={[s.interactiveCard, { borderLeftWidth: 3, borderLeftColor: COLORS.warning }]}>
                         <View style={s.tipCatRow}>
-                          <Ionicons name={tipOfTheDay.icon || 'bulb'} size={16} color={COLORS.warning} />
-                          <Text style={[s.tipCatLabel, { color: COLORS.warning }]}>{tipOfTheDay.category}</Text>
+                          <Ionicons name={tipOfTheDay?.icon || 'bulb'} size={16} color={COLORS.warning} />
+                          <Text style={[s.tipCatLabel, { color: COLORS.warning }]}>{tipOfTheDay?.category || 'General Energy Saving'}</Text>
                         </View>
-                        <Text style={s.tipMainTitle}>{tipOfTheDay.title}</Text>
-                        <Text style={s.tipMainMessage}>{tipOfTheDay.message}</Text>
+                        <Text style={s.tipMainTitle}>{tipOfTheDay?.title || 'Unplug Idle Electronics'}</Text>
+                        <Text style={s.tipMainMessage}>
+                          {tipOfTheDay?.message || 'Phantom power can add up to 10% on your monthly bill. Always unplug chargers and appliances when not in active use.'}
+                        </Text>
                         <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 12, gap: 12 }}>
                           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                             <Ionicons name="heart" size={14} color={COLORS.danger} />
-                            <Text style={{ fontSize: 12, color: COLORS.textMuted }}>{tipOfTheDay.likesCount}</Text>
+                            <Text style={{ fontSize: 12, color: COLORS.textMuted }}>{tipOfTheDay?.likesCount || 0}</Text>
                           </View>
                           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                             <Ionicons name="eye" size={14} color={COLORS.info} />
-                            <Text style={{ fontSize: 12, color: COLORS.textMuted }}>{tipOfTheDay.viewsCount}</Text>
+                            <Text style={{ fontSize: 12, color: COLORS.textMuted }}>{tipOfTheDay?.viewsCount || 0}</Text>
                           </View>
                         </View>
                       </GlassCard>
-                    </View>
-                  )}
+                    </CopilotView>
+                  </CopilotStep>
 
-                  {/* ---- Trending Tips ---- */}
-                  {trendingTips.length > 0 && (
-                    <View style={{ marginTop: 20 }}>
+                  {/* ---- Step 3 of 3: Trending in Dorms ---- */}
+                  <CopilotStep
+                    text="This section shows electricity-saving trends or commonly recommended energy-saving practices among dorm users. It can help you discover useful ways to improve your electricity consumption habits."
+                    order={11}
+                    name="tips_trending"
+                  >
+                    <CopilotView style={{ marginTop: 20 }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10, gap: 6 }}>
                         <Ionicons name="flame" size={16} color={COLORS.danger} />
                         <Text style={{ color: COLORS.danger, fontSize: 13, fontWeight: '700', letterSpacing: 0.5 }}>TRENDING IN DORMS</Text>
                       </View>
-                      {trendingTips.map((tip, idx) => {
+                      {(trendingTips.length > 0 ? trendingTips : [
+                        { id: 't1', title: 'Optimal Aircon Temperature at 24°C', category: 'Cooling & Heating', likesCount: 42 },
+                        { id: 't2', title: 'Switch to LED Desk Lamps', category: 'Lighting', likesCount: 38 },
+                        { id: 't3', title: 'Group Ironing on Weekends', category: 'Appliances', likesCount: 29 }
+                      ]).map((tip, idx) => {
                         const rankColors = [
                           { bg: 'rgba(250, 204, 21, 0.2)', text: '#eab308' }, // Gold
                           { bg: 'rgba(148, 163, 184, 0.2)', text: '#94a3b8' }, // Silver
@@ -626,8 +673,8 @@ export default function TipsScreen() {
                           </GlassCard>
                         );
                       })}
-                    </View>
-                  )}
+                    </CopilotView>
+                  </CopilotStep>
                 </>
               )}
             </View>
@@ -668,7 +715,10 @@ export default function TipsScreen() {
                           </View>
                         </View>
                       </View>
-                      <Text style={s.dynamicTip}>{tip.tip}</Text>
+                      {tip.title && (
+                        <Text style={[s.tipMainTitle, { fontSize: 15, marginBottom: 4 }]}>{tip.title}</Text>
+                      )}
+                      <Text style={s.dynamicTip}>{tip.message || tip.tip || ''}</Text>
                     </GlassCard>
                   )
                 })

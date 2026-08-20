@@ -271,7 +271,7 @@ export default function TenantNotificationCenter() {
               <Ionicons name="notifications-off-outline" size={48} color={COLORS.textMuted} />
             </View>
             <Text style={styles.emptyTitle}>
-              You're all caught up!
+              {"You're all caught up!"}
             </Text>
             <Text style={styles.emptySubtext}>
               No {activeFilter === 'unread' ? 'unread ' : ''}notifications at the moment.

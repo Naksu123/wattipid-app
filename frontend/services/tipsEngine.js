@@ -187,7 +187,7 @@ function fillTemplate(template, vars) {
  * Generate dynamic tips based on real consumption data.
  * This is the main Smart Tips Engine.
  */
-export async function generateDynamicTips(roomId, currentPower = 0) {
+export async function generateDynamicTips(roomId, currentPower = 0, user = null) {
   const thresholds = await getThresholds();
 
   // 1. Fetch consumption data in parallel
@@ -251,25 +251,28 @@ export async function generateDynamicTips(roomId, currentPower = 0) {
     cats.forEach(c => recommendedCategories.add(c));
   });
 
-  // 4. Fetch 120-tip library
+  // 4. Fetch 3 distinct, non-repeating tips via smart batch rotation engine
+  const relevantList = Array.from(recommendedCategories);
+  const batchRes = await tipsService.getSmartRecommendationsBatch({
+    user,
+    count: 3,
+    relevantCategories: relevantList
+  });
+
+  if (batchRes.success && Array.isArray(batchRes.data) && batchRes.data.length > 0) {
+    return batchRes.data.map(t => ({ ...t, isDynamic: true, generatedAt: new Date().toISOString() }));
+  }
+
+  // Fallback if offline: Fetch all tips and select 3 diverse tips
   const allTipsRes = await tipsService.getAllTips();
   let library = [];
   if (allTipsRes.success && allTipsRes.data) {
     library = allTipsRes.data;
   }
 
-  // 5. Filter and Rank
   let relevantTips = library.filter(t => recommendedCategories.has(t.category));
+  if (relevantTips.length === 0) relevantTips = library;
   
-  // Fallback if filtering fails or library empty
-  if (relevantTips.length === 0) {
-    relevantTips = library;
-  }
-  
-  // Shuffle pseudo-randomly
-  relevantTips.sort(() => 0.5 - Math.random());
-  
-  // Return top 3 most relevant tips, flagged as dynamic
   return relevantTips.slice(0, 3).map(t => ({ ...t, isDynamic: true, generatedAt: new Date().toISOString() }));
 }
 

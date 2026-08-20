@@ -68,7 +68,7 @@ export function ModalProvider({ children }) {
   const getIcon = () => {
     switch (modalState.type) {
       case 'success': return { name: 'checkmark-circle-outline', color: COLORS.success, bg: 'rgba(34, 197, 94, 0.15)' };
-      case 'error': return { name: 'error-outline', color: COLORS.danger, bg: 'rgba(239, 68, 68, 0.15)' };
+      case 'error': return { name: 'alert-circle-outline', color: COLORS.danger, bg: 'rgba(239, 68, 68, 0.15)' };
       case 'warning': return { name: 'warning-outline', color: COLORS.warning, bg: 'rgba(245, 158, 11, 0.15)' };
       case 'confirm': return { name: 'help-circle-outline', color: COLORS.primary, bg: 'rgba(37, 99, 235, 0.15)' };
       case 'info':

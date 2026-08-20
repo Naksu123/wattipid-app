@@ -42,7 +42,7 @@ export default function LiveConsumptionWidget({ todayEnergyKwh, livePeakPowerW }
 
       <View style={styles.dataRow}>
         <View style={styles.dataBlock}>
-          <Text style={styles.label}>Today's Usage</Text>
+          <Text style={styles.label}>{"Today's Usage"}</Text>
           <Text style={styles.value}>{todayEnergyKwh?.toFixed(2) || '0.00'} <Text style={styles.unit}>kWh</Text></Text>
         </View>
         <View style={styles.divider} />

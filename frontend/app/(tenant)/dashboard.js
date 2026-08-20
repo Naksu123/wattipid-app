@@ -27,7 +27,7 @@ let globalLastAlertKey = null;
 let globalLastTipKey = null;
 let globalTipDismissed = false;
 
-const CopilotGlassCard = walkthroughable(GlassCard);
+const CopilotView = walkthroughable(View);
 
 export default function DashboardScreen() {
   const { user, isAuthenticated } = useAuth();
@@ -60,9 +60,16 @@ export default function DashboardScreen() {
   const [paymentInsights, setPaymentInsights] = useState(null);
   const [activities, setActivities] = useState([]);
 
-  // Copilot Tour
-  const { currentTourScreen } = useTourContext();
-  useTourAutoStart('dashboard', !loading);
+  // Copilot Tour & First-Time Onboarding
+  const scrollViewRef = useRef(null);
+  const { currentTourScreen, checkAndPromptOnboarding } = useTourContext();
+  useTourAutoStart('dashboard', !loading, scrollViewRef);
+
+  useEffect(() => {
+    if (user?.id && user?.role === 'tenant' && !loading) {
+      checkAndPromptOnboarding(user);
+    }
+  }, [user, loading, checkAndPromptOnboarding]);
 
   // Live Pulse Animation
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -213,10 +220,12 @@ export default function DashboardScreen() {
 
   // Calculate dynamic cost based on exact energy and rate to ensure matching between apps
   const enforcedRate = rate || 12.50;
-  // Use exact live bill cost from backend (which includes fees) for the active month cost
-  const activeMonthCost = monthUsage?.totalCost !== undefined ? parseFloat(monthUsage.totalCost) : (monthUsage?.totalEnergy || 0) * enforcedRate;
+  // Use exact live electricity charge from active cycle consumption (excluding past overdue balances)
+  const activeMonthCost = monthUsage?.electricityCharge !== undefined 
+    ? parseFloat(monthUsage.electricityCharge) 
+    : (monthUsage?.totalCost !== undefined ? parseFloat(monthUsage.totalCost) : (monthUsage?.totalEnergy || 0) * enforcedRate);
   
-  // ALWAYS show the Live Bill for the active cycle in the Live Cost widget
+  // ALWAYS show the Current Cycle Cost in the Live Cost widget
   let invoiceAmountDue = activeMonthCost;
   let isShowingPreviousInvoice = false;
 
@@ -288,8 +297,18 @@ export default function DashboardScreen() {
         </View>
       )}
 
-      <ScrollView contentContainerStyle={ms.scroll} showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}>
+      <ScrollView 
+        ref={scrollViewRef} 
+        contentContainerStyle={ms.scroll} 
+        showsVerticalScrollIndicator={false}
+        scrollEventThrottle={16}
+        onScroll={(e) => {
+          if (scrollViewRef.current) {
+            scrollViewRef.current._scrollY = e.nativeEvent.contentOffset.y;
+          }
+        }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
+      >
 
         {/* Header */}
         <View style={ms.header}>
@@ -336,198 +355,225 @@ export default function DashboardScreen() {
           </GlassCard>
         )}
 
-        <Text style={ms.sectionTitle}>Live Sensor</Text>
-        {/* Live Sensor Widget */}
-        <CopilotStep active={currentTourScreen === 'dashboard'} text="This is the Live Sensor. It shows your real-time power draw (in Watts) directly from the IoT submeter in your room." order={1} name="sensor">
-        <CopilotGlassCard gradient style={[ms.gaugeCard, offline && { opacity: 0.8 }]}>
-          <View style={ms.liveIndicatorWrap}>
-            <Animated.View style={[ms.liveDot, { backgroundColor: offline ? COLORS.danger : '#10B981', opacity: offline ? 1 : pulseAnim }]} />
-            <Text style={ms.liveText}>{offline ? 'Offline' : 'Live Data'}</Text>
-          </View>
-          
-          {offline ? (
-            <View style={{ paddingVertical: SPACING.sm, justifyContent: 'center', alignItems: 'center' }}>
-              <View style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', padding: 12, borderRadius: 100, marginBottom: 8 }}>
-                <Ionicons name="cloud-offline-outline" size={32} color={COLORS.danger} />
+        {/* Step 1: Live Sensor */}
+        <CopilotStep
+          text="This section displays your latest electricity monitoring data, including voltage, current, and real-time power usage."
+          order={1}
+          name="dashboard_sensor"
+        >
+          <CopilotView>
+            <Text style={ms.sectionTitle}>Live Sensor</Text>
+            {/* Live Sensor Widget */}
+            <GlassCard gradient style={[ms.gaugeCard, offline && { opacity: 0.8 }]}>
+              <View style={ms.liveIndicatorWrap}>
+                <Animated.View style={[ms.liveDot, { backgroundColor: offline ? COLORS.danger : '#10B981', opacity: offline ? 1 : pulseAnim }]} />
+                <Text style={ms.liveText}>{offline ? 'Offline' : 'Live Data'}</Text>
               </View>
-              <Text style={{ color: COLORS.textPrimary, fontSize: 16, fontWeight: '600' }}>Submeter is Offline</Text>
-              <Text style={{ color: COLORS.textMuted, fontSize: 12, textAlign: 'center', marginTop: 4, paddingHorizontal: 20 }}>
-                Real-time monitoring is currently unavailable. Check your WiFi or submeter power.
-              </Text>
-              <TouchableOpacity
-                style={{ marginTop: 12, paddingVertical: 8, paddingHorizontal: 20, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}
-                onPress={() => {
-                  showBanner(
-                    'Troubleshooting Offline Device',
-                    "1. Ensure your WiFi router is on.\n2. Check if the submeter LED is blinking.\n3. Try unplugging and re-plugging the submeter.\n4. If the issue persists, contact your landlord.",
-                    'info',
-                    { route: '/(tenant)/dashboard' }
-                  );
-                }}
-              >
-                <Text style={{ color: COLORS.primary, fontWeight: '500' }}>How to fix this?</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <>
-              <PowerGauge value={data.power} maxValue={2000} unit="W" label="Real-Time Power" size={180} />
               
-              <View style={ms.sensorStatsRow}>
-                <View style={ms.sensorStat}>
-                  <Text style={ms.sensorStatLabel}>Voltage</Text>
-                  <View style={ms.sensorStatValueRow}>
-                    <AnimatedNumber value={Number(data.voltage || 0)} formatter={(v) => v.toFixed(1)} style={ms.sensorStatValue} />
-                    <Text style={ms.sensorStatUnit}>V</Text>
+              {offline ? (
+                <View style={{ paddingVertical: SPACING.sm, justifyContent: 'center', alignItems: 'center' }}>
+                  <View style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', padding: 12, borderRadius: 100, marginBottom: 8 }}>
+                    <Ionicons name="cloud-offline-outline" size={32} color={COLORS.danger} />
                   </View>
+                  <Text style={{ color: COLORS.textPrimary, fontSize: 16, fontWeight: '600' }}>Submeter is Offline</Text>
+                  <Text style={{ color: COLORS.textMuted, fontSize: 12, textAlign: 'center', marginTop: 4, paddingHorizontal: 20 }}>
+                    Real-time monitoring is currently unavailable. Check your WiFi or submeter power.
+                  </Text>
+                  <TouchableOpacity
+                    style={{ marginTop: 12, paddingVertical: 8, paddingHorizontal: 20, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}
+                    onPress={() => {
+                      showBanner(
+                        'Troubleshooting Offline Device',
+                        "1. Ensure your WiFi router is on.\n2. Check if the submeter LED is blinking.\n3. Try unplugging and re-plugging the submeter.\n4. If the issue persists, contact your landlord.",
+                        'info',
+                        { route: '/(tenant)/dashboard' }
+                      );
+                    }}
+                  >
+                    <Text style={{ color: COLORS.primary, fontWeight: '500' }}>How to fix this?</Text>
+                  </TouchableOpacity>
                 </View>
-                
-                <View style={ms.sensorStat}>
-                  <Text style={ms.sensorStatLabel}>Current</Text>
-                  <View style={ms.sensorStatValueRow}>
-                    <AnimatedNumber value={Number(data.current || 0)} formatter={(v) => v.toFixed(2)} style={ms.sensorStatValue} />
-                    <Text style={ms.sensorStatUnit}>A</Text>
+              ) : (
+                <>
+                  <PowerGauge value={data.power} maxValue={2000} unit="W" label="Real-Time Power" size={180} />
+                  
+                  <View style={ms.sensorStatsRow}>
+                    <View style={ms.sensorStat}>
+                      <Text style={ms.sensorStatLabel}>Voltage</Text>
+                      <View style={ms.sensorStatValueRow}>
+                        <AnimatedNumber value={Number(data.voltage || 0)} formatter={(v) => v.toFixed(1)} style={ms.sensorStatValue} />
+                        <Text style={ms.sensorStatUnit}>V</Text>
+                      </View>
+                    </View>
+                    
+                    <View style={ms.sensorStat}>
+                      <Text style={ms.sensorStatLabel}>Current</Text>
+                      <View style={ms.sensorStatValueRow}>
+                        <AnimatedNumber value={Number(data.current || 0)} formatter={(v) => v.toFixed(2)} style={ms.sensorStatValue} />
+                        <Text style={ms.sensorStatUnit}>A</Text>
+                      </View>
+                    </View>
+                    
+                    <View style={ms.sensorStat}>
+                      <Text style={ms.sensorStatLabel}>Power Factor</Text>
+                      <View style={ms.sensorStatValueRow}>
+                        <AnimatedNumber value={Number(data.powerFactor || 1)} formatter={(v) => v.toFixed(2)} style={ms.sensorStatValue} />
+                      </View>
+                    </View>
                   </View>
-                </View>
-                
-                <View style={ms.sensorStat}>
-                  <Text style={ms.sensorStatLabel}>Power Factor</Text>
-                  <View style={ms.sensorStatValueRow}>
-                    <AnimatedNumber value={Number(data.powerFactor || 1)} formatter={(v) => v.toFixed(2)} style={ms.sensorStatValue} />
-                  </View>
-                </View>
-              </View>
-            </>
-          )}
-        </CopilotGlassCard>
+                </>
+              )}
+            </GlassCard>
+          </CopilotView>
         </CopilotStep>
 
-        {/* Financial Overview */}
-        <Text style={ms.sectionTitle}>Live Cost</Text>
-        <TouchableOpacity onLongPress={() => setDebugVisible(!debugVisible)} delayLongPress={800}>
-          <CopilotStep active={currentTourScreen === 'dashboard'} text="This shows your live estimated cost for the current billing cycle and how much energy you've used today." order={2} name="financials">
-          <CopilotGlassCard style={ms.financialCard}>
-            <View style={ms.financialRow}>
-              <View style={ms.financialBlock}>
-                <Text style={ms.financialLabel}>{isShowingPreviousInvoice ? 'Outstanding Balance' : 'Current Cycle Cost'}</Text>
-                <View style={ms.financialValueRow}>
-                  <Text style={ms.financialPrefix}>₱</Text>
-                  <AnimatedNumber value={Number(invoiceAmountDue || 0)} style={ms.financialValue} />
+        {/* Step 2: Live Cost */}
+        <CopilotStep
+          text="This section shows your current electricity cost and today's energy consumption so you can monitor your usage."
+          order={2}
+          name="dashboard_cost"
+        >
+          <CopilotView>
+            {/* Financial Overview */}
+            <Text style={[ms.sectionTitle, { marginTop: 18 }]}>Live Cost</Text>
+            <TouchableOpacity onLongPress={() => setDebugVisible(!debugVisible)} delayLongPress={800} activeOpacity={0.9}>
+              <GlassCard style={ms.financialCard}>
+                <View style={ms.financialRow}>
+                  <View style={ms.financialBlock}>
+                    <Text style={ms.financialLabel}>{isShowingPreviousInvoice ? 'Outstanding Balance' : 'Current Cycle Cost'}</Text>
+                    <View style={ms.financialValueRow}>
+                      <Text style={ms.financialPrefix}>₱</Text>
+                      <AnimatedNumber value={Number(invoiceAmountDue || 0)} style={ms.financialValue} />
+                    </View>
+                    {!isShowingPreviousInvoice && monthUsage?.cycle_end && (
+                       <Text style={{fontSize: 10, color: COLORS.textMuted, marginTop: 4}}>Live projection until {new Date(monthUsage.cycle_end).toLocaleDateString(undefined, {month: 'short', day: 'numeric'})}</Text>
+                    )}
+                  </View>
+                  
+                  <View style={[ms.financialBlock, { alignItems: 'flex-end' }]}>
+                    <Text style={ms.financialLabel}>Energy Today</Text>
+                    <View style={ms.financialValueRow}>
+                      <AnimatedNumber value={Number(todayUsage.totalEnergy || 0)} style={ms.financialValue} />
+                      <Text style={ms.financialUnit}>kWh</Text>
+                    </View>
+                  </View>
                 </View>
-                {!isShowingPreviousInvoice && monthUsage?.cycle_end && (
-                   <Text style={{fontSize: 10, color: COLORS.textMuted, marginTop: 4}}>Live projection until {new Date(monthUsage.cycle_end).toLocaleDateString(undefined, {month: 'short', day: 'numeric'})}</Text>
+
+                {debugVisible && (
+                  <View style={{ marginTop: 12, padding: 12, backgroundColor: 'rgba(0,0,0,0.8)', borderRadius: 8 }}>
+                    <Text style={{ color: '#0f0', fontWeight: 'bold', marginBottom: 4 }}>--- DEBUG BILLING ---</Text>
+                    <Text style={{ color: '#fff', fontSize: 10 }}>isShowingPreviousInvoice: {String(isShowingPreviousInvoice)}</Text>
+                    <Text style={{ color: '#fff', fontSize: 10 }}>billingCycle.status: {billingCycle?.status}</Text>
+                    <Text style={{ color: '#fff', fontSize: 10 }}>billingCycle.grand_total: ₱{billingCycle?.grand_total}</Text>
+                    <Text style={{ color: '#fff', fontSize: 10 }}>billingCycle.amount_paid: ₱{billingCycle?.amount_paid}</Text>
+                    <Text style={{ color: '#fff', fontSize: 10 }}>monthUsage.totalEnergy: {monthUsage?.totalEnergy} kWh</Text>
+                    <Text style={{ color: '#fff', fontSize: 10 }}>monthUsage.totalCost: ₱{monthUsage?.totalCost}</Text>
+                    <Text style={{ color: '#fff', fontSize: 10 }}>rate: ₱{rate}</Text>
+                    <Text style={{ color: '#fff', fontSize: 10 }}>activeMonthCost: ₱{activeMonthCost}</Text>
+                    <Text style={{ color: '#fff', fontSize: 10 }}>final invoiceAmountDue: ₱{invoiceAmountDue}</Text>
+                    <TouchableOpacity onPress={() => setDebugVisible(false)} style={{ marginTop: 8 }}>
+                      <Text style={{ color: '#f00' }}>Close Debug</Text>
+                    </TouchableOpacity>
+                  </View>
                 )}
-              </View>
-              
-              <View style={[ms.financialBlock, { alignItems: 'flex-end' }]}>
-                <Text style={ms.financialLabel}>Energy Today</Text>
-                <View style={ms.financialValueRow}>
-                  <AnimatedNumber value={Number(todayUsage.totalEnergy || 0)} style={ms.financialValue} />
-                  <Text style={ms.financialUnit}>kWh</Text>
-                </View>
-              </View>
-            </View>
-        {debugVisible && (
-          <View style={{ marginTop: 12, padding: 12, backgroundColor: 'rgba(0,0,0,0.8)', borderRadius: 8 }}>
-            <Text style={{ color: '#0f0', fontWeight: 'bold', marginBottom: 4 }}>--- DEBUG BILLING ---</Text>
-            <Text style={{ color: '#fff', fontSize: 10 }}>isShowingPreviousInvoice: {String(isShowingPreviousInvoice)}</Text>
-            <Text style={{ color: '#fff', fontSize: 10 }}>billingCycle.status: {billingCycle?.status}</Text>
-            <Text style={{ color: '#fff', fontSize: 10 }}>billingCycle.grand_total: ₱{billingCycle?.grand_total}</Text>
-            <Text style={{ color: '#fff', fontSize: 10 }}>billingCycle.amount_paid: ₱{billingCycle?.amount_paid}</Text>
-            <Text style={{ color: '#fff', fontSize: 10 }}>monthUsage.totalEnergy: {monthUsage?.totalEnergy} kWh</Text>
-            <Text style={{ color: '#fff', fontSize: 10 }}>monthUsage.totalCost: ₱{monthUsage?.totalCost}</Text>
-            <Text style={{ color: '#fff', fontSize: 10 }}>rate: ₱{rate}</Text>
-            <Text style={{ color: '#fff', fontSize: 10 }}>activeMonthCost: ₱{activeMonthCost}</Text>
-            <Text style={{ color: '#fff', fontSize: 10 }}>final invoiceAmountDue: ₱{invoiceAmountDue}</Text>
-            <TouchableOpacity onPress={() => setDebugVisible(false)} style={{ marginTop: 8 }}>
-              <Text style={{ color: '#f00' }}>Close Debug</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-          
-        {/* Breakdown Section */}
-          {(!offline && (monthUsage.monthlyRent > 0 || monthUsage.additionalCharges > 0 || monthUsage.penalty > 0 || monthUsage.previousBalance > 0)) && (
-            <View style={{ marginTop: 15, paddingTop: 15, borderTopWidth: 1, borderTopColor: COLORS.border, gap: 8 }}>
-              <Text style={{ fontFamily: 'Inter-SemiBold', fontSize: 13, color: COLORS.textMuted, marginBottom: 5 }}>TOTAL BREAKDOWN</Text>
-              
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                <Text style={{ fontFamily: 'Inter-Medium', fontSize: 14, color: COLORS.textSecondary }}>Electricity ({Number(monthUsage.totalEnergy || 0).toFixed(2)} kWh)</Text>
-                <Text style={{ fontFamily: 'Inter-SemiBold', fontSize: 14, color: COLORS.text }}>₱{Number(monthUsage.electricityCharge || 0).toFixed(2)}</Text>
-              </View>
-              
-              {monthUsage.monthlyRent > 0 && (
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                  <Text style={{ fontFamily: 'Inter-Medium', fontSize: 14, color: COLORS.textSecondary }}>Monthly Rent</Text>
-                  <Text style={{ fontFamily: 'Inter-SemiBold', fontSize: 14, color: COLORS.text }}>₱{Number(monthUsage.monthlyRent || 0).toFixed(2)}</Text>
-                </View>
-              )}
-              
-              {monthUsage.previousBalance > 0 && (
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                  <Text style={{ fontFamily: 'Inter-Medium', fontSize: 14, color: COLORS.textSecondary }}>Previous Balance</Text>
-                  <Text style={{ fontFamily: 'Inter-SemiBold', fontSize: 14, color: COLORS.text }}>₱{Number(monthUsage.previousBalance || 0).toFixed(2)}</Text>
-                </View>
-              )}
-              
-              {monthUsage.additionalCharges > 0 && (
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                  <Text style={{ fontFamily: 'Inter-Medium', fontSize: 14, color: COLORS.textSecondary }}>Additional Charges</Text>
-                  <Text style={{ fontFamily: 'Inter-SemiBold', fontSize: 14, color: COLORS.text }}>₱{Number(monthUsage.additionalCharges || 0).toFixed(2)}</Text>
-                </View>
-              )}
+                  
+                {/* Breakdown Section */}
+                {(!offline && (monthUsage.monthlyRent > 0 || monthUsage.additionalCharges > 0 || monthUsage.penalty > 0 || monthUsage.previousBalance > 0)) && (
+                  <View style={{ marginTop: 15, paddingTop: 15, borderTopWidth: 1, borderTopColor: COLORS.border, gap: 8 }}>
+                    <Text style={{ fontFamily: 'Inter-SemiBold', fontSize: 13, color: COLORS.textMuted, marginBottom: 5 }}>TOTAL BREAKDOWN</Text>
+                    
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                      <Text style={{ fontFamily: 'Inter-Medium', fontSize: 14, color: COLORS.textSecondary }}>Electricity ({Number(monthUsage.totalEnergy || 0).toFixed(2)} kWh)</Text>
+                      <Text style={{ fontFamily: 'Inter-SemiBold', fontSize: 14, color: COLORS.text }}>₱{Number(monthUsage.electricityCharge || 0).toFixed(2)}</Text>
+                    </View>
+                    
+                    {monthUsage.monthlyRent > 0 && (
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                        <Text style={{ fontFamily: 'Inter-Medium', fontSize: 14, color: COLORS.textSecondary }}>Monthly Rent</Text>
+                        <Text style={{ fontFamily: 'Inter-SemiBold', fontSize: 14, color: COLORS.text }}>₱{Number(monthUsage.monthlyRent || 0).toFixed(2)}</Text>
+                      </View>
+                    )}
+                    
+                    {monthUsage.previousBalance > 0 && (
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                        <Text style={{ fontFamily: 'Inter-Medium', fontSize: 14, color: COLORS.textSecondary }}>Previous Balance</Text>
+                        <Text style={{ fontFamily: 'Inter-SemiBold', fontSize: 14, color: COLORS.text }}>₱{Number(monthUsage.previousBalance || 0).toFixed(2)}</Text>
+                      </View>
+                    )}
+                    
+                    {monthUsage.additionalCharges > 0 && (
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                        <Text style={{ fontFamily: 'Inter-Medium', fontSize: 14, color: COLORS.textSecondary }}>Additional Charges</Text>
+                        <Text style={{ fontFamily: 'Inter-SemiBold', fontSize: 14, color: COLORS.text }}>₱{Number(monthUsage.additionalCharges || 0).toFixed(2)}</Text>
+                      </View>
+                    )}
 
-              {monthUsage.penalty > 0 && (
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                  <Text style={{ fontFamily: 'Inter-Medium', fontSize: 14, color: COLORS.textSecondary }}>Penalty</Text>
-                  <Text style={{ fontFamily: 'Inter-SemiBold', fontSize: 14, color: COLORS.danger }}>₱{Number(monthUsage.penalty || 0).toFixed(2)}</Text>
-                </View>
-              )}
-              
-              {monthUsage.discounts > 0 && (
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                  <Text style={{ fontFamily: 'Inter-Medium', fontSize: 14, color: COLORS.textSecondary }}>Discounts</Text>
-                  <Text style={{ fontFamily: 'Inter-SemiBold', fontSize: 14, color: COLORS.success }}>-₱{Number(monthUsage.discounts || 0).toFixed(2)}</Text>
-                </View>
-              )}
-            </View>
-          )}
-          
-          {budget && (
-            <View>
-              <View style={ms.budgetHeader}>
-                <Ionicons name="wallet-outline" size={18} color={COLORS.primary} />
-                <Text style={ms.budgetTitle}>Daily Budget</Text>
-                <Text style={ms.budgetPct}>{Number(Math.min(budgetPct, 100) || 0).toFixed(0)}%</Text>
-              </View>
-              <View style={ms.budgetBar}>
-                <Animated.View style={[ms.budgetFill, {
-                  width: animatedBudgetPct.interpolate({ inputRange: [0, 100], outputRange: ['0%', '100%'], extrapolate: 'clamp' }),
-                  backgroundColor: budgetPct > 90 ? COLORS.danger : budgetPct > 70 ? COLORS.warning : COLORS.primary,
-                }]} />
-              </View>
-              <Text style={ms.budgetText}>₱{Number(todayUsage.totalCost || 0).toFixed(2)} / ₱{Number(budget.daily_allowance || 0).toFixed(2)}</Text>
-            </View>
-          )}
-          </CopilotGlassCard>
-          </CopilotStep>
-        </TouchableOpacity>
-
-        {/* Smart Tip Card */}
-        {(smartTip || randomTip) && !tipDismissed && (
-          <GlassCard style={ms.tipCard}>
-            <TouchableOpacity style={ms.tipDismiss} onPress={() => setTipDismissed(true)}>
-              <Ionicons name="close" size={16} color={COLORS.textMuted} />
+                    {monthUsage.penalty > 0 && (
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                        <Text style={{ fontFamily: 'Inter-Medium', fontSize: 14, color: COLORS.textSecondary }}>Penalty</Text>
+                        <Text style={{ fontFamily: 'Inter-SemiBold', fontSize: 14, color: COLORS.danger }}>₱{Number(monthUsage.penalty || 0).toFixed(2)}</Text>
+                      </View>
+                    )}
+                    
+                    {monthUsage.discounts > 0 && (
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                        <Text style={{ fontFamily: 'Inter-Medium', fontSize: 14, color: COLORS.textSecondary }}>Discounts</Text>
+                        <Text style={{ fontFamily: 'Inter-SemiBold', fontSize: 14, color: COLORS.success }}>-₱{Number(monthUsage.discounts || 0).toFixed(2)}</Text>
+                      </View>
+                    )}
+                  </View>
+                )}
+                
+                {budget && (
+                  <View>
+                    <View style={ms.budgetHeader}>
+                      <Ionicons name="wallet-outline" size={18} color={COLORS.primary} />
+                      <Text style={ms.budgetTitle}>Daily Budget</Text>
+                      <Text style={ms.budgetPct}>{Number(Math.min(budgetPct, 100) || 0).toFixed(0)}%</Text>
+                    </View>
+                    <View style={ms.budgetBar}>
+                      <Animated.View style={[ms.budgetFill, {
+                        width: animatedBudgetPct.interpolate({ inputRange: [0, 100], outputRange: ['0%', '100%'], extrapolate: 'clamp' }),
+                        backgroundColor: budgetPct > 90 ? COLORS.danger : budgetPct > 70 ? COLORS.warning : COLORS.primary,
+                      }]} />
+                    </View>
+                    <Text style={ms.budgetText}>₱{Number(todayUsage.totalCost || 0).toFixed(2)} / ₱{Number(budget.daily_allowance || 0).toFixed(2)}</Text>
+                  </View>
+                )}
+              </GlassCard>
             </TouchableOpacity>
-            <View style={ms.tipRow}>
-              <View style={[ms.tipIconWrap, { backgroundColor: `${smartTip ? (smartTip.color || COLORS.primary) : COLORS.primary}15` }]}>
-                <Ionicons name={smartTip ? (smartTip.icon || 'leaf') : (randomTip?.icon || 'bulb')} size={22} color={smartTip ? (smartTip.color || COLORS.primary) : COLORS.primary} />
+          </CopilotView>
+        </CopilotStep>
+
+        {/* Step 3: Wattipid Smart Insights */}
+        <CopilotStep
+          text="Wattipid Smart Insights analyzes your electricity consumption and provides useful information and recommendations to help you understand your energy usage."
+          order={3}
+          name="dashboard_insights"
+        >
+          <CopilotView style={{ marginTop: 16 }}>
+            <GlassCard style={ms.tipCard}>
+              {!tipDismissed && (
+                <TouchableOpacity style={ms.tipDismiss} onPress={() => setTipDismissed(true)}>
+                  <Ionicons name="close" size={16} color={COLORS.textMuted} />
+                </TouchableOpacity>
+              )}
+              <View style={ms.tipRow}>
+                <View style={[ms.tipIconWrap, { backgroundColor: `${smartTip ? (smartTip.color || COLORS.primary) : COLORS.primary}15` }]}>
+                  <Ionicons name={smartTip ? (smartTip.icon || 'leaf') : (randomTip?.icon || 'bulb')} size={22} color={smartTip ? (smartTip.color || COLORS.primary) : COLORS.primary} />
+                </View>
+                <View style={ms.tipContent}>
+                  <Text style={ms.tipTitle}>{smartTip ? (smartTip.title || 'Wattipid Smart Insights') : (randomTip?.title || 'Wattipid Smart Insights')}</Text>
+                  <Text style={ms.tipMessage}>
+                    {smartTip
+                      ? (smartTip.message || smartTip.tip)
+                      : (randomTip?.message || 'Smart Insights analyzes your electricity usage patterns to help optimize consumption and avoid unexpected charges.')}
+                  </Text>
+                </View>
               </View>
-              <View style={ms.tipContent}>
-                <Text style={ms.tipTitle}>{smartTip ? (smartTip.title || 'Wattipid Tip') : randomTip?.title}</Text>
-                <Text style={ms.tipMessage}>{smartTip ? (smartTip.message || smartTip.tip) : randomTip?.message}</Text>
-              </View>
-            </View>
-          </GlassCard>
-        )}
+            </GlassCard>
+          </CopilotView>
+        </CopilotStep>
 
       </ScrollView>
 

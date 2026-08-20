@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, TouchableOpacity, Image, ActivityIndicator, ScrollView, TextInput } from 'react-native';
+import { View, Text, TouchableOpacity, Image, ActivityIndicator, ScrollView, TextInput, Pressable, Animated } from 'react-native';
 import { useRouter } from 'expo-router';
 import { getAvailableBillingCycles, getMultipleSettings } from '../../services/database';
 import { submitPayment } from '../../services/paymentService';
@@ -13,6 +13,83 @@ import GlassCard from '../../components/ui/GlassCard';
 import DynamicQRCode from '../../components/tenant/Billing/DynamicQRCode';
 import { COLORS, SPACING } from '../../styles/theme';
 import styles from '../../styles/tenant/payment.styles';
+
+// --- Premium Buttons ---
+const PremiumAnimatedButton = ({ onPress, disabled, title, loading, type, icon }) => {
+    const scale = React.useRef(new Animated.Value(1)).current;
+
+    const handlePressIn = () => {
+        if (!disabled && !loading) {
+            Animated.timing(scale, {
+                toValue: 0.96,
+                duration: 120,
+                useNativeDriver: true,
+            }).start();
+        }
+    };
+
+    const handlePressOut = () => {
+        Animated.timing(scale, {
+            toValue: 1,
+            duration: 150,
+            useNativeDriver: true,
+        }).start();
+    };
+
+    const isPrimary = type === 'primary';
+    const bgColor = disabled 
+        ? (isPrimary ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255, 255, 255, 0.02)')
+        : (isPrimary ? COLORS.primary : 'rgba(255, 255, 255, 0.05)');
+        
+    const borderColor = disabled
+        ? (isPrimary ? 'transparent' : 'rgba(255, 255, 255, 0.05)')
+        : (isPrimary ? 'rgba(255,255,255,0.1)' : 'rgba(255, 255, 255, 0.15)');
+        
+    const textColor = disabled
+        ? (isPrimary ? 'rgba(255, 255, 255, 0.5)' : 'rgba(255, 255, 255, 0.4)')
+        : (isPrimary ? COLORS.white : COLORS.textPrimary);
+
+    return (
+        <Animated.View style={{ flex: 1, transform: [{ scale }] }}>
+            <Pressable
+                onPress={onPress}
+                onPressIn={handlePressIn}
+                onPressOut={handlePressOut}
+                disabled={disabled || loading}
+                style={{
+                    backgroundColor: bgColor,
+                    borderWidth: 1,
+                    borderColor: borderColor,
+                    borderRadius: 12,
+                    paddingVertical: 15,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexDirection: 'row',
+                    shadowColor: isPrimary && !disabled ? COLORS.primary : '#000',
+                    shadowOffset: { width: 0, height: isPrimary ? 4 : 2 },
+                    shadowOpacity: isPrimary && !disabled ? 0.25 : 0.15,
+                    shadowRadius: isPrimary ? 8 : 4,
+                    elevation: isPrimary && !disabled ? 4 : 1,
+                }}
+            >
+                {loading ? (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+                        <ActivityIndicator color={textColor} size="small" style={{ marginRight: 8, transform: [{ scale: 0.8 }] }} />
+                        <Text style={{ flexShrink: 1, color: textColor, fontWeight: '600', fontSize: 13, letterSpacing: 0 }} numberOfLines={1} adjustsFontSizeToFit>
+                            {typeof loading === 'string' ? loading : 'Submitting...'}
+                        </Text>
+                    </View>
+                ) : (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', flexShrink: 1 }}>
+                        {icon === 'back' && <Ionicons name="arrow-back" size={16} color={textColor} style={{ marginRight: 4 }} />}
+                        <Text style={{ flexShrink: 1, color: textColor, fontWeight: '600', fontSize: 13, letterSpacing: 0 }} numberOfLines={1} adjustsFontSizeToFit>{title}</Text>
+                        {icon === 'submit' && <Ionicons name="checkmark-circle-outline" size={18} color={textColor} style={{ marginLeft: 4 }} />}
+                    </View>
+                )}
+            </Pressable>
+        </Animated.View>
+    );
+};
 
 export default function TenantPaymentScreen() {
     const { user } = useAuth();
@@ -98,7 +175,7 @@ export default function TenantPaymentScreen() {
             }
 
             let result = await launchLibrary({
-                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                mediaTypes: ['images'],
                 quality: 0.5,
                 base64: true,
             });
@@ -307,11 +384,17 @@ export default function TenantPaymentScreen() {
                     <GlassCard style={styles.wizardCard}>
                         {/* WIZARD PROGRESS */}
                         <View style={styles.wizardProgress}>
-                            <View style={[styles.stepCircle, step >= 1 && styles.stepCircleActive]}><Text style={styles.stepText}>1</Text></View>
+                            <View style={[styles.stepCircle, step >= 1 && styles.stepCircleActive, step > 1 && styles.stepCircleCompleted]}>
+                                {step > 1 ? <Ionicons name="checkmark" size={16} color="#fff" /> : <Text style={[styles.stepText, step >= 1 && styles.stepTextActive]}>1</Text>}
+                            </View>
                             <View style={[styles.stepLine, step >= 2 && styles.stepLineActive]} />
-                            <View style={[styles.stepCircle, step >= 2 && styles.stepCircleActive]}><Text style={styles.stepText}>2</Text></View>
+                            <View style={[styles.stepCircle, step >= 2 && styles.stepCircleActive, step > 2 && styles.stepCircleCompleted]}>
+                                {step > 2 ? <Ionicons name="checkmark" size={16} color="#fff" /> : <Text style={[styles.stepText, step >= 2 && styles.stepTextActive]}>2</Text>}
+                            </View>
                             <View style={[styles.stepLine, step >= 3 && styles.stepLineActive]} />
-                            <View style={[styles.stepCircle, step >= 3 && styles.stepCircleActive]}><Text style={styles.stepText}>3</Text></View>
+                            <View style={[styles.stepCircle, step >= 3 && styles.stepCircleActive]}>
+                                <Text style={[styles.stepText, step >= 3 && styles.stepTextActive]}>3</Text>
+                            </View>
                         </View>
 
                         {/* STEP 1: Select Method */}
@@ -331,14 +414,14 @@ export default function TenantPaymentScreen() {
                                     <Text style={[styles.methodBtnText, paymentMethod === 'Cash' && styles.methodBtnTextCash]}>Cash / Hand-Over</Text>
                                 </TouchableOpacity>
 
-                                <TouchableOpacity 
-                                    style={[styles.nextBtn, !paymentMethod && styles.btnDisabled]} 
-                                    onPress={() => setStep(2)}
-                                    disabled={!paymentMethod}
-                                >
-                                    <Text style={styles.nextBtnText}>Continue</Text>
-                                    <Ionicons name="arrow-forward" size={18} color="#fff" />
-                                </TouchableOpacity>
+                                <View style={styles.wizardFooter}>
+                                    <PremiumAnimatedButton 
+                                        type="primary"
+                                        title="Continue"
+                                        onPress={() => setStep(2)}
+                                        disabled={!paymentMethod}
+                                    />
+                                </View>
                             </View>
                         )}
 
@@ -394,12 +477,17 @@ export default function TenantPaymentScreen() {
                                 )}
 
                                 <View style={styles.wizardFooter}>
-                                    <TouchableOpacity style={styles.backBtn} onPress={() => setStep(1)}>
-                                        <Text style={styles.backBtnText}>Back</Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity style={styles.nextBtn} onPress={() => setStep(3)}>
-                                        <Text style={styles.nextBtnText}>Next</Text>
-                                    </TouchableOpacity>
+                                    <PremiumAnimatedButton 
+                                        type="secondary"
+                                        title="Back"
+                                        icon="back"
+                                        onPress={() => setStep(1)}
+                                    />
+                                    <PremiumAnimatedButton 
+                                        type="primary"
+                                        title="Next"
+                                        onPress={() => setStep(3)}
+                                    />
                                 </View>
                             </View>
                         )}
@@ -446,25 +534,21 @@ export default function TenantPaymentScreen() {
                                 )}
 
                                 <View style={styles.wizardFooter}>
-                                    <TouchableOpacity style={styles.backBtn} onPress={() => setStep(2)}>
-                                        <Text style={styles.backBtnText}>Back</Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity 
-                                        style={[styles.nextBtn, styles.submitBtn]} 
+                                    <PremiumAnimatedButton 
+                                        type="secondary"
+                                        title="Back"
+                                        icon="back"
+                                        onPress={() => setStep(2)}
+                                        disabled={submitting || verifying}
+                                    />
+                                    <PremiumAnimatedButton 
+                                        type="primary"
+                                        title="Submit Payment"
+                                        icon="submit"
                                         onPress={handleSubmit}
                                         disabled={submitting || verifying}
-                                    >
-                                        {(submitting || verifying) ? (
-                                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                                <ActivityIndicator color="#fff" style={{ marginRight: 8 }} />
-                                                <Text style={styles.submitBtnText}>
-                                                    {verifying ? 'Checking payment status...' : 'Submitting...'}
-                                                </Text>
-                                            </View>
-                                        ) : (
-                                            <Text style={styles.submitBtnText}>Submit Payment</Text>
-                                        )}
-                                    </TouchableOpacity>
+                                        loading={submitting || verifying ? (verifying ? 'Checking...' : 'Submitting...') : false}
+                                    />
                                 </View>
                             </View>
                         )}

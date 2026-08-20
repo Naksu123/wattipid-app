@@ -74,9 +74,6 @@ export default function PaymentsDashboard() {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" />
-      
-
-
       <ScrollView 
         contentContainerStyle={styles.scroll} 
         showsVerticalScrollIndicator={false}

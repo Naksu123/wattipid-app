@@ -133,7 +133,7 @@ export default function PenaltyCenterScreen() {
             {accounts.length === 0 ? (
               <View style={[styles.emptyState, { flex: 1, minHeight: 200 }]}>
                 <Ionicons name="checkmark-circle-outline" size={48} color={COLORS.success} style={{ marginBottom: 10 }} />
-                <Text style={styles.emptyStateText}>You're all caught up</Text>
+                <Text style={styles.emptyStateText}>{"You're all caught up"}</Text>
                 <Text style={styles.emptyStateSubtext}>No overdue accounts or active penalties.</Text>
               </View>
             ) : (

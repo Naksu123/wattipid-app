@@ -303,7 +303,7 @@ export async function getHourlyBreakdown(roomId, tenantName = null, dateStr = nu
 // ============ BUDGET OPERATIONS ============
 export async function setBudget(roomId, monthlyBudget) {
   const data = await apiCall('setBudget', { roomId, monthlyBudget });
-  return data || { monthlyBudget, dailyAllowance: 0, weeklyAllowance: 0, remainingDays: 0, daysInMonth: 30 };
+  return data || { monthly_budget: monthlyBudget, daily_allowance: 0, weekly_allowance: 0, remaining_days: 0, days_in_month: 30 };
 }
 
 export async function getBudget(roomId) {

@@ -12,7 +12,6 @@ import styles from '../../styles/landlord/overview.styles';
 
 import SystemAnalyticsWidget from '../../components/landlord/Overview/SystemAnalyticsWidget';
 import LiveConsumptionWidget from '../../components/landlord/Overview/LiveConsumptionWidget';
-import PendingPaymentsWidget from '../../components/landlord/Overview/PendingPaymentsWidget';
 
 export default function OverviewScreen() {
   const router = useRouter();
@@ -79,6 +78,7 @@ export default function OverviewScreen() {
   const statistics = data?.statistics || {};
   const liveElectricity = data?.liveElectricity || { todayEnergyKwh: 0, livePeakPowerW: 0 };
 
+  const pendingPayments = data?.pendingPayments || [];
   const unpaidBills = data?.unpaidBills || [];
 
   return (
@@ -117,9 +117,6 @@ export default function OverviewScreen() {
 
         {/* System Analytics Section */}
         <SystemAnalyticsWidget statistics={statistics} />
-
-        {/* Pending Payments Widget */}
-        <PendingPaymentsWidget payments={unpaidBills} />
 
         <View style={{ height: 40 }} />
       </ScrollView>
