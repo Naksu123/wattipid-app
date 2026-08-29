@@ -96,14 +96,14 @@ export const CustomTooltip = () => {
       
       {/* Footer */}
       <View style={styles.footer}>
-        <View style={styles.stepCounter}>
-          <Text style={styles.stepText}>
-            Step {currentStepNum} of {totalScreenSteps}
-          </Text>
-        </View>
-        
         <TouchableOpacity onPress={handleSkipPress} style={styles.skipButton} activeOpacity={0.7}>
           <Text style={styles.skipText}>Skip Tour</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity onPress={handleNextPress} style={styles.nextButton} activeOpacity={0.8}>
+          <Text style={styles.nextButtonText}>
+            {isScreenLastStep ? (isContinuousTour ? 'Next Screen →' : 'Done ✓') : 'Next →'}
+          </Text>
         </TouchableOpacity>
       </View>
     </TouchableOpacity>
@@ -194,12 +194,25 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   skipButton: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
   },
   skipText: {
     color: COLORS.textMuted,
     fontSize: 12,
     fontWeight: '500',
+  },
+  nextButton: {
+    backgroundColor: 'rgba(16, 185, 129, 0.2)',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: RADIUS.full,
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.4)',
+  },
+  nextButtonText: {
+    color: '#10B981',
+    fontSize: 12,
+    fontWeight: '700',
   },
 });

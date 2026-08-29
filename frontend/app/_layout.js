@@ -124,6 +124,9 @@ function CopilotTourWrapper({ children }) {
       androidStatusBarVisible={false} 
       verticalOffset={Platform.OS === 'android' ? (RNStatusBar.currentHeight || 0) : 0}
       margin={10}
+      overlay="view"
+      animated={false}
+      stepNumberComponent={() => null}
       tooltipComponent={CustomTooltip}
       tooltipStyle={{
         backgroundColor: 'transparent',

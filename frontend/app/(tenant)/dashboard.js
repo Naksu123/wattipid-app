@@ -220,13 +220,37 @@ export default function DashboardScreen() {
 
   // Calculate dynamic cost based on exact energy and rate to ensure matching between apps
   const enforcedRate = rate || 12.50;
-  // Use exact live electricity charge from active cycle consumption (excluding past overdue balances)
-  const activeMonthCost = monthUsage?.electricityCharge !== undefined 
-    ? parseFloat(monthUsage.electricityCharge) 
-    : (monthUsage?.totalCost !== undefined ? parseFloat(monthUsage.totalCost) : (monthUsage?.totalEnergy || 0) * enforcedRate);
-  
-  // ALWAYS show the Current Cycle Cost in the Live Cost widget
-  let invoiceAmountDue = activeMonthCost;
+  const totalEnergyKwh = Number(monthUsage?.totalEnergy || 0);
+
+  // Authoritative electricity charge for the current billing cycle
+  const electricityCharge = Number(
+    monthUsage?.electricityCharge !== undefined && monthUsage?.electricityCharge !== null
+      ? monthUsage.electricityCharge
+      : (monthUsage?.totalCost !== undefined && monthUsage?.totalCost !== null ? monthUsage.totalCost : totalEnergyKwh * enforcedRate)
+  );
+
+  // Current cycle charges only (Previous balance/billing is kept strictly separate)
+  const monthlyRent = Number(
+    monthUsage?.monthlyRent !== undefined && Number(monthUsage.monthlyRent) > 0
+      ? monthUsage.monthlyRent
+      : (billingCycle?.monthly_rent !== undefined ? billingCycle.monthly_rent : 0)
+  );
+
+  const additionalCharges = Number(
+    monthUsage?.additionalCharges !== undefined && Number(monthUsage.additionalCharges) > 0
+      ? monthUsage.additionalCharges
+      : (billingCycle?.additional_charges !== undefined ? billingCycle.additional_charges : 0)
+  );
+
+  const discounts = Number(
+    monthUsage?.discounts !== undefined && Number(monthUsage.discounts) > 0
+      ? monthUsage.discounts
+      : (billingCycle?.discounts !== undefined ? billingCycle.discounts : 0)
+  );
+
+  // Current Cycle Cost ONLY reflects the current billing period (penalty only appears in Payment)
+  const currentCycleTotal = Math.max(0, electricityCharge + monthlyRent + additionalCharges - discounts);
+  let invoiceAmountDue = currentCycleTotal;
   let isShowingPreviousInvoice = false;
 
 
@@ -469,7 +493,8 @@ export default function DashboardScreen() {
                     <Text style={{ color: '#fff', fontSize: 10 }}>monthUsage.totalEnergy: {monthUsage?.totalEnergy} kWh</Text>
                     <Text style={{ color: '#fff', fontSize: 10 }}>monthUsage.totalCost: ₱{monthUsage?.totalCost}</Text>
                     <Text style={{ color: '#fff', fontSize: 10 }}>rate: ₱{rate}</Text>
-                    <Text style={{ color: '#fff', fontSize: 10 }}>activeMonthCost: ₱{activeMonthCost}</Text>
+                    <Text style={{ color: '#fff', fontSize: 10 }}>electricityCharge: ₱{electricityCharge}</Text>
+                    <Text style={{ color: '#fff', fontSize: 10 }}>currentCycleTotal: ₱{currentCycleTotal}</Text>
                     <Text style={{ color: '#fff', fontSize: 10 }}>final invoiceAmountDue: ₱{invoiceAmountDue}</Text>
                     <TouchableOpacity onPress={() => setDebugVisible(false)} style={{ marginTop: 8 }}>
                       <Text style={{ color: '#f00' }}>Close Debug</Text>
@@ -477,55 +502,67 @@ export default function DashboardScreen() {
                   </View>
                 )}
                   
-                {/* Breakdown Section */}
-                {(!offline && (monthUsage.monthlyRent > 0 || monthUsage.additionalCharges > 0 || monthUsage.penalty > 0 || monthUsage.previousBalance > 0)) && (
+                {/* Breakdown Section — strictly current billing cycle charges */}
+                {(!offline && (electricityCharge > 0 || totalEnergyKwh > 0 || monthlyRent > 0 || additionalCharges > 0)) && (
                   <View style={{ marginTop: 15, paddingTop: 15, borderTopWidth: 1, borderTopColor: COLORS.border, gap: 8 }}>
                     <Text style={{ fontFamily: 'Inter-SemiBold', fontSize: 13, color: COLORS.textMuted, marginBottom: 5 }}>TOTAL BREAKDOWN</Text>
                     
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                      <Text style={{ fontFamily: 'Inter-Medium', fontSize: 14, color: COLORS.textSecondary }}>Electricity ({Number(monthUsage.totalEnergy || 0).toFixed(2)} kWh)</Text>
-                      <Text style={{ fontFamily: 'Inter-SemiBold', fontSize: 14, color: COLORS.text }}>₱{Number(monthUsage.electricityCharge || 0).toFixed(2)}</Text>
+                    {/* Electricity Consumption */}
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Ionicons name="flash-outline" size={15} color={COLORS.warning || '#F59E0B'} />
+                        <Text style={{ fontFamily: 'Inter-Medium', fontSize: 14, color: COLORS.textSecondary }}>
+                          Electricity
+                        </Text>
+                      </View>
+                      <Text style={{ fontFamily: 'Inter-SemiBold', fontSize: 14, color: COLORS.textPrimary }}>
+                        {totalEnergyKwh.toFixed(2)} kWh
+                      </Text>
                     </View>
                     
-                    {monthUsage.monthlyRent > 0 && (
-                      <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                        <Text style={{ fontFamily: 'Inter-Medium', fontSize: 14, color: COLORS.textSecondary }}>Monthly Rent</Text>
-                        <Text style={{ fontFamily: 'Inter-SemiBold', fontSize: 14, color: COLORS.text }}>₱{Number(monthUsage.monthlyRent || 0).toFixed(2)}</Text>
+                    {/* Monthly Rent */}
+                    {monthlyRent > 0 && (
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <Ionicons name="home-outline" size={15} color="#3B82F6" />
+                          <Text style={{ fontFamily: 'Inter-Medium', fontSize: 14, color: COLORS.textSecondary }}>Monthly Rent</Text>
+                        </View>
+                        <Text style={{ fontFamily: 'Inter-SemiBold', fontSize: 14, color: COLORS.textPrimary }}>
+                          ₱{monthlyRent.toFixed(2)}
+                        </Text>
                       </View>
                     )}
                     
-                    {monthUsage.previousBalance > 0 && (
-                      <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                        <Text style={{ fontFamily: 'Inter-Medium', fontSize: 14, color: COLORS.textSecondary }}>Previous Balance</Text>
-                        <Text style={{ fontFamily: 'Inter-SemiBold', fontSize: 14, color: COLORS.text }}>₱{Number(monthUsage.previousBalance || 0).toFixed(2)}</Text>
+                    {/* Additional Charges */}
+                    {additionalCharges > 0 && (
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <Ionicons name="add-circle-outline" size={15} color={COLORS.info || '#0EA5E9'} />
+                          <Text style={{ fontFamily: 'Inter-Medium', fontSize: 14, color: COLORS.textSecondary }}>Additional Charges</Text>
+                        </View>
+                        <Text style={{ fontFamily: 'Inter-SemiBold', fontSize: 14, color: COLORS.textPrimary }}>
+                          ₱{additionalCharges.toFixed(2)}
+                        </Text>
                       </View>
                     )}
                     
-                    {monthUsage.additionalCharges > 0 && (
-                      <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                        <Text style={{ fontFamily: 'Inter-Medium', fontSize: 14, color: COLORS.textSecondary }}>Additional Charges</Text>
-                        <Text style={{ fontFamily: 'Inter-SemiBold', fontSize: 14, color: COLORS.text }}>₱{Number(monthUsage.additionalCharges || 0).toFixed(2)}</Text>
-                      </View>
-                    )}
-
-                    {monthUsage.penalty > 0 && (
-                      <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                        <Text style={{ fontFamily: 'Inter-Medium', fontSize: 14, color: COLORS.textSecondary }}>Penalty</Text>
-                        <Text style={{ fontFamily: 'Inter-SemiBold', fontSize: 14, color: COLORS.danger }}>₱{Number(monthUsage.penalty || 0).toFixed(2)}</Text>
-                      </View>
-                    )}
-                    
-                    {monthUsage.discounts > 0 && (
-                      <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                        <Text style={{ fontFamily: 'Inter-Medium', fontSize: 14, color: COLORS.textSecondary }}>Discounts</Text>
-                        <Text style={{ fontFamily: 'Inter-SemiBold', fontSize: 14, color: COLORS.success }}>-₱{Number(monthUsage.discounts || 0).toFixed(2)}</Text>
+                    {/* Discounts */}
+                    {discounts > 0 && (
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <Ionicons name="pricetag-outline" size={15} color={COLORS.success || '#10B981'} />
+                          <Text style={{ fontFamily: 'Inter-Medium', fontSize: 14, color: COLORS.textSecondary }}>Discounts</Text>
+                        </View>
+                        <Text style={{ fontFamily: 'Inter-SemiBold', fontSize: 14, color: COLORS.success }}>
+                          -₱{discounts.toFixed(2)}
+                        </Text>
                       </View>
                     )}
                   </View>
                 )}
                 
                 {budget && (
-                  <View>
+                  <View style={ms.budgetContainer}>
                     <View style={ms.budgetHeader}>
                       <Ionicons name="wallet-outline" size={18} color={COLORS.primary} />
                       <Text style={ms.budgetTitle}>Daily Budget</Text>

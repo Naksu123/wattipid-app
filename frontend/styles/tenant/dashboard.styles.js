@@ -565,5 +565,13 @@ export default StyleSheet.create({
     paddingVertical: SPACING.sm,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255,255,255,0.05)'
+  },
+  
+  // Budget Section in Live Cost Card
+  budgetContainer: {
+    marginTop: SPACING.md,
+    paddingTop: SPACING.md,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border
   }
 });

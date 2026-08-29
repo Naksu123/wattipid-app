@@ -287,7 +287,9 @@ export const useTourContext = () => {
 
 export const useTourAutoStart = (screenName, isScreenLoaded, scrollViewRef = null) => {
   const { currentTourScreen, isTourActive, signalScreenReady } = useTourContext();
-  const { start } = useCopilot();
+  const copilot = useCopilot();
+  const copilotRef = useRef(copilot);
+  copilotRef.current = copilot;
 
   // 1. Signal readiness when screen is loaded
   useEffect(() => {
@@ -296,20 +298,39 @@ export const useTourAutoStart = (screenName, isScreenLoaded, scrollViewRef = nul
     }
   }, [isTourActive, currentTourScreen, screenName, isScreenLoaded, signalScreenReady]);
 
-  // 2. Start Copilot overlay when aligned
+  // 2. Start Copilot overlay when aligned and retry with fresh copilot reference
   useEffect(() => {
-    if (isTourActive && currentTourScreen === screenName && isScreenLoaded) {
-      const timeoutId = setTimeout(() => {
-        const boundary = TOUR_STEP_BOUNDARIES[screenName];
-        const scrollEl = (scrollViewRef && scrollViewRef.current) ? scrollViewRef.current : null;
-        if (boundary && boundary.firstStepName) {
-          start(boundary.firstStepName, scrollEl);
-        } else {
-          start(undefined, scrollEl);
-        }
-      }, 350);
-      return () => clearTimeout(timeoutId);
+    if (!isTourActive || currentTourScreen !== screenName || !isScreenLoaded) {
+      return;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isTourActive, currentTourScreen, screenName, isScreenLoaded]);
+
+    let isMounted = true;
+    let attempts = 0;
+    const maxAttempts = 15;
+    const boundary = TOUR_STEP_BOUNDARIES[screenName];
+    const targetStepName = boundary?.firstStepName;
+
+    const tryStart = () => {
+      if (!isMounted) return;
+      
+      const scrollEl = (scrollViewRef && scrollViewRef.current) ? scrollViewRef.current : null;
+      const currentStartFn = copilotRef.current?.start;
+      
+      if (typeof currentStartFn === 'function') {
+        currentStartFn(targetStepName, scrollEl);
+      }
+
+      attempts++;
+      if (attempts < maxAttempts && !copilotRef.current?.visible) {
+        setTimeout(tryStart, 150);
+      }
+    };
+
+    const timer = setTimeout(tryStart, 250);
+
+    return () => {
+      isMounted = false;
+      clearTimeout(timer);
+    };
+  }, [isTourActive, currentTourScreen, screenName, isScreenLoaded, scrollViewRef]);
 };

@@ -231,34 +231,48 @@ export async function getAvailableBillingCycles(roomId, options = {}) {
 }
 
 export async function getConsumptionComparison(roomId, period = 'weekly', tenantName = null, options = {}) {
-  const data = await apiCall('getConsumptionComparison', { roomId, period, tenantName }, options);
-  
-  const current = {
-    totalEnergy: parseFloat(data?.current?.totalEnergy || 0),
-    totalCost: parseFloat(data?.current?.totalCost || 0)
-  };
-  
-  const previous = {
-    totalEnergy: parseFloat(data?.previous?.totalEnergy || 0),
-    totalCost: parseFloat(data?.previous?.totalCost || 0)
-  };
+  try {
+    const data = await apiCall('getConsumptionComparison', { roomId, period, tenantName }, options);
+    
+    const current = {
+      totalEnergy: parseFloat(data?.current?.totalEnergy || 0),
+      totalCost: parseFloat(data?.current?.totalCost || 0)
+    };
+    
+    const previous = {
+      totalEnergy: parseFloat(data?.previous?.totalEnergy || 0),
+      totalCost: parseFloat(data?.previous?.totalCost || 0)
+    };
 
-  const costDiff = current.totalCost - previous.totalCost;
-  const energyDiff = current.totalEnergy - previous.totalEnergy;
-  
-  const costPctChange = previous.totalCost > 0 ? (costDiff / previous.totalCost) * 100 : 0;
-  const energyPctChange = previous.totalEnergy > 0 ? (energyDiff / previous.totalEnergy) * 100 : 0;
+    const costDiff = current.totalCost - previous.totalCost;
+    const energyDiff = current.totalEnergy - previous.totalEnergy;
+    
+    const costPctChange = previous.totalCost > 0 ? (costDiff / previous.totalCost) * 100 : 0;
+    const energyPctChange = previous.totalEnergy > 0 ? (energyDiff / previous.totalEnergy) * 100 : 0;
 
-  return { 
-    current, 
-    previous, 
-    costDiff, 
-    energyDiff, 
-    costPctChange, 
-    energyPctChange,
-    isAbnormal: !!data?.isAbnormal,
-    isBudgetExceeded: !!data?.isBudgetExceeded
-  };
+    return { 
+      current, 
+      previous, 
+      costDiff, 
+      energyDiff, 
+      costPctChange, 
+      energyPctChange,
+      isAbnormal: !!data?.isAbnormal,
+      isBudgetExceeded: !!data?.isBudgetExceeded
+    };
+  } catch (err) {
+    console.warn('[getConsumptionComparison] error:', err?.message || err);
+    return {
+      current: { totalEnergy: 0, totalCost: 0 },
+      previous: { totalEnergy: 0, totalCost: 0 },
+      costDiff: 0,
+      energyDiff: 0,
+      costPctChange: 0,
+      energyPctChange: 0,
+      isAbnormal: false,
+      isBudgetExceeded: false
+    };
+  }
 }
 
 export async function getDailyBreakdown(roomId, year, month, tenantName = null) {

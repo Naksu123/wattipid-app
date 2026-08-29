@@ -445,8 +445,7 @@ export default function TipsScreen() {
           {/* Fixed Header Section */}
           <View style={{ paddingHorizontal: 20, paddingTop: 60 }}>
             {/* Tab Selector */}
-            <CopilotStep text="Switch between General Community Tips, automated Smart Insights, or Browse all tips." order={5} name="tabs">
-            <CopilotView style={s.tabRow}>
+            <View style={s.tabRow}>
               {TABS.map(tab => (
                 <TouchableOpacity 
                   key={tab.id} 
@@ -461,8 +460,7 @@ export default function TipsScreen() {
                   <Text style={[s.tabText, activeTab === tab.id && s.tabTextActive]}>{tab.label}</Text>
                 </TouchableOpacity>
               ))}
-            </CopilotView>
-            </CopilotStep>
+            </View>
           </View>
 
           {browseLoading && allTips.length === 0 ? (

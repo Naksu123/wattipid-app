@@ -19,6 +19,7 @@ export const COLORS = {
   surfaceGlass: 'rgba(31, 41, 55, 0.65)', // Premium translucent
 
   // Text
+  text: '#F9FAFB',             // Default white text
   textPrimary: '#F9FAFB',      // Near white
   textSecondary: '#9CA3AF',    // Cool gray
   textMuted: '#6B7280',        // Deep gray
