@@ -68,7 +68,11 @@ const processQueue = (error, token = null) => {
 // --- RESPONSE INTERCEPTOR ---
 apiClient.interceptors.response.use(
   (response) => {
-    const isPolling = response.config.url?.includes('syncState') || response.config.url?.includes('getLatestConsumption') || response.config.data?.includes('syncState') || response.config.data?.includes('getLatestConsumption');
+    const isPolling = response.config.url?.includes('syncState') || 
+                      response.config.url?.includes('getLatestConsumption') || 
+                      (typeof response.config.data === 'string' && (response.config.data.includes('syncState') || response.config.data.includes('getLatestConsumption'))) ||
+                      response.config.data?.action === 'syncState' ||
+                      response.config.data?.action === 'getLatestConsumption';
 
     // Basic JSON check
     if (typeof response.data === 'string' && (response.data.includes('<?php') || response.data.includes('require_once'))) {

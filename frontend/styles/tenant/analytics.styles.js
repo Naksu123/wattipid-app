@@ -312,7 +312,7 @@ export default StyleSheet.create({
 
   // Breakdown Table
   breakdownCard: { 
-    marginBottom: SPACING.xxl 
+    marginBottom: SPACING.lg 
   },
   breakdownHeader: { 
     flexDirection: 'row', 
@@ -386,7 +386,7 @@ export default StyleSheet.create({
 
   // History
   historySection: { 
-    marginBottom: SPACING.xxl * 2 
+    marginBottom: SPACING.lg 
   },
   filterHeader: {
     flexDirection: 'row',

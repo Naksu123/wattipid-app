@@ -182,6 +182,7 @@ export default function TenantBillingScreen() {
         rate_per_kwh: 12.50,
         monthly_rent: 0,
         electricity_charge: 308.75,
+        miscellaneous_fee: 0,
         previous_balance: 0,
         additional_charges: 0,
         discounts: 0,
@@ -201,6 +202,7 @@ export default function TenantBillingScreen() {
         rate_per_kwh,
         monthly_rent,
         electricity_charge,
+        miscellaneous_fee,
         previous_balance,
         additional_charges,
         discounts,
@@ -220,7 +222,15 @@ export default function TenantBillingScreen() {
     
     const safeStatus = payment_status || 'unpaid';
     const statusConfig = getStatusStyle(safeStatus);
-    const computedGrandTotal = parseFloat(electricity_charge || 0) + parseFloat(penalty_amount || 0) + parseFloat(monthly_rent || 0) + parseFloat(previous_balance || 0) + parseFloat(additional_charges || 0) - parseFloat(discounts || 0);
+    const rawGrandTotal = parseFloat(grand_total || 0);
+    const computedSum = parseFloat(electricity_charge || 0) + 
+                        parseFloat(miscellaneous_fee || 0) + 
+                        parseFloat(penalty_amount || 0) + 
+                        parseFloat(monthly_rent || 0) + 
+                        parseFloat(previous_balance || 0) + 
+                        parseFloat(additional_charges || 0) - 
+                        parseFloat(discounts || 0);
+    const computedGrandTotal = rawGrandTotal > 0 ? rawGrandTotal : computedSum;
 
     const formatStatus = (status) => {
         if (!status) return 'Unpaid';
@@ -407,6 +417,29 @@ export default function TenantBillingScreen() {
                             </View>
                         )}
                     </View>
+
+                    {parseFloat(miscellaneous_fee || 0) > 0 && (
+                        <View style={styles.accordionItem}>
+                            <TouchableOpacity style={styles.accordionHeader} onPress={() => toggleSection('misc')}>
+                                <View style={[styles.accordionIconWrap, { backgroundColor: 'rgba(16, 185, 129, 0.15)' }]}>
+                                    <Ionicons name="receipt-outline" size={20} color="#10B981" />
+                                </View>
+                                <View style={styles.accordionTitleWrap}>
+                                    <Text style={styles.accordionTitle}>Miscellaneous Fee</Text>
+                                    <Text style={styles.accordionSub}>Regulatory & maintenance charge (2%)</Text>
+                                </View>
+                                <View style={styles.accordionRight}>
+                                    <Text style={styles.accordionAmount}>₱{parseFloat(miscellaneous_fee).toLocaleString('en-US', { minimumFractionDigits: 2 })}</Text>
+                                    <Ionicons name={expandedSection === 'misc' ? 'chevron-up' : 'chevron-down'} size={18} color={COLORS.textSecondary} />
+                                </View>
+                            </TouchableOpacity>
+                            {expandedSection === 'misc' && (
+                                <View style={styles.accordionBody}>
+                                    <Text style={styles.accordionDesc}>A standard 2% fee applied to the electricity charge per billing terms to cover metering maintenance, regulatory compliance, and system service costs.</Text>
+                                </View>
+                            )}
+                        </View>
+                    )}
 
                     {parseFloat(previous_balance || 0) > 0 && (
                         <View style={styles.accordionItem}>

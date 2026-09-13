@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, ScrollView, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { isCancel } from 'axios';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { CopilotStep, walkthroughable } from 'react-native-copilot';
@@ -79,10 +80,15 @@ function BudgetScreen() {
   }, [budgetData]);
 
   const isMountedRef = useRef(true);
+  const compAbortRef = useRef(null);
+
   useEffect(() => {
     isMountedRef.current = true;
     return () => {
       isMountedRef.current = false;
+      if (compAbortRef.current) {
+        compAbortRef.current.abort();
+      }
     };
   }, []);
 
@@ -122,7 +128,7 @@ function BudgetScreen() {
         setLoading(false);
       }
     }
-  }, [roomId, user?.id]);
+  }, [roomId, user]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -132,6 +138,12 @@ function BudgetScreen() {
   const fetchComparison = useCallback(async (period) => {
     if (!roomId) return;
 
+    if (compAbortRef.current) {
+      compAbortRef.current.abort();
+    }
+    compAbortRef.current = new AbortController();
+    const options = { signal: compAbortRef.current.signal };
+
     // Instant zero-latency display if cached
     if (compCacheRef.current[period]) {
       setComparison(compCacheRef.current[period]);
@@ -140,20 +152,28 @@ function BudgetScreen() {
     const seq = ++compSeqRef.current;
 
     try {
-      const comp = await getConsumptionComparison(roomId, period, user?.name);
+      const comp = await getConsumptionComparison(roomId, period, user?.name, options);
       if (!isMountedRef.current || seq !== compSeqRef.current) return;
       if (comp) {
         compCacheRef.current[period] = comp;
         setComparison(comp);
       }
     } catch (e) {
-      console.warn('[Budget] fetchComparison error:', e?.message || e);
+      const isCanceled = isCancel(e) || e?.message === 'canceled' || e?.name === 'CanceledError' || e?.name === 'AbortError';
+      if (!isCanceled) {
+        console.warn('[Budget] fetchComparison error:', e?.message || e);
+      }
     }
   }, [roomId, user?.name]);
 
   useEffect(() => {
     fetchComparison(compPeriod);
   }, [compPeriod, fetchComparison]);
+
+  const handleCompPeriodChange = useCallback((newPeriod) => {
+    if (newPeriod === compPeriod) return;
+    setCompPeriod(newPeriod);
+  }, [compPeriod]);
 
   const handleSetBudget = async () => {
     const val = parseFloat(monthlyBudget);
@@ -412,81 +432,84 @@ function BudgetScreen() {
         </CopilotStep>
 
         {/* Section 3 of 3: Budget Comparison */}
-        <CopilotStep
-          text="Budget Comparison allows you to compare your electricity consumption and budget performance across different periods. Use this information to identify changes in your spending and improve your budget management."
-          order={14}
-          name="budget_comparison"
-        >
-          <CopilotView style={s.fullWidth}>
-            <GlassCard style={s.compCard}>
-              <View style={s.compHeader}>
-                <View style={s.compTitleRow}>
-                  <Ionicons name="swap-horizontal" size={20} color={COLORS.info} />
-                  <Text style={s.compTitle}>Budget Comparison</Text>
+        <GlassCard style={s.compCard}>
+          <View style={s.compHeader}>
+            <CopilotStep
+              text="Budget Comparison allows you to compare your electricity consumption and budget performance across different periods. Use this information to identify changes in your spending and improve your budget management."
+              order={14}
+              name="budget_comparison"
+            >
+              <CopilotView style={s.compTitleRow}>
+                <Ionicons name="swap-horizontal" size={20} color={COLORS.info} />
+                <Text style={s.compTitle}>Budget Comparison</Text>
+              </CopilotView>
+            </CopilotStep>
+
+            <View style={s.compPeriodRow}>
+              {BUDGET_TABS.map(p => (
+                <TouchableOpacity 
+                  key={p} 
+                  onPress={() => handleCompPeriodChange(p)}
+                  activeOpacity={0.7}
+                  style={[s.compPeriodBtn, compPeriod === p && s.compPeriodActive]}
+                >
+                  <Text style={[s.compPeriodText, compPeriod === p && s.compPeriodTextActive]}>
+                    {p.charAt(0).toUpperCase() + p.slice(1)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+          <View style={s.compBody}>
+            <View style={s.compCol}>
+              <Text style={s.compColLabel}>Previous</Text>
+              <Text style={s.compColVal}>
+                ₱{Number.isFinite(Number(comparison?.previous?.totalCost)) ? Number(comparison.previous.totalCost).toFixed(2) : '0.00'}
+              </Text>
+              <Text style={s.compColSub}>
+                {Number.isFinite(Number(comparison?.previous?.totalEnergy)) ? Number(comparison.previous.totalEnergy).toFixed(3) : '0.000'} kWh
+              </Text>
+            </View>
+            <View style={s.compArrow}>
+              <Ionicons name="arrow-forward" size={20} color={COLORS.textMuted} />
+            </View>
+            <View style={s.compCol}>
+              <Text style={s.compColLabel}>Current</Text>
+              <Text style={s.compColVal}>
+                ₱{Number.isFinite(Number(comparison?.current?.totalCost)) ? Number(comparison.current.totalCost).toFixed(2) : '0.00'}
+              </Text>
+              <Text style={s.compColSub}>
+                {Number.isFinite(Number(comparison?.current?.totalEnergy)) ? Number(comparison.current.totalEnergy).toFixed(3) : '0.000'} kWh
+              </Text>
+            </View>
+          </View>
+          {(() => {
+            const pct = Number(comparison?.costPctChange);
+            const hasChange = Number.isFinite(pct) && pct !== 0;
+            if (hasChange) {
+              const isHigher = pct > 0;
+              const absPct = Math.abs(pct).toFixed(1);
+              const periodLabel = compPeriod === 'daily' ? 'day' : compPeriod === 'weekly' ? 'week' : 'month';
+              return (
+                <View key="badge-trend" style={[s.compBadge, { backgroundColor: isHigher ? 'rgba(239,68,68,0.1)' : 'rgba(34,197,94,0.1)' }]}>
+                  <Ionicons name={isHigher ? 'trending-up' : 'trending-down'} size={16}
+                    color={isHigher ? COLORS.danger : COLORS.primary} />
+                  <Text style={[s.compBadgeText, { color: isHigher ? COLORS.danger : COLORS.primary }]}>
+                    Consumption is {absPct}% {isHigher ? 'higher' : 'lower'} than last {periodLabel}
+                  </Text>
                 </View>
-                <View style={s.compPeriodRow}>
-                  {BUDGET_TABS.map(p => (
-                    <TouchableOpacity key={p} onPress={() => setCompPeriod(p)}
-                      style={[s.compPeriodBtn, compPeriod === p && s.compPeriodActive]}>
-                      <Text style={[s.compPeriodText, compPeriod === p && s.compPeriodTextActive]}>
-                        {p.charAt(0).toUpperCase() + p.slice(1)}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
+              );
+            }
+            return (
+              <View key="badge-info" style={[s.compBadge, { backgroundColor: 'rgba(59,130,246,0.08)' }]}>
+                <Ionicons name="information-circle-outline" size={16} color={COLORS.info} />
+                <Text style={[s.compBadgeText, { color: COLORS.info }]}>
+                  Compare spending trends against previous periods to keep consumption on track.
+                </Text>
               </View>
-              <View style={s.compBody}>
-                <View style={s.compCol}>
-                  <Text style={s.compColLabel}>Previous</Text>
-                  <Text style={s.compColVal}>
-                    ₱{Number.isFinite(Number(comparison?.previous?.totalCost)) ? Number(comparison.previous.totalCost).toFixed(2) : '0.00'}
-                  </Text>
-                  <Text style={s.compColSub}>
-                    {Number.isFinite(Number(comparison?.previous?.totalEnergy)) ? Number(comparison.previous.totalEnergy).toFixed(3) : '0.000'} kWh
-                  </Text>
-                </View>
-                <View style={s.compArrow}>
-                  <Ionicons name="arrow-forward" size={20} color={COLORS.textMuted} />
-                </View>
-                <View style={s.compCol}>
-                  <Text style={s.compColLabel}>Current</Text>
-                  <Text style={s.compColVal}>
-                    ₱{Number.isFinite(Number(comparison?.current?.totalCost)) ? Number(comparison.current.totalCost).toFixed(2) : '0.00'}
-                  </Text>
-                  <Text style={s.compColSub}>
-                    {Number.isFinite(Number(comparison?.current?.totalEnergy)) ? Number(comparison.current.totalEnergy).toFixed(3) : '0.000'} kWh
-                  </Text>
-                </View>
-              </View>
-              {(() => {
-                const pct = Number(comparison?.costPctChange);
-                const hasChange = Number.isFinite(pct) && pct !== 0;
-                if (hasChange) {
-                  const isHigher = pct > 0;
-                  const absPct = Math.abs(pct).toFixed(1);
-                  const periodLabel = compPeriod === 'daily' ? 'day' : compPeriod === 'weekly' ? 'week' : 'month';
-                  return (
-                    <View style={[s.compBadge, { backgroundColor: isHigher ? 'rgba(239,68,68,0.1)' : 'rgba(34,197,94,0.1)' }]}>
-                      <Ionicons name={isHigher ? 'trending-up' : 'trending-down'} size={16}
-                        color={isHigher ? COLORS.danger : COLORS.primary} />
-                      <Text style={[s.compBadgeText, { color: isHigher ? COLORS.danger : COLORS.primary }]}>
-                        Consumption is {absPct}% {isHigher ? 'higher' : 'lower'} than last {periodLabel}
-                      </Text>
-                    </View>
-                  );
-                }
-                return (
-                  <View style={[s.compBadge, { backgroundColor: 'rgba(59,130,246,0.08)' }]}>
-                    <Ionicons name="information-circle-outline" size={16} color={COLORS.info} />
-                    <Text style={[s.compBadgeText, { color: COLORS.info }]}>
-                      Compare spending trends against previous periods to keep consumption on track.
-                    </Text>
-                  </View>
-                );
-              })()}
-            </GlassCard>
-          </CopilotView>
-        </CopilotStep>
+            );
+          })()}
+        </GlassCard>
 
       </ScrollView>
 

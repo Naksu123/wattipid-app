@@ -440,7 +440,6 @@ export default StyleSheet.create({
   compBadge: { 
     flexDirection: 'row', 
     alignItems: 'center', 
-    justifyContent: 'center', 
     gap: SPACING.xs, 
     paddingVertical: SPACING.sm, 
     paddingHorizontal: SPACING.md, 

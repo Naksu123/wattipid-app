@@ -243,13 +243,14 @@ export default function TenantPaymentScreen() {
             let grandTotal = parseFloat(billingCycle.grand_total || 0);
             if (grandTotal === 0) {
                  grandTotal = parseFloat(billingCycle.electricity_charge || 0) + 
+                              parseFloat(billingCycle.miscellaneous_fee || 0) + 
                               parseFloat(billingCycle.penalty_amount || 0) + 
                               parseFloat(billingCycle.monthly_rent || 0) + 
                               parseFloat(billingCycle.previous_balance || 0) + 
                               parseFloat(billingCycle.additional_charges || 0) - 
                               parseFloat(billingCycle.discounts || 0);
             }
-            if (grandTotal === 0) grandTotal = parseFloat(billingCycle.total_cost || 0) + parseFloat(billingCycle.penalty_amount || 0);
+            if (grandTotal === 0) grandTotal = parseFloat(billingCycle.total_cost || 0) + parseFloat(billingCycle.miscellaneous_fee || 0) + parseFloat(billingCycle.penalty_amount || 0);
             
             const remainingBalance = grandTotal - parseFloat(billingCycle.amount_paid || 0);
             const amountToPay = remainingBalance > 0 ? remainingBalance : grandTotal;
@@ -346,13 +347,14 @@ export default function TenantPaymentScreen() {
     let grandTotal = parseFloat(billingCycle.grand_total || 0);
     if (grandTotal === 0) {
         grandTotal = parseFloat(billingCycle.electricity_charge || 0) + 
+                     parseFloat(billingCycle.miscellaneous_fee || 0) + 
                      parseFloat(billingCycle.penalty_amount || 0) + 
                      parseFloat(billingCycle.monthly_rent || 0) + 
                      parseFloat(billingCycle.previous_balance || 0) + 
                      parseFloat(billingCycle.additional_charges || 0) - 
                      parseFloat(billingCycle.discounts || 0);
     }
-    if (grandTotal === 0) grandTotal = parseFloat(billingCycle.total_cost || 0) + parseFloat(billingCycle.penalty_amount || 0);
+    if (grandTotal === 0) grandTotal = parseFloat(billingCycle.total_cost || 0) + parseFloat(billingCycle.miscellaneous_fee || 0) + parseFloat(billingCycle.penalty_amount || 0);
     
     const amountPaid = parseFloat(billingCycle.amount_paid || 0);
     const totalDue = grandTotal - amountPaid;

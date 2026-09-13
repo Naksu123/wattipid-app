@@ -626,38 +626,6 @@ export default function AnalyticsScreen() {
           </CopilotView>
         </CopilotStep>
 
-        {/* ── Wattipid Smart Insights (Step 4 of 5) ────────────────────────────────── */}
-        <CopilotStep text="Smart Insights analyzes your consumption patterns and provides useful recommendations based on your electricity usage." order={7} name="analytics_insights">
-          <CopilotView style={{ marginTop: 8 }}>
-            <GlassCard style={s.insightCard}>
-              <View style={s.insightHeader}>
-                <Ionicons name="sparkles" size={20} color={COLORS.primary} />
-                <Text style={[s.insightTitle, { color: COLORS.primary }]}>Wattipid Smart Insights</Text>
-              </View>
-              
-              <View style={{ marginBottom: 12 }}>
-                <Text style={{ fontSize: 13, fontWeight: '500', color: COLORS.textPrimary, lineHeight: 20 }}>
-                  {recommendation || "Monitoring your consumption patterns to optimize electricity usage."}
-                </Text>
-              </View>
-
-              {insights.length > 0 ? (
-                insights.map((text, i) => (
-                  <View key={i} style={s.insightItem}>
-                    <View style={s.insightDot} />
-                    <Text style={s.insightText}>{text}</Text>
-                  </View>
-                ))
-              ) : (
-                <View style={s.insightItem}>
-                  <View style={s.insightDot} />
-                  <Text style={s.insightText}>Keep your appliances energy-efficient to maximize savings.</Text>
-                </View>
-              )}
-            </GlassCard>
-          </CopilotView>
-        </CopilotStep>
-
         {/* ══════════════════════════════════════════════════════════════════════ */}
         {/* ── Breakdown View ──────────────────────────────────────────────────── */}
         {activeView === 'breakdown' && (
@@ -860,6 +828,38 @@ export default function AnalyticsScreen() {
             </TouchableOpacity>
           </ModalBody>
         </BaseModal>
+
+        {/* ── Wattipid Smart Insights (Step 4 of 5) ────────────────────────────────── */}
+        <CopilotStep text="Smart Insights analyzes your consumption patterns and provides useful recommendations based on your electricity usage." order={7} name="analytics_insights">
+          <CopilotView style={{ marginTop: 8 }}>
+            <GlassCard style={s.insightCard}>
+              <View style={s.insightHeader}>
+                <Ionicons name="sparkles" size={20} color={COLORS.primary} />
+                <Text style={[s.insightTitle, { color: COLORS.primary }]}>Wattipid Smart Insights</Text>
+              </View>
+              
+              <View style={{ marginBottom: 12 }}>
+                <Text style={{ fontSize: 13, fontWeight: '500', color: COLORS.textPrimary, lineHeight: 20 }}>
+                  {recommendation || "Monitoring your consumption patterns to optimize electricity usage."}
+                </Text>
+              </View>
+
+              {insights.length > 0 ? (
+                insights.map((text, i) => (
+                  <View key={i} style={s.insightItem}>
+                    <View style={s.insightDot} />
+                    <Text style={s.insightText}>{text}</Text>
+                  </View>
+                ))
+              ) : (
+                <View style={s.insightItem}>
+                  <View style={s.insightDot} />
+                  <Text style={s.insightText}>Keep your appliances energy-efficient to maximize savings.</Text>
+                </View>
+              )}
+            </GlassCard>
+          </CopilotView>
+        </CopilotStep>
 
         {/* ── PDF Report (Step 5 of 5) ────────────────────────────────────────────── */}
         <CopilotStep text="Generate a report for the selected period to review or keep a record of your electricity consumption." order={8} name="analytics_report">
