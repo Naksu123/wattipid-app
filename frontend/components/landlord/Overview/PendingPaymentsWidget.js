@@ -51,8 +51,8 @@ export default function PendingPaymentsWidget({ payments = [], onRefresh }) {
         {pendingVerifications.map((item, index) => {
           const name = item.tenant_name || 'Unknown';
           const room = item.room_name || item.room_id || '?';
-          // Use item.amount (from payments table) if available, fallback to total_cost + penalty (if from billing_cycles)
-          const amount = parseFloat(item.amount || item.total_cost || 0) + (item.amount ? 0 : parseFloat(item.penalty_amount || 0));
+          // Use item.amount (from payments table) if available, fallback to authoritative outstanding balance
+          const amount = parseFloat(item.amount ?? (item.outstanding_balance ?? (item.grand_total ? (parseFloat(item.grand_total) - parseFloat(item.amount_paid || 0)) : (parseFloat(item.total_cost || 0) + parseFloat(item.penalty_amount || 0)))));
           
           return (
             <View key={item.id || index} style={[styles.item, index === payments.length - 1 && styles.lastItem]}>

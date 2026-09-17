@@ -69,24 +69,29 @@ export default function RegisterScreen() {
       } else {
         let title = 'Verification Failed';
         let msg = result.message || 'Invalid access code.';
-        
-        if (msg.includes('expired')) {
+        const code = result.error_code;
+
+        if (code === 'ACCESS_CODE_EXPIRED' || msg.includes('expired')) {
           title = 'Access Code Expired';
           msg = 'Your Access Code has expired.\n\nFor security purposes, expired Access Codes cannot be reused.\n\nPlease contact your landlord to generate a new invitation.';
-        } else if (msg.includes('incorrect') || msg.toLowerCase().includes('invalid')) {
-          title = 'Verification Failed';
-          msg = 'The Access Code you entered is incorrect.\n\nPlease check the invitation email sent by your landlord and try again.';
-        } else if (msg.includes('No invitation')) {
-          title = 'Invitation Not Found';
-          msg = 'No active invitation was found for this email address.\n\nPlease verify your email or contact your landlord.';
-        } else if (msg.toLowerCase().includes('already')) {
+        } else if (code === 'INVITATION_ALREADY_USED' || msg.toLowerCase().includes('already')) {
           title = 'Registration Already Completed';
           msg = 'This invitation has already been used to create an account.\n\nPlease sign in using your existing account or use the Forgot Password feature if needed.';
+        } else if (code === 'INVITATION_CANCELLED' || msg.toLowerCase().includes('cancelled') || msg.toLowerCase().includes('replaced')) {
+          title = 'Invitation Superseded';
+          msg = 'This invitation was superseded by a newer access code or cancelled by your landlord.\n\nPlease check your inbox for the latest code or ask your landlord to resend it.';
+        } else if (code === 'INVITATION_NOT_FOUND' || msg.includes('No invitation') || msg.includes('not found')) {
+          title = 'Invitation Not Found';
+          msg = 'No active invitation was found for this email address.\n\nPlease verify your email address or contact your landlord.';
+        } else if (code === 'INVALID_ACCESS_CODE' || msg.includes('incorrect') || msg.toLowerCase().includes('invalid')) {
+          title = 'Verification Failed';
+          msg = 'The Access Code you entered is incorrect.\n\nPlease check the 6-digit access code sent to your email and try again.';
         }
+
         showModal({ type: 'error', title, message: msg, primaryButtonText: 'Try Again' });
       }
     } catch {
-      showModal({ type: 'error', title: 'Error', message: 'Something went wrong. Please try again.' });
+      showModal({ type: 'error', title: 'Connection Error', message: 'Unable to verify access code right now. Please check your connection and try again.' });
     } finally {
       setRequestingCode(false);
     }

@@ -372,4 +372,82 @@ export default StyleSheet.create({
     color: COLORS.textMuted,
     marginTop: 12,
   },
+
+  // ============ Target Invoice & Switcher ============
+  switcherSection: {
+    marginBottom: SPACING.md,
+  },
+  switcherLabel: {
+    fontSize: FONT_SIZE.xs,
+    color: COLORS.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  switcherScroll: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  invoiceChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: RADIUS.full || 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    marginRight: 8,
+  },
+  invoiceChipActive: {
+    backgroundColor: 'rgba(59, 130, 246, 0.15)',
+    borderColor: '#3B82F6',
+  },
+  invoiceChipText: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    fontWeight: '500',
+  },
+  invoiceChipTextActive: {
+    color: '#60A5FA',
+    fontWeight: '700',
+  },
+  targetBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: RADIUS.full || 20,
+    marginBottom: 8,
+  },
+  targetBadgeCurrent: {
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.3)',
+  },
+  targetBadgeOverdue: {
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.3)',
+  },
+  targetBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+  },
+  targetInvoiceNumber: {
+    fontSize: FONT_SIZE.sm,
+    color: COLORS.textSecondary,
+    fontWeight: '600',
+    marginBottom: 4,
+    letterSpacing: 0.5,
+  },
+  targetPeriod: {
+    fontSize: FONT_SIZE.xs,
+    color: COLORS.textMuted,
+    marginBottom: 12,
+  },
 });

@@ -55,7 +55,7 @@ export default function UnpaidTenantsWidget({ unpaidBills }) {
     }
 
     const dateStr = item.due_date ? new Date(item.due_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Unknown Due Date';
-    const amount = parseFloat(item.total_cost || 0) + parseFloat(item.penalty_amount || 0);
+    const amount = parseFloat(item.outstanding_balance ?? (item.grand_total ? (parseFloat(item.grand_total) - parseFloat(item.amount_paid || 0)) : (parseFloat(item.total_cost || 0) + parseFloat(item.penalty_amount || 0))));
 
     return (
       <View style={styles.transactionRow}>
@@ -107,7 +107,7 @@ export default function UnpaidTenantsWidget({ unpaidBills }) {
                 const dueDate = item.due_date ? new Date(item.due_date) : null;
                 const daysRemaining = dueDate ? Math.ceil((dueDate - now) / (1000 * 60 * 60 * 24)) : 0;
                 const daysOverdue = isOverdue ? Math.abs(daysRemaining) : 0;
-                const amount = parseFloat(item.total_cost || 0) + parseFloat(item.penalty_amount || 0);
+                const amount = parseFloat(item.outstanding_balance ?? (item.grand_total ? (parseFloat(item.grand_total) - parseFloat(item.amount_paid || 0)) : (parseFloat(item.total_cost || 0) + parseFloat(item.penalty_amount || 0))));
                 
                 return sendManualReminder(item.room_id, item.tenant_id, amount, daysOverdue);
             });

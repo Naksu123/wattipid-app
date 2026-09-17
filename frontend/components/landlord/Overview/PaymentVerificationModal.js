@@ -22,8 +22,8 @@ export default function PaymentVerificationModal({ visible, payment, onClose, on
   const handleVerify = async () => {
     try {
       setLoadingAction('verify');
-      // payment.amount or total_cost. Need to pass actualAmount if possible. Let's pass null for actual amount to use what is in DB, or payment.amount.
-      const amount = parseFloat(payment.amount || payment.total_cost || 0) + parseFloat(payment.penalty_amount || 0);
+      // payment.amount or authoritative balance
+      const amount = parseFloat(payment.amount ?? (payment.outstanding_balance ?? (payment.grand_total ? (parseFloat(payment.grand_total) - parseFloat(payment.amount_paid || 0)) : (parseFloat(payment.total_cost || 0) + parseFloat(payment.penalty_amount || 0)))));
       await verifyPayment(payment.id, 'approve', null, amount);
       DeviceEventEmitter.emit('showToast', { message: 'Payment successfully verified!', type: 'success' });
       onRefresh(); // Refresh the parent widget
@@ -59,7 +59,7 @@ export default function PaymentVerificationModal({ visible, payment, onClose, on
     }
   };
 
-  const amount = parseFloat(payment.amount || payment.total_cost || 0) + parseFloat(payment.penalty_amount || 0);
+  const amount = parseFloat(payment.amount ?? (payment.outstanding_balance ?? (payment.grand_total ? (parseFloat(payment.grand_total) - parseFloat(payment.amount_paid || 0)) : (parseFloat(payment.total_cost || 0) + parseFloat(payment.penalty_amount || 0)))));
   const formattedDate = new Date(payment.payment_date || payment.created_at).toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'long',

@@ -23,7 +23,7 @@ export default function DynamicQRCode({ invoiceNumber, amount, method = 'GCash' 
         <QRCode
           value={qrPayload}
           size={200}
-          color={COLORS.text}
+          color="#000"
           backgroundColor="white"
         />
       </View>

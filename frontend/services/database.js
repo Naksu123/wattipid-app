@@ -363,18 +363,46 @@ export async function getBillingDetails(invoiceNumber, id = null, roomId = null)
   return await apiCall('getBillingDetails', { invoiceNumber, id, roomId });
 }
 
+export async function getTenantBillingOverview(roomId = null) {
+  return await apiCall('getTenantBillingOverview', { roomId });
+}
+
 export async function getPaymentInsights(roomId) {
   return await apiCall('getPaymentInsights', { roomId });
 }
 
 export async function verifyAccessCodeAPI(email, accessCode) {
+  const normalizedEmail = email ? email.trim().toLowerCase() : '';
+  const normalizedCode = accessCode ? accessCode.trim() : '';
+
+  console.log('[AccessCode] Verifying access code');
+  console.log(`[AccessCode] Email: ${normalizedEmail}`);
+  console.log(`[AccessCode] Code provided: ${normalizedCode ? 'yes' : 'no'}`);
+  console.log('[AccessCode] Request endpoint: /api.php (action: verifyAccessCode)');
+
   try {
-    // Use apiClient directly (not apiCall) because we need the full response
-    // including success/message fields, not just the nested data property.
-    const response = await apiClient.post('/api.php', { action: 'verifyAccessCode', email, accessCode });
-    return response.data; // { success: true/false, message: '...', data: {...} }
+    const response = await apiClient.post('/api.php', {
+      action: 'verifyAccessCode',
+      email: normalizedEmail,
+      accessCode: normalizedCode,
+    });
+
+    console.log(`[AccessCode] Response status: ${response.status}`);
+    console.log('[AccessCode] Response body:', response.data);
+
+    return response.data; // { success: true, message: '...', data: {...} }
   } catch (error) {
-    console.error("verifyAccessCode error:", error);
-    return { success: false, message: error.response?.data?.message || error.message };
+    const status = error.response?.status || 'Network/Client Error';
+    const responseData = error.response?.data;
+
+    console.log(`[AccessCode] Response status: ${status}`);
+    console.log('[AccessCode] Response body:', responseData || error.message);
+
+    return {
+      success: false,
+      error_code: responseData?.error_code || 'VERIFICATION_FAILED',
+      message: responseData?.message || error.message || 'Unable to verify access code.',
+    };
   }
 }
+

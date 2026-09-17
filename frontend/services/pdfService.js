@@ -217,7 +217,7 @@ export async function generateCycleReport({ roomId, tenantName, startDate, endDa
   
   let totalDue = billingCycle ? parseFloat(billingCycle.grand_total || 0) : 0;
   if (totalDue === 0 && electricityCharge > 0) {
-      totalDue = electricityCharge + penaltyFee + monthlyRent + previousBalance + additionalCharges - discounts;
+      totalDue = electricityCharge + parseFloat(billingCycle?.miscellaneous_fee || 0) + penaltyFee + monthlyRent + previousBalance + additionalCharges - discounts;
   }
 
   const generated = new Date();
@@ -511,7 +511,7 @@ ${getCycleReportStyles()}
       ${isPaid 
         ? `<div class="overdue-row total" style="color:#16A34A; border-color: #BBF7D0;"><span>FULLY PAID</span></div>`
         : penaltyFee > 0             ? (() => {
-                 const originalAmountForPenalty = Number(billingCycle.electricity_charge || billingCycle.total_cost || 0);
+                 const originalAmountForPenalty = Math.max(0, Number(billingCycle.grand_total ? (parseFloat(billingCycle.grand_total) - parseFloat(billingCycle.penalty_amount || 0) - parseFloat(billingCycle.amount_paid || 0)) : (parseFloat(billingCycle.electricity_charge || billingCycle.total_cost || 0) + parseFloat(billingCycle.miscellaneous_fee || 0))));
                  const dailyPenaltyAmountCalc = (originalAmountForPenalty * (penaltyRatePercent / 100)).toFixed(2);
                  return `<div class="overdue-row"><span>Original Amount Due</span><span>${originalAmountForPenalty.toFixed(2)}</span></div>
                <div class="overdue-row"><span>Daily Penalty Rate</span><span>${penaltyRatePercent}%</span></div>

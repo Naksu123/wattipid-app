@@ -122,7 +122,22 @@ apiClient.interceptors.response.use(
         error.message = 'Too many requests. Please wait a moment.';
     }
 
-    const isAuthRoute = originalRequest?.url?.includes('action=login') || originalRequest?.url?.includes('action=register');
+    // Extract action from payload or url for route classification
+    let reqAction = '';
+    try {
+      if (typeof originalRequest?.data === 'string') {
+        reqAction = JSON.parse(originalRequest.data)?.action || '';
+      } else if (originalRequest?.data && typeof originalRequest.data === 'object') {
+        reqAction = originalRequest.data.action || '';
+      }
+    } catch {}
+    if (!reqAction && originalRequest?.url) {
+      const match = originalRequest.url.match(/[?&]action=([^&]+)/);
+      if (match) reqAction = match[1];
+    }
+
+    const authActions = ['login', 'register', 'verifyAccessCode', 'requestPasswordReset', 'verifyResetOTP', 'sendVerificationCode', 'resendVerificationCode'];
+    const isAuthRoute = authActions.includes(reqAction) || originalRequest?.url?.includes('action=login') || originalRequest?.url?.includes('action=register') || originalRequest?.url?.includes('action=verifyAccessCode');
 
     // Handle 401 Session Expiration
     if (error.response?.status === 401 && !originalRequest._retry && !isAuthRoute) {
@@ -188,8 +203,8 @@ apiClient.interceptors.response.use(
     const isReminderRoute = originalRequest?.data?.action === 'send_manual_reminder';
     const isCanceled = axios.isCancel(error) || error.message === 'canceled' || error.name === 'CanceledError';
     if (!isLoggingOut && !isAuthRoute && !isSyncRoute && !isReminderRoute && !isCanceled) {
-        const userMessage = error.response?.data?.message || 'Unable to process your request at this time. Server is currently unavailable.';
-        DeviceEventEmitter.emit('showToast', { message: userMessage, type: 'error', duration: 4000 });
+      const userMessage = error.response?.data?.message || 'Unable to process your request at this time. Server is currently unavailable.';
+      DeviceEventEmitter.emit('showToast', { message: userMessage, type: 'error', duration: 4000 });
     }
 
     return Promise.reject(error);

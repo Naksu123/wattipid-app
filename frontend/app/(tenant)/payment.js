@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, TouchableOpacity, Image, ActivityIndicator, ScrollView, TextInput, Pressable, Animated } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { getAvailableBillingCycles, getMultipleSettings } from '../../services/database';
 import { submitPayment } from '../../services/paymentService';
 import { useAuth } from '../../contexts/AuthContext';
@@ -95,7 +95,12 @@ export default function TenantPaymentScreen() {
     const { user } = useAuth();
     const { showModal } = useModal();
     const router = useRouter();
+    const params = useLocalSearchParams();
+    const { cycleId, type, amount, invoiceNumber } = params || {};
+
+    const [allCycles, setAllCycles] = useState([]);
     const [billingCycle, setBillingCycle] = useState(null);
+    const [billType, setBillType] = useState(type || 'current'); // 'current' | 'overdue'
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
@@ -111,9 +116,30 @@ export default function TenantPaymentScreen() {
     // Landlord Settings
     const [landlordInfo, setLandlordInfo] = useState({});
 
-    useEffect(() => {
-        fetchData();
-    }, [fetchData]);
+    const calculateCycleAmount = useCallback((cycle, forcedType = null) => {
+        if (!cycle) return 0;
+        
+        // Pure current cycle base: electricity + misc + rent + additional - discounts
+        const elec = parseFloat(cycle.electricity_charge || cycle.total_cost || 0);
+        const misc = parseFloat(cycle.miscellaneous_fee || 0);
+        const rent = parseFloat(cycle.monthly_rent || 0);
+        const addl = parseFloat(cycle.additional_charges || 0);
+        const disc = parseFloat(cycle.discounts || 0);
+        const baseAmount = Math.max(0, elec + misc + rent + addl - disc);
+
+        const penalty = parseFloat(cycle.penalty_amount || 0);
+        const paid = parseFloat(cycle.amount_paid || 0);
+
+        const isOverdue = forcedType === 'overdue' || cycle.payment_status === 'overdue' || (cycle.days_overdue && cycle.days_overdue > 0);
+
+        if (isOverdue) {
+            // Overdue includes base + penalty of THIS cycle minus what was paid
+            return Math.max(0, baseAmount + penalty - paid);
+        } else {
+            // Current bill includes ONLY current cycle base minus amount paid (ZERO previous balance)
+            return Math.max(0, baseAmount - paid);
+        }
+    }, []);
 
     const fetchData = useCallback(async () => {
         try {
@@ -124,18 +150,29 @@ export default function TenantPaymentScreen() {
             }
             
             // Fetch billing cycles
-            const response = await getAvailableBillingCycles(user.room_id);
-            const cycles = response?.data || response || [];
+            const rawCycles = response?.data || response || [];
+            const cycles = Array.isArray(rawCycles) ? rawCycles : (rawCycles?.cycles || []);
             
-            if (cycles && cycles.length > 0) {
-                // Find the OLDEST unpaid invoice to force chronological payments
-                let unpaidInvoices = cycles.filter(c => c.status === 'completed' && 
-                    ['unpaid', 'pending_verification', 'overdue', 'partially_paid'].includes(c.payment_status));
-                let latestInvoice = unpaidInvoices.length > 0 ? unpaidInvoices[unpaidInvoices.length - 1] : null;
-                if (!latestInvoice) {
-                    latestInvoice = cycles.find(c => c.status === 'completed');
-                }
-                setBillingCycle(latestInvoice || null);
+            const unpaid = cycles.filter(c => 
+                c.status === 'completed' && 
+                ['unpaid', 'pending_verification', 'overdue', 'partially_paid'].includes(c.payment_status)
+            );
+            setAllCycles(unpaid);
+
+            let chosen = null;
+            if (cycleId) {
+                chosen = cycles.find(c => String(c.id) === String(cycleId));
+            }
+            if (!chosen) {
+                // If no specific cycle targeted, prefer overdue first, else first unpaid, else completed
+                const overdueFirst = unpaid.find(c => c.payment_status === 'overdue');
+                chosen = overdueFirst || unpaid[0] || cycles.find(c => c.status === 'completed') || null;
+            }
+
+            setBillingCycle(chosen);
+            if (chosen) {
+                const isOverdue = type === 'overdue' || chosen.payment_status === 'overdue' || (chosen.days_overdue && chosen.days_overdue > 0);
+                setBillType(isOverdue ? 'overdue' : 'current');
             }
 
             // Fetch landlord settings for payment methods in a single request
@@ -159,7 +196,19 @@ export default function TenantPaymentScreen() {
         } finally {
             setLoading(false);
         }
-    }, [user?.room_id]);
+    }, [user?.room_id, cycleId, type]);
+
+    useEffect(() => {
+        fetchData();
+    }, [fetchData]);
+
+    const selectCycle = (cycle) => {
+        setBillingCycle(cycle);
+        const isOverdue = cycle.payment_status === 'overdue' || (cycle.days_overdue && cycle.days_overdue > 0);
+        setBillType(isOverdue ? 'overdue' : 'current');
+        setStep(1);
+        setPaymentMethod(null);
+    };
 
     const pickImage = async () => {
         try {
@@ -182,7 +231,6 @@ export default function TenantPaymentScreen() {
 
             if (!result.canceled && result.assets?.[0]) {
                 setProofUri(result.assets[0].uri);
-                // ImagePicker provides raw base64 without prefix
                 setProofBase64(result.assets[0].base64);
             }
         } catch (err) {
@@ -199,7 +247,6 @@ export default function TenantPaymentScreen() {
                     
                     const base64 = await FileSystem.readAsStringAsync(file.uri, { encoding: 'base64' });
                     const mimeType = file.mimeType || 'image/jpeg';
-                    // Store WITH prefix so we know it's already formatted
                     setProofBase64(`data:${mimeType};base64,${base64}`);
                 }
             } catch (fallbackErr) {
@@ -215,7 +262,7 @@ export default function TenantPaymentScreen() {
         try {
             const response = await getAvailableBillingCycles(user.room_id);
             const cycles = response?.data || response || [];
-            const targetCycle = cycles.find(c => c.id === billingCycle.id);
+            const targetCycle = cycles.find(c => c.id === billingCycle?.id);
             
             if (targetCycle && (targetCycle.payment_status === 'pending_verification' || targetCycle.payment_status === 'paid')) {
                 return true;
@@ -225,6 +272,11 @@ export default function TenantPaymentScreen() {
             return false;
         }
     };
+
+    // Calculate authoritative targeted amount
+    const targetDue = (cycleId && String(billingCycle?.id) === String(cycleId) && amount && parseFloat(amount) > 0)
+        ? parseFloat(amount)
+        : calculateCycleAmount(billingCycle, billType);
 
     const handleSubmit = async () => {
         if (!paymentMethod) {
@@ -240,21 +292,7 @@ export default function TenantPaymentScreen() {
         setSubmitting(true);
         setVerifying(false);
         try {
-            let grandTotal = parseFloat(billingCycle.grand_total || 0);
-            if (grandTotal === 0) {
-                 grandTotal = parseFloat(billingCycle.electricity_charge || 0) + 
-                              parseFloat(billingCycle.miscellaneous_fee || 0) + 
-                              parseFloat(billingCycle.penalty_amount || 0) + 
-                              parseFloat(billingCycle.monthly_rent || 0) + 
-                              parseFloat(billingCycle.previous_balance || 0) + 
-                              parseFloat(billingCycle.additional_charges || 0) - 
-                              parseFloat(billingCycle.discounts || 0);
-            }
-            if (grandTotal === 0) grandTotal = parseFloat(billingCycle.total_cost || 0) + parseFloat(billingCycle.miscellaneous_fee || 0) + parseFloat(billingCycle.penalty_amount || 0);
-            
-            const remainingBalance = grandTotal - parseFloat(billingCycle.amount_paid || 0);
-            const amountToPay = remainingBalance > 0 ? remainingBalance : grandTotal;
-
+            const amountToPay = targetDue;
             const finalRef = referenceNumber || (paymentMethod === 'Cash' ? `CASH-${Math.random().toString(36).substring(2, 10).toUpperCase()}` : null);
             
             let proofUrl = null;
@@ -290,7 +328,6 @@ export default function TenantPaymentScreen() {
                 console.warn('[TenantPayment] Connection unstable. Verifying if payment succeeded on backend...');
                 setVerifying(true);
                 
-                // Wait briefly before verifying to allow backend to process
                 await new Promise(res => setTimeout(res, 2000));
                 
                 const verified = await verifyPaymentSuccess();
@@ -312,6 +349,18 @@ export default function TenantPaymentScreen() {
         }
         setSubmitting(false);
         setVerifying(false);
+    };
+
+    const formatDate = (dateString) => {
+        if (!dateString) return '';
+        const date = new Date(dateString);
+        if (isNaN(date.getTime())) return dateString;
+        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    };
+
+    const formatStatus = (status) => {
+        if (!status) return 'Unpaid';
+        return status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
     };
 
     if (loading) {
@@ -344,37 +393,75 @@ export default function TenantPaymentScreen() {
         );
     }
 
-    let grandTotal = parseFloat(billingCycle.grand_total || 0);
-    if (grandTotal === 0) {
-        grandTotal = parseFloat(billingCycle.electricity_charge || 0) + 
-                     parseFloat(billingCycle.miscellaneous_fee || 0) + 
-                     parseFloat(billingCycle.penalty_amount || 0) + 
-                     parseFloat(billingCycle.monthly_rent || 0) + 
-                     parseFloat(billingCycle.previous_balance || 0) + 
-                     parseFloat(billingCycle.additional_charges || 0) - 
-                     parseFloat(billingCycle.discounts || 0);
-    }
-    if (grandTotal === 0) grandTotal = parseFloat(billingCycle.total_cost || 0) + parseFloat(billingCycle.miscellaneous_fee || 0) + parseFloat(billingCycle.penalty_amount || 0);
-    
-    const amountPaid = parseFloat(billingCycle.amount_paid || 0);
-    const totalDue = grandTotal - amountPaid;
-    
     const isPending = billingCycle.payment_status === 'pending_verification';
     const isPaid = billingCycle.payment_status === 'paid';
-
-    const formatStatus = (status) => {
-        if (!status) return 'Unpaid';
-        return status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
-    };
 
     return (
         <View style={styles.container}>
             <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
                 
-                {/* Hero Card for Amount Due */}
+                {/* INVOICE SWITCHER (if multiple unpaid invoices exist) */}
+                {allCycles.length > 1 && (
+                    <View style={styles.switcherSection}>
+                        <Text style={styles.switcherLabel}>Select Bill to Pay</Text>
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.switcherScroll}>
+                            {allCycles.map((c) => {
+                                const isSel = billingCycle?.id === c.id;
+                                const isCycOverdue = c.payment_status === 'overdue' || (c.days_overdue && c.days_overdue > 0);
+                                const cycDue = calculateCycleAmount(c, isCycOverdue ? 'overdue' : 'current');
+                                return (
+                                    <TouchableOpacity
+                                        key={c.id}
+                                        style={[styles.invoiceChip, isSel && styles.invoiceChipActive]}
+                                        onPress={() => selectCycle(c)}
+                                    >
+                                        <Ionicons 
+                                            name={isCycOverdue ? "alert-circle" : "document-text"} 
+                                            size={14} 
+                                            color={isSel ? '#60A5FA' : (isCycOverdue ? COLORS.danger : COLORS.textMuted)} 
+                                            style={{ marginRight: 6 }} 
+                                        />
+                                        <Text style={[styles.invoiceChipText, isSel && styles.invoiceChipTextActive]}>
+                                            {c.invoice_number || `INV-${c.id}`} (₱{cycDue.toFixed(2)})
+                                        </Text>
+                                    </TouchableOpacity>
+                                );
+                            })}
+                        </ScrollView>
+                    </View>
+                )}
+
+                {/* Hero Card for Target Bill */}
                 <View style={styles.heroCard}>
-                    <Text style={styles.heroTitle}>Remaining Balance</Text>
-                    <Text style={styles.heroAmount}>₱{totalDue.toFixed(2)}</Text>
+                    <View style={[
+                        styles.targetBadge, 
+                        billType === 'overdue' ? styles.targetBadgeOverdue : styles.targetBadgeCurrent
+                    ]}>
+                        <Ionicons 
+                            name={billType === 'overdue' ? "warning-outline" : "shield-checkmark-outline"} 
+                            size={13} 
+                            color={billType === 'overdue' ? COLORS.danger : COLORS.success} 
+                        />
+                        <Text style={[
+                            styles.targetBadgeText, 
+                            { color: billType === 'overdue' ? COLORS.danger : COLORS.success }
+                        ]}>
+                            {billType === 'overdue' ? 'Overdue Invoice' : 'Current Bill'}
+                        </Text>
+                    </View>
+
+                    <Text style={styles.targetInvoiceNumber}>
+                        Invoice #{billingCycle.invoice_number || billingCycle.id}
+                    </Text>
+                    {billingCycle.start_date && billingCycle.end_date && (
+                        <Text style={styles.targetPeriod}>
+                            {formatDate(billingCycle.start_date)} – {formatDate(billingCycle.end_date)}
+                        </Text>
+                    )}
+
+                    <Text style={styles.heroTitle}>Amount To Pay</Text>
+                    <Text style={styles.heroAmount}>₱{targetDue.toFixed(2)}</Text>
+                    
                     <View style={[styles.statusBox, isPaid && styles.statusBoxPaid, isPending && styles.statusBoxPending, { marginTop: 8 }]}>
                         <Text style={[styles.statusText, isPaid && styles.statusTextPaid, isPending && styles.statusTextPending]}>
                             Status: <Text style={styles.statusBold}>{formatStatus(billingCycle.payment_status)}</Text>
@@ -454,7 +541,7 @@ export default function TenantPaymentScreen() {
                                                 <Image source={{uri: landlordInfo.gcash_qr}} style={styles.qrImage} resizeMode="contain" />
                                             </View>
                                         ) : (
-                                            <DynamicQRCode invoiceNumber={billingCycle.invoice_number || billingCycle.id} amount={totalDue} method="GCash" />
+                                            <DynamicQRCode invoiceNumber={billingCycle.invoice_number || billingCycle.id} amount={targetDue} method="GCash" />
                                         )}
                                     </View>
                                 )}
@@ -473,7 +560,7 @@ export default function TenantPaymentScreen() {
                                                 <Image source={{uri: landlordInfo.maya_qr}} style={styles.qrImage} resizeMode="contain" />
                                             </View>
                                         ) : (
-                                            <DynamicQRCode invoiceNumber={billingCycle.invoice_number || billingCycle.id} amount={totalDue} method="Maya" />
+                                            <DynamicQRCode invoiceNumber={billingCycle.invoice_number || billingCycle.id} amount={targetDue} method="Maya" />
                                         )}
                                     </View>
                                 )}
@@ -574,4 +661,3 @@ export default function TenantPaymentScreen() {
         </View>
     );
 }
-
