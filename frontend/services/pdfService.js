@@ -67,7 +67,6 @@ export async function generateMonthlyReport({ roomId, tenantName, tenantStartDat
 <head>
   <meta charset="utf-8">
   <style>
-  <style>
 ${getMonthlyReportStyles(isHigher)}
   </style>
 </head>
@@ -160,10 +159,27 @@ export async function generateCycleReport({ roomId, tenantName, startDate, endDa
   const base64Logo = await getBase64Logo();
   const defaultRate = parseFloat(await getSetting('rate_per_kwh') || '12.50');
   
-  const startStr = startDate.toISOString().split('T')[0];
-  const endStr = endDate.toISOString().split('T')[0];
+  const parseSafeDate = (d) => {
+    if (!d) return new Date();
+    if (d instanceof Date && !isNaN(d.getTime())) return d;
+    const cleaned = typeof d === 'string' ? d.replace(' ', 'T') : d;
+    const parsed = new Date(cleaned);
+    return isNaN(parsed.getTime()) ? new Date() : parsed;
+  };
+
+  const sDate = parseSafeDate(startDate || billingCycle?.cycle_start);
+  const eDate = parseSafeDate(endDate || billingCycle?.cycle_end);
+
+  const startStr = sDate.toISOString().split('T')[0];
+  const endStr = eDate.toISOString().split('T')[0];
   
-  const fetchedHistory = await getTransactionHistory(roomId, 300, 'daily', tenantName, 0, startStr, endStr);
+  let fetchedHistory = [];
+  try {
+    fetchedHistory = await getTransactionHistory(roomId, 300, 'daily', tenantName, 0, startStr, endStr) || [];
+  } catch (histErr) {
+    console.warn('[pdfService] getTransactionHistory fallback to empty:', histErr);
+    fetchedHistory = [];
+  }
   
   const flattenedHistory = (fetchedHistory || []).reduce((acc, group) => {
     if (group.data && Array.isArray(group.data)) {
@@ -172,9 +188,9 @@ export async function generateCycleReport({ roomId, tenantName, startDate, endDa
     return acc;
   }, []);
 
-  const startBoundary = new Date(startDate);
+  const startBoundary = new Date(sDate);
   startBoundary.setHours(0, 0, 0, 0);
-  const endBoundary = new Date(endDate);
+  const endBoundary = new Date(eDate);
   endBoundary.setHours(23, 59, 59, 999);
 
   const filteredHistory = flattenedHistory.filter(h => {
@@ -238,7 +254,7 @@ export async function generateCycleReport({ roomId, tenantName, startDate, endDa
   const paymentMethodText = paymentMethods.length > 0 ? paymentMethods.join(', ') : '';
 
   const months = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
-  const billingMonth = `${months[endDate.getMonth()]} ${endDate.getFullYear()}`;
+  const billingMonth = `${months[eDate.getMonth()]} ${eDate.getFullYear()}`;
   
   const accountNo = `WT-AC-00${String(roomId).replace(/\D/g, '') || '1'}`;
   const serialNo = `GE${generated.getTime().toString().slice(-8)}`;
@@ -290,7 +306,6 @@ export async function generateCycleReport({ roomId, tenantName, startDate, endDa
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>
   <style>
 ${getCycleReportStyles()}
   </style>
@@ -510,8 +525,8 @@ ${getCycleReportStyles()}
     <div class="overdue-box">
       ${isPaid 
         ? `<div class="overdue-row total" style="color:#16A34A; border-color: #BBF7D0;"><span>FULLY PAID</span></div>`
-        : penaltyFee > 0             ? (() => {
-                 const originalAmountForPenalty = Math.max(0, Number(billingCycle.grand_total ? (parseFloat(billingCycle.grand_total) - parseFloat(billingCycle.penalty_amount || 0) - parseFloat(billingCycle.amount_paid || 0)) : (parseFloat(billingCycle.electricity_charge || billingCycle.total_cost || 0) + parseFloat(billingCycle.miscellaneous_fee || 0))));
+        : penaltyFee > 0 ? (() => {
+                 const originalAmountForPenalty = Math.max(0, Number(billingCycle?.grand_total ? (parseFloat(billingCycle.grand_total) - parseFloat(billingCycle.penalty_amount || 0) - parseFloat(billingCycle.amount_paid || 0)) : (parseFloat(billingCycle?.electricity_charge || billingCycle?.total_cost || 0) + parseFloat(billingCycle?.miscellaneous_fee || 0))));
                  const dailyPenaltyAmountCalc = (originalAmountForPenalty * (penaltyRatePercent / 100)).toFixed(2);
                  return `<div class="overdue-row"><span>Original Amount Due</span><span>${originalAmountForPenalty.toFixed(2)}</span></div>
                <div class="overdue-row"><span>Daily Penalty Rate</span><span>${penaltyRatePercent}%</span></div>

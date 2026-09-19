@@ -26,12 +26,16 @@ export default function AnimatedBudgetRing({
   const animProgress = useRef(new Animated.Value(visualPercentage)).current;
 
   useEffect(() => {
-    Animated.timing(animProgress, {
+    const animation = Animated.timing(animProgress, {
       toValue: visualPercentage,
       duration: 600,
       easing: Easing.out(Easing.cubic),
       useNativeDriver: false,
-    }).start();
+    });
+    animation.start();
+    return () => {
+      animation.stop();
+    };
   }, [visualPercentage, animProgress]);
 
   const getColor = () => {

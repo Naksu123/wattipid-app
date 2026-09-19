@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, ScrollView, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { isCancel } from 'axios';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { CopilotStep, walkthroughable } from 'react-native-copilot';
@@ -80,15 +79,11 @@ function BudgetScreen() {
   }, [budgetData]);
 
   const isMountedRef = useRef(true);
-  const compAbortRef = useRef(null);
 
   useEffect(() => {
     isMountedRef.current = true;
     return () => {
       isMountedRef.current = false;
-      if (compAbortRef.current) {
-        compAbortRef.current.abort();
-      }
     };
   }, []);
 
@@ -138,12 +133,6 @@ function BudgetScreen() {
   const fetchComparison = useCallback(async (period) => {
     if (!roomId) return;
 
-    if (compAbortRef.current) {
-      compAbortRef.current.abort();
-    }
-    compAbortRef.current = new AbortController();
-    const options = { signal: compAbortRef.current.signal };
-
     // Instant zero-latency display if cached
     if (compCacheRef.current[period]) {
       setComparison(compCacheRef.current[period]);
@@ -152,17 +141,14 @@ function BudgetScreen() {
     const seq = ++compSeqRef.current;
 
     try {
-      const comp = await getConsumptionComparison(roomId, period, user?.name, options);
+      const comp = await getConsumptionComparison(roomId, period, user?.name);
       if (!isMountedRef.current || seq !== compSeqRef.current) return;
       if (comp) {
         compCacheRef.current[period] = comp;
         setComparison(comp);
       }
     } catch (e) {
-      const isCanceled = isCancel(e) || e?.message === 'canceled' || e?.name === 'CanceledError' || e?.name === 'AbortError';
-      if (!isCanceled) {
-        console.warn('[Budget] fetchComparison error:', e?.message || e);
-      }
+      console.warn('[Budget] fetchComparison error:', e?.message || e);
     }
   }, [roomId, user?.name]);
 
@@ -276,7 +262,7 @@ function BudgetScreen() {
       >
         {/* Section 1 of 3: Live Budget */}
         <CopilotStep
-          text={`Live Budget shows your current budget usage in real time. It helps you see how much of your budget has already been used and how much remains.\n\nStatus Levels:\n• Normal • Approaching • Warning • Exceeded\nThe status changes depending on how much of the budget has been consumed.`}
+          text="Live Budget shows how much of your electricity budget has been used and helps you monitor your current budget status."
           order={12}
           name="budget_live"
         >
@@ -358,7 +344,7 @@ function BudgetScreen() {
 
         {/* Section 2 of 3: Budget Breakdown */}
         <CopilotStep
-          text="Budget Breakdown shows how your budget is being used across different periods, such as daily, weekly, and monthly consumption. This helps you understand where your electricity spending is increasing."
+          text="Budget Breakdown shows how your electricity budget is being used across the available periods."
           order={13}
           name="budget_breakdown"
         >
@@ -426,24 +412,33 @@ function BudgetScreen() {
                 </View>
               </GlassCard>
             ) : (
-              <View style={{ width: '100%', height: 1 }} />
+              <GlassCard style={s.breakdownCard}>
+                <View style={s.breakdownHeader}>
+                  <Text style={s.breakdownTitle} numberOfLines={1}>Budget Breakdown</Text>
+                </View>
+                <View style={{ paddingVertical: 14, alignItems: 'center' }}>
+                  <Ionicons name="pie-chart-outline" size={28} color={COLORS.primary} style={{ marginBottom: 6 }} />
+                  <Text style={{ color: COLORS.textPrimary, fontSize: 13, fontWeight: '600', marginBottom: 2 }}>Daily, Weekly & Monthly Limits</Text>
+                  <Text style={{ color: COLORS.textMuted, fontSize: 11, textAlign: 'center' }}>Set a monthly budget to automatically distribute and track your allowances.</Text>
+                </View>
+              </GlassCard>
             )}
           </CopilotView>
         </CopilotStep>
 
         {/* Section 3 of 3: Budget Comparison */}
-        <GlassCard style={s.compCard}>
-          <View style={s.compHeader}>
-            <CopilotStep
-              text="Budget Comparison allows you to compare your electricity consumption and budget performance across different periods. Use this information to identify changes in your spending and improve your budget management."
-              order={14}
-              name="budget_comparison"
-            >
-              <CopilotView style={s.compTitleRow}>
-                <Ionicons name="swap-horizontal" size={20} color={COLORS.info} />
-                <Text style={s.compTitle}>Budget Comparison</Text>
-              </CopilotView>
-            </CopilotStep>
+        <CopilotStep
+          text="Budget Comparison allows you to compare your electricity consumption or budget performance across different periods."
+          order={14}
+          name="budget_comparison"
+        >
+          <CopilotView style={s.fullWidth}>
+            <GlassCard style={s.compCard}>
+              <View style={s.compHeader}>
+                <View style={s.compTitleRow}>
+                  <Ionicons name="swap-horizontal" size={20} color={COLORS.info} />
+                  <Text style={s.compTitle}>Budget Comparison</Text>
+                </View>
 
             <View style={s.compPeriodRow}>
               {BUDGET_TABS.map(p => (
@@ -510,6 +505,8 @@ function BudgetScreen() {
             );
           })()}
         </GlassCard>
+          </CopilotView>
+        </CopilotStep>
 
       </ScrollView>
 

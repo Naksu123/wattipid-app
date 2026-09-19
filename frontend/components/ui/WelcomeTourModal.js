@@ -84,7 +84,7 @@ export default function WelcomeTourModal() {
               activeOpacity={0.8}
               onPress={startContinuousTour}
             >
-              <Text style={styles.primaryButtonText}>Start Quick Tour</Text>
+              <Text style={styles.primaryButtonText}>Start Full Tour</Text>
               <Ionicons name="arrow-forward" size={18} color="#fff" />
             </TouchableOpacity>
 

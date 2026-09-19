@@ -202,6 +202,7 @@ export default function TenantBillingScreen() {
     const currentStatusConfig = currentBill ? getStatusConfig(currentBill.payment_status) : null;
     const isCurrentPaid = currentBill?.payment_status === 'paid';
     const isCurrentPending = currentBill?.payment_status === 'pending_verification';
+    const isCurrentBillOverdue = currentBill?.payment_status === 'overdue';
 
     const formatDate = (dateStr, options = { month: 'short', day: 'numeric', year: 'numeric' }) => {
         if (!dateStr) return 'N/A';
@@ -218,6 +219,12 @@ export default function TenantBillingScreen() {
                 ref={scrollViewRef}
                 contentContainerStyle={styles.scroll} 
                 showsVerticalScrollIndicator={false}
+                scrollEventThrottle={16}
+                onScroll={(e) => {
+                    if (scrollViewRef.current) {
+                        scrollViewRef.current._scrollY = e.nativeEvent.contentOffset.y;
+                    }
+                }}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
             >
                 {/* ═══════════════════════════════════════════════════════════
@@ -237,26 +244,31 @@ export default function TenantBillingScreen() {
                 {/* ═══════════════════════════════════════════════════════════
                     SECTION 1: CURRENT BILL (Dedicated Current Cycle Section)
                    ═══════════════════════════════════════════════════════════ */}
-                <View style={styles.sectionHeaderRow}>
-                    <Text style={styles.sectionTitlePrimary}>CURRENT BILL</Text>
-                    {hasCurrentBill && currentBill?.cycle_start && currentBill?.cycle_end && (
-                        <Text style={styles.sectionPeriodSub}>
-                            {formatDate(currentBill.cycle_start)} – {formatDate(currentBill.cycle_end)}
-                        </Text>
-                    )}
-                    {isCycleActive && activeCycle?.cycle_start && activeCycle?.cycle_end && (
-                        <Text style={styles.sectionPeriodSub}>
-                            {formatDate(activeCycle.cycle_start)} – {formatDate(activeCycle.cycle_end)}
-                        </Text>
-                    )}
-                </View>
+                <CopilotStep
+                    text="Invoice Number displays your billing identifier and current payment status."
+                    order={15}
+                    name="payment_invoice"
+                >
+                    <CopilotView style={styles.copilotFullWidth}>
+                        <View style={styles.sectionHeaderRow}>
+                            <Text style={styles.sectionTitlePrimary}>CURRENT BILL</Text>
+                            <Text style={styles.sectionPeriodSub}>
+                                {hasCurrentBill && currentBill?.cycle_start && currentBill?.cycle_end
+                                    ? `${formatDate(currentBill.cycle_start)} – ${formatDate(currentBill.cycle_end)}`
+                                    : (isCycleActive && activeCycle?.cycle_start && activeCycle?.cycle_end
+                                        ? `${formatDate(activeCycle.cycle_start)} – ${formatDate(activeCycle.cycle_end)}`
+                                        : 'Current Statement Period')}
+                            </Text>
+                        </View>
+                    </CopilotView>
+                </CopilotStep>
 
                 {hasCurrentBill ? (
                     /* CASE B (State 3): Completed current bill has been generated */
                     <CopilotStep
-                        text="This is your current billing cycle invoice. It contains only current cycle usage charges."
-                        order={2}
-                        name="billing_amountDue"
+                        text="Amount Due shows your current billing balance, due date, and quick payment options."
+                        order={16}
+                        name="payment_amount_due"
                     >
                         <CopilotView style={styles.copilotFullWidth}>
                             <GlassCard style={styles.cardPrimary} premium>
@@ -299,20 +311,21 @@ export default function TenantBillingScreen() {
                                     )}
                                 </View>
 
+                                {/* Mini Metadata Grid: Due Date & Coverage */}
                                 <View style={styles.dueRow}>
-                                    <View style={{ flex: 1, marginRight: 8 }}>
+                                    <View>
                                         <Text style={styles.dueLabel}>Due Date</Text>
-                                        <Text style={styles.dueValue} numberOfLines={1}>{formatDate(currentBill.due_date, { month: 'long', day: 'numeric', year: 'numeric' })}</Text>
+                                        <Text style={styles.dueValue}>{formatDate(currentBill.due_date)}</Text>
                                     </View>
-                                    {currentBill.payment_status === 'overdue' && (
+                                    {isCurrentBillOverdue && (
                                         <View style={styles.overdueFlag}>
                                             <Ionicons name="alert-circle" size={12} color={COLORS.danger} />
-                                            <Text style={styles.overdueFlagText}>Past Due</Text>
+                                            <Text style={styles.overdueFlagText}>OVERDUE</Text>
                                         </View>
                                     )}
                                 </View>
 
-                                {/* Action Buttons for Current Bill - 100% Overflow Protected */}
+                                {/* Action Buttons: View Breakdown & Pay */}
                                 <View style={styles.btnRow}>
                                     <TouchableOpacity 
                                         style={styles.secondaryBtn} 
@@ -487,9 +500,9 @@ export default function TenantBillingScreen() {
                 ) : isCycleActive ? (
                     /* CASE A (State 2): Current billing cycle is active, recording consumption */
                     <CopilotStep
-                        text="Your current cycle is actively recording consumption. Bill is generated at the end of the cycle."
-                        order={2}
-                        name="billing_amountDue"
+                        text="Amount Due shows your current billing balance, due date, and quick payment options."
+                        order={16}
+                        name="payment_amount_due"
                     >
                         <CopilotView style={styles.copilotFullWidth}>
                             <GlassCard style={styles.activeCycleCard} premium>
@@ -539,13 +552,21 @@ export default function TenantBillingScreen() {
                     </CopilotStep>
                 ) : (
                     /* STATE 1: Genuinely no current billing activity */
-                    <GlassCard style={styles.emptyCard}>
-                        <Ionicons name="calendar-outline" size={32} color={COLORS.textSecondary} />
-                        <Text style={styles.emptyTitle}>NO CURRENT BILL</Text>
-                        <Text style={styles.emptyDesc}>
-                            No active billing cycle or pending invoice found for your room.
-                        </Text>
-                    </GlassCard>
+                    <CopilotStep
+                        text="Amount Due shows your current billing balance, due date, and quick payment options."
+                        order={16}
+                        name="payment_amount_due"
+                    >
+                        <CopilotView style={styles.copilotFullWidth}>
+                            <GlassCard style={styles.emptyCard}>
+                                <Ionicons name="calendar-outline" size={32} color={COLORS.textSecondary} />
+                                <Text style={styles.emptyTitle}>NO CURRENT BILL</Text>
+                                <Text style={styles.emptyDesc}>
+                                    No active billing cycle or pending invoice found for your room.
+                                </Text>
+                            </GlassCard>
+                        </CopilotView>
+                    </CopilotStep>
                 )}
 
                 {/* ═══════════════════════════════════════════════════════════
@@ -776,9 +797,9 @@ export default function TenantBillingScreen() {
                     SECTION 4: QUICK ACTION TILES
                    ═══════════════════════════════════════════════════════════ */}
                 <CopilotStep
-                    text="Use these shortcuts to view your full history or download PDF invoices."
-                    order={3}
-                    name="billing_actions"
+                    text="Billing History lets you review previous billing records, while View PDF opens the detailed billing document."
+                    order={17}
+                    name="payment_history"
                 >
                     <CopilotView style={styles.actionRow}>
                         <TouchableOpacity
@@ -793,17 +814,19 @@ export default function TenantBillingScreen() {
                         <TouchableOpacity
                             style={styles.actionBtn}
                             onPress={() => {
-                                const targetCycle = currentBill || (overdueBills.length > 0 ? overdueBills[0] : null);
+                                const targetCycle = currentBill || (overdueBills.length > 0 ? overdueBills[0] : null) || activeCycle;
                                 if (targetCycle) {
                                     router.push({
                                         pathname: '/(tenant)/pdf-viewer',
                                         params: { 
-                                            invoiceNumber: targetCycle.invoice_number,
-                                            cycleId: targetCycle.id 
+                                            id: targetCycle.id,
+                                            cycleId: targetCycle.id,
+                                            invoice_number: targetCycle.invoice_number || '',
+                                            invoiceNumber: targetCycle.invoice_number || '' 
                                         }
                                     });
                                 } else {
-                                    showModal({ type: 'info', title: 'Invoice', message: 'No completed invoices available to view.' });
+                                    showModal({ type: 'info', title: 'Invoice', message: 'No invoices available to view.' });
                                 }
                             }}
                             activeOpacity={0.8}
@@ -817,17 +840,17 @@ export default function TenantBillingScreen() {
                 {/* ═══════════════════════════════════════════════════════════
                     SECTION 5: CURRENT CYCLE ITEMIZED BREAKDOWN (Accordion)
                    ═══════════════════════════════════════════════════════════ */}
-                {currentBill && (
-                    <CopilotStep
-                        text="Here is the detailed itemized cost breakdown for your current cycle charges."
-                        order={4}
-                        name="billing_breakdown"
-                    >
-                        <CopilotView style={styles.copilotFullWidth}>
-                            <View style={styles.sectionHeaderRow}>
-                                <Text style={styles.sectionTitle}>CURRENT CYCLE BREAKDOWN</Text>
-                            </View>
+                <CopilotStep
+                    text="Billing Breakdown shows the components that make up your bill, including applicable electricity charges, penalties, and other configured charges."
+                    order={18}
+                    name="payment_breakdown"
+                >
+                    <CopilotView style={styles.copilotFullWidth}>
+                        <View style={styles.sectionHeaderRow}>
+                            <Text style={styles.sectionTitle}>CURRENT CYCLE BREAKDOWN</Text>
+                        </View>
 
+                        {currentBill ? (
                             <GlassCard style={styles.breakdownContainer}>
                                 {/* Electricity Item */}
                                 <View style={styles.accordionItem}>
@@ -969,9 +992,19 @@ export default function TenantBillingScreen() {
                                     </Text>
                                 </View>
                             </GlassCard>
-                        </CopilotView>
-                    </CopilotStep>
-                )}
+                        ) : (
+                            <GlassCard style={[styles.breakdownContainer, { padding: 18, alignItems: 'center' }]}>
+                                <Ionicons name="receipt-outline" size={32} color={COLORS.primary} style={{ marginBottom: 8 }} />
+                                <Text style={[styles.sectionTitle, { fontSize: 14, color: COLORS.textPrimary, marginBottom: 4 }]}>
+                                    Cycle Calculation Pending
+                                </Text>
+                                <Text style={[styles.summaryCaption, { textAlign: 'center' }]}>
+                                    Itemized electricity, rent, and common charges will appear here once the active billing cycle concludes.
+                                </Text>
+                            </GlassCard>
+                        )}
+                    </CopilotView>
+                </CopilotStep>
 
                 {/* Information Card when cycle is active but not billed yet */}
                 {isCycleActive && !currentBill && (

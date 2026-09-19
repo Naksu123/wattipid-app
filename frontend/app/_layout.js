@@ -1,16 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter, useSegments, Slot } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { View, Text, ActivityIndicator, LogBox, Platform, StatusBar as RNStatusBar } from 'react-native';
-
-// Suppress harmless React Native deprecation warnings caused by 3rd-party libraries
-LogBox.ignoreLogs([
-  'ProgressBarAndroid has been extracted',
-  'SafeAreaView has been deprecated',
-  'Clipboard has been extracted',
-  'InteractionManager has been deprecated',
-  'PushNotificationIOS has been extracted'
-]);
+import { View, Text, ActivityIndicator, Platform, StatusBar as RNStatusBar } from 'react-native';
 import { AuthProvider , useAuth } from '@/contexts/AuthContext';
 import { getDatabase } from '../services/database';
 import { initNotifications, setupNotificationResponseHandler } from '../services/notificationService';

@@ -12,9 +12,11 @@ import { COLORS } from '../../styles/theme';
 import styles from '../../styles/tenant/pdf-viewer.styles';
 
 export default function PDFViewerScreen() {
-    const { id, invoice_number } = useLocalSearchParams();
+    const params = useLocalSearchParams();
+    const id = params?.id || params?.cycleId;
+    const invoice_number = params?.invoice_number || params?.invoiceNumber;
     const router = useRouter();
-    const { user } = useAuth();
+    const { user, loading: authLoading } = useAuth();
     const { showModal } = useModal();
     
     const [loading, setLoading] = useState(true);
@@ -22,6 +24,8 @@ export default function PDFViewerScreen() {
     const [errorMsg, setErrorMsg] = useState(null);
 
     useEffect(() => {
+        if (authLoading) return;
+
         if (id || invoice_number) {
             loadAndGeneratePDF();
         } else {
@@ -36,24 +40,36 @@ export default function PDFViewerScreen() {
 
         return () => backHandler.remove();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [id, invoice_number, router]);
+    }, [id, invoice_number, authLoading, router]);
 
     const loadAndGeneratePDF = async () => {
         try {
-            // 1. Fetch exact backend records (use invoice_number if available)
-            const billingCycle = await getBillingDetails(invoice_number || null, id || null, user.room_id);
+            setLoading(true);
+            setErrorMsg(null);
+
+            // 1. Fetch exact backend records (use invoice_number if available, fallback to id)
+            const roomId = user?.room_id || null;
+            const billingCycle = await getBillingDetails(invoice_number || null, id || null, roomId);
             if (!billingCycle) {
                 console.error('[PDF Viewer] Billing Details API returned empty. id:', id, 'invoice_number:', invoice_number);
                 throw new Error('Billing record not found in the database. Please try again.');
             }
             
-            const startDate = new Date(billingCycle.cycle_start);
-            const endDate = new Date(billingCycle.cycle_end);
+            const parseSafeDate = (d) => {
+                if (!d) return new Date();
+                if (d instanceof Date && !isNaN(d.getTime())) return d;
+                const cleaned = typeof d === 'string' ? d.replace(' ', 'T') : d;
+                const parsed = new Date(cleaned);
+                return isNaN(parsed.getTime()) ? new Date() : parsed;
+            };
+
+            const startDate = parseSafeDate(billingCycle.cycle_start);
+            const endDate = parseSafeDate(billingCycle.cycle_end);
             
             // 2. Pass strictly to pdfService which now uses backend values
             const result = await generateCycleReport({
-                roomId: user.room_id,
-                tenantName: user.name || 'Tenant',
+                roomId: roomId || billingCycle.room_id,
+                tenantName: user?.name || billingCycle.tenant_name || 'Tenant',
                 startDate,
                 endDate,
                 reportTitle: `Statement of Account`,
@@ -63,8 +79,8 @@ export default function PDFViewerScreen() {
             
             setPdfUri(result.uri);
         } catch (error) {
-            console.error('[PDF Viewer] Failed to generate PDF:', error.message);
-            setErrorMsg(error.message || 'Could not generate the PDF statement.');
+            console.error('[PDF Viewer] Failed to generate PDF:', error?.message || error);
+            setErrorMsg(error?.message || 'Could not generate the PDF statement.');
         } finally {
             setLoading(false);
         }

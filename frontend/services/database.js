@@ -234,27 +234,45 @@ export async function getConsumptionComparison(roomId, period = 'weekly', tenant
   try {
     const data = await apiCall('getConsumptionComparison', { roomId, period, tenantName }, options);
     
+    const currEnergy = parseFloat(data?.current?.totalEnergy);
+    const currCost = parseFloat(data?.current?.totalCost);
+    const prevEnergy = parseFloat(data?.previous?.totalEnergy);
+    const prevCost = parseFloat(data?.previous?.totalCost);
+
     const current = {
-      totalEnergy: parseFloat(data?.current?.totalEnergy || 0),
-      totalCost: parseFloat(data?.current?.totalCost || 0)
+      totalEnergy: Number.isFinite(currEnergy) ? Math.max(0, currEnergy) : 0,
+      totalCost: Number.isFinite(currCost) ? Math.max(0, currCost) : 0
     };
     
     const previous = {
-      totalEnergy: parseFloat(data?.previous?.totalEnergy || 0),
-      totalCost: parseFloat(data?.previous?.totalCost || 0)
+      totalEnergy: Number.isFinite(prevEnergy) ? Math.max(0, prevEnergy) : 0,
+      totalCost: Number.isFinite(prevCost) ? Math.max(0, prevCost) : 0
     };
 
     const costDiff = current.totalCost - previous.totalCost;
     const energyDiff = current.totalEnergy - previous.totalEnergy;
     
-    const costPctChange = previous.totalCost > 0 ? (costDiff / previous.totalCost) * 100 : 0;
-    const energyPctChange = previous.totalEnergy > 0 ? (energyDiff / previous.totalEnergy) * 100 : 0;
+    let costPctChange = 0;
+    if (previous.totalCost > 0) {
+      costPctChange = (costDiff / previous.totalCost) * 100;
+    } else if (current.totalCost > 0) {
+      costPctChange = 100; // New spending from zero
+    }
+    if (!Number.isFinite(costPctChange)) costPctChange = 0;
+
+    let energyPctChange = 0;
+    if (previous.totalEnergy > 0) {
+      energyPctChange = (energyDiff / previous.totalEnergy) * 100;
+    } else if (current.totalEnergy > 0) {
+      energyPctChange = 100; // New energy from zero
+    }
+    if (!Number.isFinite(energyPctChange)) energyPctChange = 0;
 
     return { 
       current, 
       previous, 
-      costDiff, 
-      energyDiff, 
+      costDiff: Number.isFinite(costDiff) ? costDiff : 0, 
+      energyDiff: Number.isFinite(energyDiff) ? energyDiff : 0, 
       costPctChange, 
       energyPctChange,
       isAbnormal: !!data?.isAbnormal,

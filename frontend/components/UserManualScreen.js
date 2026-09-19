@@ -201,8 +201,8 @@ export default function UserManualScreen() {
             >
               <Ionicons name="play-circle" size={26} color="#fff" />
               <View style={{ flex: 1 }}>
-                <Text style={{ color: '#fff', fontWeight: '800', fontSize: 15 }}>Start Full Interactive Tour</Text>
-                <Text style={{ color: 'rgba(255, 255, 255, 0.85)', fontSize: 11 }}>Complete walkthrough across all 6 main screens</Text>
+                <Text style={{ color: '#fff', fontWeight: '800', fontSize: 15 }}>Start Full Tour</Text>
+                <Text style={{ color: 'rgba(255, 255, 255, 0.85)', fontSize: 11 }}>Complete walkthrough across all 6 main screens (23 steps)</Text>
               </View>
               <Ionicons name="arrow-forward" size={18} color="#fff" />
             </TouchableOpacity>

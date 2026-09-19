@@ -65,19 +65,11 @@ export default function AnalyticsScreen() {
   const router = useRouter();
   
   const cacheRef = React.useRef({});
-  const coreAbortRef = React.useRef(null);
-  const forecastAbortRef = React.useRef(null);
+  const statsSeqRef = React.useRef(0);
+  const forecastSeqRef = React.useRef(0);
 
   const scrollViewRef = React.useRef(null);
   useTourAutoStart('analytics', !loadingPeriod, scrollViewRef);
-
-  // Clean up abort controllers on unmount
-  useEffect(() => {
-    return () => {
-      if (coreAbortRef.current) coreAbortRef.current.abort();
-      if (forecastAbortRef.current) forecastAbortRef.current.abort();
-    };
-  }, []);
 
   const roomId = user?.room_id || 'Room 1';
 
@@ -93,9 +85,7 @@ export default function AnalyticsScreen() {
   const loadStatsData = useCallback(async (isBackgroundRefresh = false) => {
     if (!user || !roomId) return;
 
-    if (coreAbortRef.current) coreAbortRef.current.abort();
-    coreAbortRef.current = new AbortController();
-    const options = { signal: coreAbortRef.current.signal };
+    const seq = ++statsSeqRef.current;
 
     const tenantName = user?.name;
     const targetYear = selectedDate.getFullYear();
@@ -122,9 +112,11 @@ export default function AnalyticsScreen() {
 
     try {
       const [data, comp] = await Promise.all([
-        getConsumptionHistory(roomId, period, tenantName, targetYear, targetMonth, targetDateStr, options),
-        getConsumptionComparison(roomId, period, tenantName, options)
+        getConsumptionHistory(roomId, period, tenantName, targetYear, targetMonth, targetDateStr),
+        getConsumptionComparison(roomId, period, tenantName)
       ]);
+
+      if (seq !== statsSeqRef.current) return;
 
       const fetchedRate = rate || 12.50; // Use state rate or default
 
@@ -195,21 +187,22 @@ export default function AnalyticsScreen() {
   const loadForecastData = useCallback(async () => {
     if (!user || !roomId) return;
     
-    if (forecastAbortRef.current) forecastAbortRef.current.abort();
-    forecastAbortRef.current = new AbortController();
-    const options = { signal: forecastAbortRef.current.signal };
+    const seq = ++forecastSeqRef.current;
     
     setLoadingForecast(true);
     setForecastError(false);
     try {
-      const forecastData = await getMonthlyForecast(roomId, user?.name, options);
+      const forecastData = await getMonthlyForecast(roomId, user?.name);
+      if (seq !== forecastSeqRef.current) return;
       setForecast(forecastData);
     } catch (e) {
-      if (e.message !== 'canceled' && e.name !== 'CanceledError') {
-         setForecastError(true);
+      if (seq === forecastSeqRef.current) {
+        setForecastError(true);
       }
     } finally {
-      setLoadingForecast(false);
+      if (seq === forecastSeqRef.current) {
+        setLoadingForecast(false);
+      }
     }
   }, [roomId, user?.name]);
 
@@ -502,7 +495,7 @@ export default function AnalyticsScreen() {
 
 
         {/* ── Period Tabs (Step 1 of 5) ─────────────────────────────────────────── */}
-        <CopilotStep text="Use these tabs to switch between daily, weekly, monthly, and yearly electricity analytics." order={4} name="analytics_periodSelector">
+        <CopilotStep text="Use these tabs to switch between daily, weekly, monthly, and yearly electricity analytics." order={4} name="analytics_period_selector">
           <CopilotView style={s.periodRow}>
             {PERIODS.map(p => (
               <TouchableOpacity key={p} onPress={() => setPeriod(p)}
@@ -530,7 +523,7 @@ export default function AnalyticsScreen() {
         </View>
 
         {/* ── Period Summary Card (Step 2 of 5) ─────────────────────────────────────── */}
-        <CopilotStep text="This section summarizes your electricity consumption cost and average usage for the selected period." order={5} name="analytics_summary">
+        <CopilotStep text="This section summarizes your electricity consumption and cost for the selected period, including the daily average." order={5} name="analytics_period_summary">
           <CopilotView style={{ marginBottom: SPACING.sm }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, marginLeft: 4, marginRight: 4 }}>
               <Text style={{ fontSize: 14, fontWeight: '600', color: COLORS.textSecondary }}>Period Summary</Text>
@@ -571,7 +564,7 @@ export default function AnalyticsScreen() {
 
         {/* ── Electricity Consumption (Step 3 of 5) ───────────────────────────────── */}
         <CopilotStep
-          text="View your electricity consumption through charts, detailed breakdowns, and historical records."
+          text="This section visualizes your electricity consumption and lets you review your data through Charts, Breakdown, and History."
           order={6}
           name="analytics_consumption"
         >
@@ -830,7 +823,7 @@ export default function AnalyticsScreen() {
         </BaseModal>
 
         {/* ── Wattipid Smart Insights (Step 4 of 5) ────────────────────────────────── */}
-        <CopilotStep text="Smart Insights analyzes your consumption patterns and provides useful recommendations based on your electricity usage." order={7} name="analytics_insights">
+        <CopilotStep text="Smart Insights analyzes your consumption patterns and provides useful recommendations based on your electricity usage." order={7} name="analytics_smart_insights">
           <CopilotView style={{ marginTop: 8 }}>
             <GlassCard style={s.insightCard}>
               <View style={s.insightHeader}>
@@ -862,7 +855,7 @@ export default function AnalyticsScreen() {
         </CopilotStep>
 
         {/* ── PDF Report (Step 5 of 5) ────────────────────────────────────────────── */}
-        <CopilotStep text="Generate a report for the selected period to review or keep a record of your electricity consumption." order={8} name="analytics_report">
+        <CopilotStep text="Generate a report for the selected period to review and keep a record of your electricity consumption." order={8} name="analytics_generate_report">
           <CopilotView style={{ marginTop: 8 }}>
             <GlassCard style={s.reportCard}>
               <View style={s.reportHeader}>

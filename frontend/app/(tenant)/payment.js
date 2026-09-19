@@ -92,7 +92,7 @@ const PremiumAnimatedButton = ({ onPress, disabled, title, loading, type, icon }
 };
 
 export default function TenantPaymentScreen() {
-    const { user } = useAuth();
+    const { user, loading: authLoading } = useAuth();
     const { showModal } = useModal();
     const router = useRouter();
     const params = useLocalSearchParams();
@@ -112,6 +112,7 @@ export default function TenantPaymentScreen() {
     const [proofUri, setProofUri] = useState(null);
     const [proofBase64, setProofBase64] = useState(null);
     const [submitting, setSubmitting] = useState(false);
+    const [verifying, setVerifying] = useState(false);
 
     // Landlord Settings
     const [landlordInfo, setLandlordInfo] = useState({});
@@ -142,19 +143,23 @@ export default function TenantPaymentScreen() {
     }, []);
 
     const fetchData = useCallback(async () => {
+        if (authLoading) return;
+        if (!user) return;
+        if (!user?.room_id) {
+            setError('No room assigned to your account.');
+            setLoading(false);
+            return;
+        }
+
         try {
-            if (!user?.room_id) {
-                setError('No room assigned to your account.');
-                setLoading(false);
-                return;
-            }
+            setError(null);
             
             // Fetch billing cycles
+            const response = await getAvailableBillingCycles(user.room_id);
             const rawCycles = response?.data || response || [];
             const cycles = Array.isArray(rawCycles) ? rawCycles : (rawCycles?.cycles || []);
             
             const unpaid = cycles.filter(c => 
-                c.status === 'completed' && 
                 ['unpaid', 'pending_verification', 'overdue', 'partially_paid'].includes(c.payment_status)
             );
             setAllCycles(unpaid);
@@ -176,19 +181,31 @@ export default function TenantPaymentScreen() {
             }
 
             // Fetch landlord settings for payment methods in a single request
-            const settings = await getMultipleSettings([
-                'gcash_name', 'gcash_number', 'gcash_qr',
-                'maya_name', 'maya_number', 'maya_qr'
-            ]);
-            
-            setLandlordInfo({
-                gcash_name: settings?.gcash_name || 'Not configured',
-                gcash_number: settings?.gcash_number || 'Not configured',
-                gcash_qr: settings?.gcash_qr || null,
-                maya_name: settings?.maya_name || 'Not configured',
-                maya_number: settings?.maya_number || 'Not configured',
-                maya_qr: settings?.maya_qr || null
-            });
+            try {
+                const settings = await getMultipleSettings([
+                    'gcash_name', 'gcash_number', 'gcash_qr',
+                    'maya_name', 'maya_number', 'maya_qr'
+                ]);
+                
+                setLandlordInfo({
+                    gcash_name: settings?.gcash_name || 'Not configured',
+                    gcash_number: settings?.gcash_number || 'Not configured',
+                    gcash_qr: settings?.gcash_qr || null,
+                    maya_name: settings?.maya_name || 'Not configured',
+                    maya_number: settings?.maya_number || 'Not configured',
+                    maya_qr: settings?.maya_qr || null
+                });
+            } catch (settingsErr) {
+                console.warn('[TenantPayment] Failed to load landlord payment settings:', settingsErr);
+                setLandlordInfo({
+                    gcash_name: 'Not configured',
+                    gcash_number: 'Not configured',
+                    gcash_qr: null,
+                    maya_name: 'Not configured',
+                    maya_number: 'Not configured',
+                    maya_qr: null
+                });
+            }
 
         } catch (err) {
             console.warn('[TenantPayment] Failed to load data:', err);
@@ -196,7 +213,7 @@ export default function TenantPaymentScreen() {
         } finally {
             setLoading(false);
         }
-    }, [user?.room_id, cycleId, type]);
+    }, [authLoading, user, cycleId, type]);
 
     useEffect(() => {
         fetchData();
@@ -255,8 +272,6 @@ export default function TenantPaymentScreen() {
             }
         }
     };
-
-    const [verifying, setVerifying] = useState(false);
 
     const verifyPaymentSuccess = async () => {
         try {
@@ -363,7 +378,7 @@ export default function TenantPaymentScreen() {
         return status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
     };
 
-    if (loading) {
+    if (loading || authLoading) {
         return (
             <View style={[styles.container, styles.center]}>
                 <ActivityIndicator size="large" color={COLORS.primary} />
@@ -451,11 +466,11 @@ export default function TenantPaymentScreen() {
                     </View>
 
                     <Text style={styles.targetInvoiceNumber}>
-                        Invoice #{billingCycle.invoice_number || billingCycle.id}
+                        Invoice #{billingCycle.invoice_number || invoiceNumber || billingCycle.id}
                     </Text>
-                    {billingCycle.start_date && billingCycle.end_date && (
+                    {(billingCycle.cycle_start || billingCycle.start_date) && (billingCycle.cycle_end || billingCycle.end_date) && (
                         <Text style={styles.targetPeriod}>
-                            {formatDate(billingCycle.start_date)} – {formatDate(billingCycle.end_date)}
+                            {formatDate(billingCycle.cycle_start || billingCycle.start_date)} – {formatDate(billingCycle.cycle_end || billingCycle.end_date)}
                         </Text>
                     )}
 

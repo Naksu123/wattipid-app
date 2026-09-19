@@ -7,7 +7,6 @@
     "icon": "./frontend/assets/images/Wattipid-icon.png",
     "scheme": "wattipid",
     "userInterfaceStyle": "dark",
-    "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.wattipid.app"
@@ -15,18 +14,13 @@
     "android": {
       "package": "com.wattipid.app",
       "googleServicesFile": "./google-services.json",
-      "usesCleartextTraffic": true,
       "adaptiveIcon": {
         "backgroundColor": "#0F172A",
         "foregroundImage": "./frontend/assets/images/Wattipid-icon.png",
         "backgroundImage": "./frontend/assets/images/android-icon-background.png",
         "monochromeImage": "./frontend/assets/images/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false,
-      "navigationBar": {
-        "backgroundColor": "#0B0F19",
-        "buttonColor": "#F9FAFB"
-      }
+      "predictiveBackGestureEnabled": false
     },
     "web": {
       "output": "static",
@@ -46,21 +40,25 @@
           }
         }
       ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./frontend/assets/images/android-icon-monochrome.png",
+          "color": "#10B981"
+        }
+      ],
       "expo-sqlite",
       "expo-font",
       "expo-image",
       "expo-sharing",
       "expo-web-browser",
       "expo-secure-store",
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      "expo-asset"
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    },
-    "notification": {
-      "icon": "./frontend/assets/images/android-icon-monochrome.png",
-      "color": "#10B981"
     },
     "extra": {
       "router": {

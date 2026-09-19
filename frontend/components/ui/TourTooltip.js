@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useCallback } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING, RADIUS } from '../../styles/theme';
-import { useTourContext, TOUR_SCREEN_NAMES, TOUR_STEP_BOUNDARIES } from '../../contexts/TourContext';
+import { useTourContext, TOUR_SCREEN_NAMES, TOUR_STEP_BOUNDARIES, ALL_TOUR_STEPS } from '../../contexts/TourContext';
 import { useCopilot } from 'react-native-copilot';
 
 export const CustomTooltip = () => {
@@ -13,42 +13,45 @@ export const CustomTooltip = () => {
     goToNextScreen, 
     stopTour,
     finishTour,
-    registerNextStepHandler
+    registerNextStepHandler,
+    setCurrentStepOrder
   } = useTourContext();
 
   const currentScreenBoundary = currentTourScreen ? TOUR_STEP_BOUNDARIES[currentTourScreen] : null;
   const isScreenLastStep = !!isLastStep || (currentScreenBoundary ? currentStep?.order === currentScreenBoundary.last : false);
 
-  const currentStepNum = currentScreenBoundary
-    ? Math.max(1, (currentStep?.order || currentScreenBoundary.first) - currentScreenBoundary.first + 1)
-    : (currentStep?.order || 1);
-  const totalScreenSteps = currentScreenBoundary
-    ? (currentScreenBoundary.last - currentScreenBoundary.first + 1)
-    : 1;
+  const globalStepOrder = currentStep?.order || 1;
+  const matchedStepDef = ALL_TOUR_STEPS.find(s => s.order === globalStepOrder || s.targetId === currentStep?.name);
+  const stepTitle = matchedStepDef?.title || (currentTourScreen ? TOUR_SCREEN_NAMES[currentTourScreen] : 'Wattipid Guide');
 
   // Debounce transition lock to prevent double-skipping or rapid click bugs
   const lastPressRef = useRef(0);
+  const isLockedRef = useRef(false);
 
   const handleNextPress = useCallback(() => {
     const now = Date.now();
-    if (now - lastPressRef.current < 450) {
+    if (isLockedRef.current || now - lastPressRef.current < 450) {
       return;
     }
+    isLockedRef.current = true;
     lastPressRef.current = now;
+
+    setTimeout(() => {
+      isLockedRef.current = false;
+    }, 450);
 
     if (isScreenLastStep) {
       stop(); // clean up current overlay
       if (isContinuousTour) {
-        // slight delay to prevent transition glitch
         setTimeout(() => goToNextScreen(), 120);
       } else {
-        // Finished a single-feature tour
         finishTour();
       }
     } else {
       goToNext();
+      setCurrentStepOrder(globalStepOrder + 1);
     }
-  }, [isScreenLastStep, stop, isContinuousTour, goToNextScreen, finishTour, goToNext]);
+  }, [isScreenLastStep, stop, isContinuousTour, goToNextScreen, finishTour, goToNext, globalStepOrder, setCurrentStepOrder]);
 
   // Register the single source of truth next handler with TourContext
   useEffect(() => {
@@ -58,12 +61,13 @@ export const CustomTooltip = () => {
     };
   }, [handleNextPress, registerNextStepHandler]);
 
-  const handleSkipPress = () => {
+  const handleSkipPress = (e) => {
+    if (e && e.stopPropagation) {
+      e.stopPropagation();
+    }
     stop();
     stopTour(true);
   };
-
-  const screenTitle = currentTourScreen ? TOUR_SCREEN_NAMES[currentTourScreen] : 'Feature Guide';
 
   return (
     <TouchableOpacity 
@@ -75,35 +79,33 @@ export const CustomTooltip = () => {
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <Ionicons name="sparkles" size={18} color={COLORS.primary} />
-          <Text style={styles.title}>{screenTitle}</Text>
+          <Text style={styles.title} numberOfLines={1}>{stepTitle}</Text>
         </View>
         
         <View style={styles.macroProgress}>
           <Text style={styles.macroProgressText}>
-            Step {currentStepNum} of {totalScreenSteps}
+            Step {globalStepOrder} of 23
           </Text>
         </View>
       </View>
       
       {/* Step Explanation */}
-      <Text style={styles.description}>{currentStep?.text || ''}</Text>
+      <Text style={styles.description}>{currentStep?.text || matchedStepDef?.description || ''}</Text>
 
-      {/* Subtle Tap to Continue Hint */}
-      <View style={styles.tapHintRow}>
-        <Ionicons name="finger-print-outline" size={13} color="rgba(255, 255, 255, 0.45)" />
-        <Text style={styles.tapHintText}>Tap anywhere to continue</Text>
-      </View>
-      
-      {/* Footer */}
+      {/* Footer with Hint and Skip Button ONLY (NO Next or Back buttons) */}
       <View style={styles.footer}>
-        <TouchableOpacity onPress={handleSkipPress} style={styles.skipButton} activeOpacity={0.7}>
-          <Text style={styles.skipText}>Skip Tour</Text>
-        </TouchableOpacity>
+        <View style={styles.footerHint}>
+          <Ionicons name="finger-print-outline" size={14} color="rgba(255, 255, 255, 0.45)" />
+          <Text style={styles.tapHintText}>Tap anywhere to continue</Text>
+        </View>
 
-        <TouchableOpacity onPress={handleNextPress} style={styles.nextButton} activeOpacity={0.8}>
-          <Text style={styles.nextButtonText}>
-            {isScreenLastStep ? (isContinuousTour ? 'Next Screen →' : 'Done ✓') : 'Next →'}
-          </Text>
+        <TouchableOpacity 
+          onPress={handleSkipPress} 
+          style={styles.skipButton} 
+          activeOpacity={0.7}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Text style={styles.skipText}>Skip Tour</Text>
         </TouchableOpacity>
       </View>
     </TouchableOpacity>
@@ -134,12 +136,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    flex: 1,
+    marginRight: 8,
   },
   title: {
     color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '700',
     letterSpacing: -0.2,
+    flexShrink: 1,
   },
   macroProgress: {
     backgroundColor: 'rgba(16, 185, 129, 0.15)',
@@ -160,20 +165,6 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     marginBottom: SPACING.sm,
   },
-  tapHintRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 5,
-    marginBottom: SPACING.sm,
-    paddingVertical: 2,
-  },
-  tapHintText: {
-    color: 'rgba(226, 232, 240, 0.45)',
-    fontSize: 11,
-    fontWeight: '500',
-    letterSpacing: 0.2,
-  },
   footer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -181,38 +172,28 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: 'rgba(255, 255, 255, 0.08)',
     paddingTop: SPACING.sm,
+    marginTop: 2,
   },
-  stepCounter: {
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
+  footerHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
   },
-  stepText: {
-    color: COLORS.textMuted,
+  tapHintText: {
+    color: 'rgba(226, 232, 240, 0.45)',
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '500',
+    letterSpacing: 0.2,
   },
   skipButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: RADIUS.sm,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
   },
   skipText: {
     color: COLORS.textMuted,
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  nextButton: {
-    backgroundColor: 'rgba(16, 185, 129, 0.2)',
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: RADIUS.full,
-    borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.4)',
-  },
-  nextButtonText: {
-    color: '#10B981',
-    fontSize: 12,
-    fontWeight: '700',
+    fontSize: 11,
+    fontWeight: '600',
   },
 });

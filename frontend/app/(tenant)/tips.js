@@ -32,7 +32,7 @@ const CopilotView = walkthroughable(View);
 export default function TipsScreen() {
   const { user } = useAuth();
   const roomId = user?.room_id || 'Room 1';
-  const { currentTourScreen } = useTourContext();
+  const { currentTourScreen, isTourActive } = useTourContext();
   
   const [activeTab, setActiveTab] = useState('community');
   const [refreshing, setRefreshing] = useState(false);
@@ -41,6 +41,8 @@ export default function TipsScreen() {
 
   // Community Tips State
   const [currentTip, setCurrentTip] = useState(null);
+  const currentTipRef = useRef(null);
+  currentTipRef.current = currentTip;
   const [liked, setLiked] = useState(false);
   const [tipOfTheDay, setTipOfTheDay] = useState(null);
   const [trendingTips, setTrendingTips] = useState([]);
@@ -61,6 +63,13 @@ export default function TipsScreen() {
   const [browseError, setBrowseError] = useState(null);
 
   const scrollViewRef = useRef(null);
+
+  useEffect(() => {
+    if (isTourActive && currentTourScreen === 'tips') {
+      setActiveTab('community');
+    }
+  }, [isTourActive, currentTourScreen]);
+
   useTourAutoStart('tips', !loading && !browseLoading, scrollViewRef);
 
   const dynamicCategories = useMemo(() => {
@@ -90,7 +99,7 @@ export default function TipsScreen() {
       // 2. Fetch Smart Hero Recommendation, strictly excluding Tip of the Day & current tip
       const heroExclude = [
         todTip?.id,
-        currentIdToExclude || currentTip?.id
+        currentIdToExclude || currentTipRef.current?.id
       ].filter(Boolean);
 
       const res = await tipsService.getSmartRecommendation({
@@ -122,7 +131,7 @@ export default function TipsScreen() {
       // 3. Fetch Trending in Dorms, strictly excluding Tip of the Day & Hero tip
       const trendExclude = [
         todTip?.id,
-        heroTip?.id || currentTip?.id
+        heroTip?.id || currentTipRef.current?.id
       ].filter(Boolean);
 
       const trendRes = await tipsService.getTrendingTips(3, trendExclude);
@@ -133,7 +142,7 @@ export default function TipsScreen() {
     } finally {
       setLoading(false);
     }
-  }, [user, currentTip, fadeAnim, scaleAnim]);
+  }, [user, fadeAnim, scaleAnim]);
 
   const loadSmartTips = useCallback(async () => {
     try {
@@ -171,35 +180,41 @@ export default function TipsScreen() {
   const filteredTips = useMemo(() => {
     let result = [...allTips];
 
-    // Apply search filter
+    // Filter by Category
+    if (selectedCategory !== 'All') {
+      result = result.filter(tip => tip.category === selectedCategory);
+    }
+
+    // Filter by Search
     if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase().trim();
-      result = result.filter(t =>
-        (t.title || '').toLowerCase().includes(query) ||
-        (t.category || '').toLowerCase().includes(query) ||
-        (t.message || '').toLowerCase().includes(query)
+      const query = searchQuery.toLowerCase();
+      result = result.filter(tip => 
+        tip.title?.toLowerCase().includes(query) || 
+        tip.message?.toLowerCase().includes(query) ||
+        tip.category?.toLowerCase().includes(query)
       );
     }
 
-    // Apply sort
+    // Sort
     switch (sortBy) {
       case 'az':
-        result.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
+        result.sort((a, b) => a.title.localeCompare(b.title));
         break;
       case 'za':
-        result.sort((a, b) => (b.title || '').localeCompare(a.title || ''));
+        result.sort((a, b) => b.title.localeCompare(a.title));
         break;
       case 'newest':
-        result.sort((a, b) => (b.id || 0) - (a.id || 0));
+        result.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
         break;
       case 'oldest':
-        result.sort((a, b) => (a.id || 0) - (b.id || 0));
+        result.sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0));
         break;
       case 'category':
       default:
         result.sort((a, b) => {
-          const catCompare = (a.category || '').localeCompare(b.category || '');
-          return catCompare !== 0 ? catCompare : (a.title || '').localeCompare(b.title || '');
+          const catComp = (a.category || '').localeCompare(b.category || '');
+          if (catComp !== 0) return catComp;
+          return a.title.localeCompare(b.title);
         });
         break;
     }
@@ -208,41 +223,14 @@ export default function TipsScreen() {
   }, [allTips, searchQuery, sortBy]);
 
   useEffect(() => {
-    if (activeTab === 'community' && !currentTip) {
+    if (activeTab === 'community' && !currentTipRef.current) {
       loadCommunityTip();
     } else if (activeTab === 'smart') {
       loadSmartTips();
     } else if (activeTab === 'browse') {
       loadAllTips(selectedCategory);
     }
-  }, [activeTab, selectedCategory, currentTip, loadCommunityTip, loadSmartTips, loadAllTips]);
-
-  // Real-time Background Polling for Engagement Stats
-  useEffect(() => {
-    let interval;
-    if (activeTab === 'browse' || activeTab === 'community') {
-      interval = setInterval(async () => {
-        try {
-          const res = await tipsService.getAllTips(selectedCategory === 'All' ? null : selectedCategory);
-          if (res.success) {
-            // Sync allTips invisibly — preserve local like state
-            setAllTips(currentTips => currentTips.map(t => {
-              const updatedTip = res.data.find(ut => ut.id === t.id);
-              return updatedTip ? { ...t, likesCount: updatedTip.likesCount, viewsCount: updatedTip.viewsCount, _hasLikedLocal: t._hasLikedLocal || false } : t;
-            }));
-            
-            // Sync currentTip if it exists
-            setCurrentTip(currentTip => {
-              if (!currentTip) return null;
-              const updatedTip = res.data.find(ut => ut.id === currentTip.id);
-              return updatedTip ? { ...currentTip, likesCount: updatedTip.likesCount, viewsCount: updatedTip.viewsCount } : currentTip;
-            });
-          }
-        } catch (err) {}
-      }, 5000); // 5-second polling for real-time feel
-    }
-    return () => clearInterval(interval);
-  }, [activeTab, selectedCategory]);
+  }, [activeTab, selectedCategory, loadCommunityTip, loadSmartTips, loadAllTips]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -513,7 +501,7 @@ export default function TipsScreen() {
         >
           {/* Step 1 of 3: General Tips */}
           <CopilotStep
-            text={`This section provides electricity-saving recommendations to help you improve your energy consumption habits.\n\n• Smart Insights: These tips are based on your electricity consumption behavior.\n• All Tips: Browse the available electricity-saving tips provided by Wattipid.`}
+            text="This section provides electricity-saving recommendations designed to help you understand and improve your electricity consumption behavior."
             order={9}
             name="tips_general"
           >
@@ -603,7 +591,7 @@ export default function TipsScreen() {
                   <CopilotStep
                     text="Tip of the Day provides a daily electricity-saving recommendation to help you develop better energy-saving habits."
                     order={10}
-                    name="tips_daily"
+                    name="tips_of_the_day"
                   >
                     <CopilotView style={{ marginTop: 20 }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10, gap: 6 }}>
@@ -635,7 +623,7 @@ export default function TipsScreen() {
 
                   {/* ---- Step 3 of 3: Trending in Dorms ---- */}
                   <CopilotStep
-                    text="This section shows electricity-saving trends or commonly recommended energy-saving practices among dorm users. It can help you discover useful ways to improve your electricity consumption habits."
+                    text="This section presents useful electricity-saving trends or practices among dorm users."
                     order={11}
                     name="tips_trending"
                   >

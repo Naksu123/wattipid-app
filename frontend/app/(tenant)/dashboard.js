@@ -381,9 +381,9 @@ export default function DashboardScreen() {
 
         {/* Step 1: Live Sensor */}
         <CopilotStep
-          text="This section displays your latest electricity monitoring data, including voltage, current, and real-time power usage."
+          text="This section displays your latest electricity monitoring data, including real-time power, voltage, current, and power factor."
           order={1}
-          name="dashboard_sensor"
+          name="dashboard_live_sensor"
         >
           <CopilotView>
             <Text style={ms.sectionTitle}>Live Sensor</Text>
@@ -453,9 +453,9 @@ export default function DashboardScreen() {
 
         {/* Step 2: Live Cost */}
         <CopilotStep
-          text="This section shows your current electricity cost and today's energy consumption so you can monitor your usage."
+          text="This section shows your current electricity-related cost and today's energy consumption based on the latest available monitoring data."
           order={2}
-          name="dashboard_cost"
+          name="dashboard_live_cost"
         >
           <CopilotView>
             {/* Financial Overview */}
@@ -584,9 +584,9 @@ export default function DashboardScreen() {
 
         {/* Step 3: Wattipid Smart Insights */}
         <CopilotStep
-          text="Wattipid Smart Insights analyzes your electricity consumption and provides useful information and recommendations to help you understand your energy usage."
+          text="Wattipid Smart Insights provides useful information and recommendations based on your electricity consumption patterns and behavior."
           order={3}
-          name="dashboard_insights"
+          name="dashboard_smart_insights"
         >
           <CopilotView style={{ marginTop: 16 }}>
             <GlassCard style={ms.tipCard}>

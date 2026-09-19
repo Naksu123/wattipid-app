@@ -201,7 +201,7 @@ export default function TenantSettings() {
         <Text style={s.title}>Settings</Text>
 
         {/* Step 1 of 5: Profile */}
-        <CopilotStep text="Profile allows you to view and manage your personal account information." order={19} name="settings_profile">
+        <CopilotStep text="Profile lets you view and manage your Wattipid account information." order={19} name="settings_profile">
           <CopilotView>
             <GlassCard gradient style={s.profileCard}>
               <View style={s.avatar}>
@@ -221,7 +221,7 @@ export default function TenantSettings() {
         </CopilotStep>
 
         {/* Step 2 of 5: Lease Information */}
-        <CopilotStep text="Lease Information contains important information about your current room or rental agreement." order={20} name="settings_lease">
+        <CopilotStep text="Lease Information contains important information related to your room or rental arrangement." order={20} name="settings_lease">
           <CopilotView>
             <Text style={s.sectionLabel}>Lease Information</Text>
             <GlassCard style={s.accountCard}>
@@ -242,7 +242,7 @@ export default function TenantSettings() {
         </CopilotStep>
 
         {/* Step 3 of 5: Notifications */}
-        <CopilotStep text="Notification settings allow you to manage how Wattipid sends important alerts and updates, such as billing reminders, budget warnings, and other system notifications." order={21} name="settings_notifications">
+        <CopilotStep text="Notification settings help you manage important Wattipid alerts and updates." order={21} name="settings_notifications">
           <CopilotView>
             <Text style={s.sectionLabel}>Notifications</Text>
             <GlassCard style={s.sectionCard}>
@@ -256,7 +256,7 @@ export default function TenantSettings() {
         </CopilotStep>
 
         {/* Step 4 of 5: Data Management */}
-        <CopilotStep text="Data Management allows you to manage your Wattipid account data and related data settings." order={22} name="settings_data">
+        <CopilotStep text="Data Management provides controls for managing your account and related application data." order={22} name="settings_data_management">
           <CopilotView>
             <Text style={s.sectionLabel}>Data Management</Text>
             <GlassCard style={s.menuCard}>
@@ -266,7 +266,7 @@ export default function TenantSettings() {
         </CopilotStep>
 
         {/* Step 5 of 5: Support & User Manual */}
-        <CopilotStep text="Support provides assistance when you need help using Wattipid. It also provides access to the User Manual and Interactive Tour so you can learn how to use the different features of the application." order={23} name="settings_support">
+        <CopilotStep text="Support provides help and access to the Wattipid User Manual." order={23} name="settings_support">
           <CopilotView>
             <Text style={s.sectionLabel}>Support</Text>
             <GlassCard style={s.menuCard}>
@@ -277,6 +277,7 @@ export default function TenantSettings() {
             </GlassCard>
           </CopilotView>
         </CopilotStep>
+
 
         <GlassCard style={s.menuCard}>
           <MenuItem icon="log-out-outline" label="Sign out" onPress={() => setLogoutVisible(true)} danger />
