@@ -1,8 +1,7 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, ScrollView, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { View, Text, ScrollView, TextInput, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { CopilotStep, walkthroughable } from 'react-native-copilot';
 import { useTourAutoStart } from '@/contexts/TourContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -10,15 +9,13 @@ import { useModal } from '../../contexts/ModalContext';
 import { useConsumption } from '../../contexts/ConsumptionContext';
 import { setBudget, getBudget, resetBudget, getBillingCycle, getConsumptionComparison } from '../../services/database';
 import AnimatedBudgetRing from '../../components/ui/AnimatedBudgetRing';
-import GlassCard from '../../components/ui/GlassCard';
 import { BaseModal, ModalHeader, ModalBody, ModalFooter } from '../../components/modals/BaseModal';
 import ErrorBoundary from '@/components/ErrorBoundary';
 
-import { COLORS, GRADIENTS } from '@/styles/theme';
+import { COLORS } from '@/styles/theme';
 import s from '@/styles/tenant/budget.styles';
 
 const BUDGET_TABS = ['daily', 'weekly', 'monthly'];
-
 const CopilotView = walkthroughable(View);
 
 function BudgetScreen() {
@@ -26,13 +23,14 @@ function BudgetScreen() {
   const { showModal } = useModal();
   const roomId = user?.room_id || 'Room 1';
   const { todayUsage, weekUsage, monthUsage } = useConsumption();
+
   const [monthlyBudget, setMonthlyBudgetInput] = useState('');
   const [budgetData, setBudgetData] = useState(null);
   const [comparison, setComparison] = useState({
-    current: { totalEnergy: 5.25, totalCost: 65.50 },
-    previous: { totalEnergy: 4.10, totalCost: 51.25 },
-    costPctChange: 27.8,
-    energyPctChange: 28.0,
+    current: { totalEnergy: 0, totalCost: 0 },
+    previous: { totalEnergy: 0, totalCost: 0 },
+    costPctChange: 0,
+    energyPctChange: 0,
     isAbnormal: false
   });
   const [compPeriod, setCompPeriod] = useState('weekly');
@@ -40,7 +38,9 @@ function BudgetScreen() {
   const [editing, setEditing] = useState(false);
   const [billingCycle, setBillingCycle] = useState(null);
   const [loading, setLoading] = useState(true);
-  
+  const [refreshing, setRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState(null);
+
   const reqSeqRef = useRef(0);
   const scrollViewRef = useRef(null);
 
@@ -58,12 +58,16 @@ function BudgetScreen() {
           if (parsed && parseFloat(parsed.monthly_budget) > 0) {
             setBudgetData(parsed);
             setMonthlyBudgetInput(String(parsed.monthly_budget || ''));
-            setLoading(false); // Valid cached budget exists, display immediately!
+            setLoading(false);
           }
         }
         const cachedBc = await AsyncStorage.getItem(`cached_billing_cycle_${roomId}`);
         if (cachedBc && isMounted) {
           setBillingCycle(JSON.parse(cachedBc));
+        }
+        const cachedComp = await AsyncStorage.getItem(`cached_budget_comp_${roomId}`);
+        if (cachedComp && isMounted) {
+          setComparison(JSON.parse(cachedComp));
         }
       } catch (err) {
         console.warn('[Budget] Cache restoration error:', err);
@@ -79,7 +83,6 @@ function BudgetScreen() {
   }, [budgetData]);
 
   const isMountedRef = useRef(true);
-
   useEffect(() => {
     isMountedRef.current = true;
     return () => {
@@ -92,6 +95,7 @@ function BudgetScreen() {
     if (!user || !roomId) return;
     const currentSeq = ++reqSeqRef.current;
     try {
+      setLoadError(null);
       if (!hasBudgetDataRef.current) {
         setLoading(true);
       }
@@ -118,34 +122,44 @@ function BudgetScreen() {
       }
     } catch (e) {
       console.warn('[Budget] loadData error:', e);
+      if (isMountedRef.current && !hasBudgetDataRef.current) {
+        setLoadError('Unable to load budget data. Please check connection.');
+      }
     } finally {
       if (isMountedRef.current && currentSeq === reqSeqRef.current) {
         setLoading(false);
+        setRefreshing(false);
       }
     }
   }, [roomId, user]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadData();
+    await fetchComparison(compPeriod);
+  };
+
+  // ─── 3. Comparison Data Fetch ──────────────────────────────
   const compCacheRef = useRef({});
   const compSeqRef = useRef(0);
 
   const fetchComparison = useCallback(async (period) => {
     if (!roomId) return;
 
-    // Instant zero-latency display if cached
     if (compCacheRef.current[period]) {
       setComparison(compCacheRef.current[period]);
     }
 
     const seq = ++compSeqRef.current;
-
     try {
       const comp = await getConsumptionComparison(roomId, period, user?.name);
       if (!isMountedRef.current || seq !== compSeqRef.current) return;
       if (comp) {
         compCacheRef.current[period] = comp;
         setComparison(comp);
+        AsyncStorage.setItem(`cached_budget_comp_${roomId}`, JSON.stringify(comp)).catch(() => {});
       }
     } catch (e) {
       console.warn('[Budget] fetchComparison error:', e?.message || e);
@@ -161,9 +175,13 @@ function BudgetScreen() {
     setCompPeriod(newPeriod);
   }, [compPeriod]);
 
+  // ─── 4. Set Budget Handler (NO MIN / MAX RESTRICTIONS) ───────
   const handleSetBudget = async () => {
     const val = parseFloat(monthlyBudget);
-    if (!val || val <= 0 || !isFinite(val)) { showModal({ type: 'warning', title: 'Invalid', message: 'Enter a valid budget amount' }); return; }
+    if (!val || val <= 0 || !isFinite(val)) { 
+      showModal({ type: 'warning', title: 'Invalid Budget', message: 'Please enter a valid numeric budget amount.' }); 
+      return; 
+    }
     
     try {
       const result = await setBudget(roomId, val);
@@ -180,6 +198,7 @@ function BudgetScreen() {
         setEditing(false);
       }
       await AsyncStorage.setItem(`cached_budget_${roomId}`, JSON.stringify(newBudgetObj));
+      AsyncStorage.removeItem(`@cached_tenant_dashboard_${roomId}`).catch(() => {});
       
       showModal({
         type: 'success',
@@ -192,35 +211,7 @@ function BudgetScreen() {
     }
   };
 
-  const dailyAllowance = Number(budgetData?.daily_allowance || 0);
-  const weeklyAllowance = Number(budgetData?.weekly_allowance || 0);
-  const monthlyBudgetVal = Number(budgetData?.monthly_budget || 0);
-
-  const getActiveSpent = () => {
-    if (activeTab === 'daily') return Number(todayUsage?.totalCost || 0);
-    if (activeTab === 'weekly') return Number(weekUsage?.totalCost || 0);
-    return Number(monthUsage?.electricityCharge !== undefined ? monthUsage.electricityCharge : (monthUsage?.totalCost || 0));
-  };
-  const getActiveLimit = () => {
-    if (activeTab === 'daily') return dailyAllowance;
-    if (activeTab === 'weekly') return weeklyAllowance;
-    return monthlyBudgetVal;
-  };
-  const activeSpent = Math.max(0, Number(getActiveSpent() || 0));
-  const activeLimit = Math.max(0, Number(getActiveLimit() || 0));
-  const activePct = (activeLimit > 0 && isFinite(activeSpent / activeLimit)) ? (activeSpent / activeLimit) * 100 : 0;
-
-  const getStatusInfo = (pct) => {
-    const safePct = isNaN(pct) || !isFinite(pct) ? 0 : pct;
-    if (safePct < 75) return { text: 'Normal', color: '#10B981', bg: 'rgba(16, 185, 129, 0.15)', border: 'rgba(16, 185, 129, 0.3)', msg: 'You are within your safe budget range.' };
-    if (safePct < 90) return { text: 'Approaching', color: '#F59E0B', bg: 'rgba(245, 158, 11, 0.15)', border: 'rgba(245, 158, 11, 0.3)', msg: 'You are getting close to your budget limit.' };
-    if (safePct <= 100) return { text: 'Warning', color: '#EF4444', bg: 'rgba(239, 68, 68, 0.15)', border: 'rgba(239, 68, 68, 0.3)', msg: 'You are almost at your budget limit. Monitor your consumption.' };
-    return { text: 'Exceeded', color: '#8B5CF6', bg: 'rgba(139, 92, 246, 0.15)', border: 'rgba(139, 92, 246, 0.3)', msg: 'You have exceeded your budget. Please manage your consumption.' };
-  };
-
-  const statusInfo = getStatusInfo(activePct);
-
-  // Reset budget handler
+  // ─── 5. Reset Budget Handler ────────────────────────────────
   const handleResetBudget = () => {
     showModal({
       type: 'confirm',
@@ -240,11 +231,101 @@ function BudgetScreen() {
         setMonthlyBudgetInput('');
       }
       await AsyncStorage.removeItem(`cached_budget_${roomId}`);
+      AsyncStorage.removeItem(`@cached_tenant_dashboard_${roomId}`).catch(() => {});
     } catch (err) {
       console.warn("Error resetting budget:", err);
       showModal({ type: 'error', title: 'Error', message: 'Failed to reset budget. Please try again.' });
     }
   };
+
+  // ─── 6. Derived Metric Calculations ─────────────────────────
+  const dailyAllowance = Number(budgetData?.daily_allowance || 0);
+  const weeklyAllowance = Number(budgetData?.weekly_allowance || 0);
+  const monthlyBudgetVal = Number(budgetData?.monthly_budget || 0);
+
+  const getActiveSpent = () => {
+    if (activeTab === 'daily') return Number(todayUsage?.totalCost || 0);
+    if (activeTab === 'weekly') return Number(weekUsage?.totalCost || 0);
+    return Number(monthUsage?.electricityCharge !== undefined ? monthUsage.electricityCharge : (monthUsage?.totalCost || 0));
+  };
+
+  const getActiveEnergy = () => {
+    if (activeTab === 'daily') return Number(todayUsage?.totalEnergy || 0);
+    if (activeTab === 'weekly') return Number(weekUsage?.totalEnergy || 0);
+    return Number(monthUsage?.totalEnergy || 0);
+  };
+
+  const getActiveLimit = () => {
+    if (activeTab === 'daily') return dailyAllowance;
+    if (activeTab === 'weekly') return weeklyAllowance;
+    return monthlyBudgetVal;
+  };
+
+  const activeSpent = Math.max(0, Number(getActiveSpent() || 0));
+  const activeEnergy = Math.max(0, Number(getActiveEnergy() || 0));
+  const activeLimit = Math.max(0, Number(getActiveLimit() || 0));
+  const activePct = (activeLimit > 0 && isFinite(activeSpent / activeLimit)) ? (activeSpent / activeLimit) * 100 : 0;
+  const activeRemaining = Math.max(0, activeLimit - activeSpent);
+
+  const getStatusInfo = (pct) => {
+    const safePct = isNaN(pct) || !isFinite(pct) ? 0 : pct;
+    if (safePct < 75) {
+      return { 
+        text: 'Normal', 
+        color: '#10B981', 
+        bg: 'rgba(16, 185, 129, 0.12)', 
+        border: 'rgba(16, 185, 129, 0.3)', 
+        icon: 'checkmark-circle-outline',
+        msg: 'You are within your safe budget range.' 
+      };
+    }
+    if (safePct < 90) {
+      return { 
+        text: 'Approaching', 
+        color: '#F59E0B', 
+        bg: 'rgba(245, 158, 11, 0.12)', 
+        border: 'rgba(245, 158, 11, 0.3)', 
+        icon: 'alert-circle-outline',
+        msg: 'You are getting close to your budget limit.' 
+      };
+    }
+    if (safePct <= 100) {
+      return { 
+        text: 'Warning', 
+        color: '#EF4444', 
+        bg: 'rgba(239, 68, 68, 0.12)', 
+        border: 'rgba(239, 68, 68, 0.3)', 
+        icon: 'warning-outline',
+        msg: 'You are almost at your budget limit. Monitor your consumption.' 
+      };
+    }
+    return { 
+      text: 'Exceeded', 
+      color: '#8B5CF6', 
+      bg: 'rgba(139, 92, 246, 0.12)', 
+      border: 'rgba(139, 92, 246, 0.3)', 
+      icon: 'alert-outline',
+      msg: 'You have exceeded your budget. Please manage consumption.' 
+    };
+  };
+
+  const statusInfo = getStatusInfo(activePct);
+
+  // Remaining days in cycle
+  const daysRemaining = useMemo(() => {
+    if (billingCycle?.cycle_end && typeof billingCycle.cycle_end === 'string') {
+      try {
+        const endTs = new Date(billingCycle.cycle_end.replace(' ', 'T')).getTime();
+        if (!isNaN(endTs)) {
+          return Math.max(0, Math.ceil((endTs - Date.now()) / (1000 * 60 * 60 * 24)));
+        }
+      } catch (_e) {}
+    }
+    return Math.max(0, Number(budgetData?.remaining_days || 30));
+  }, [billingCycle?.cycle_end, budgetData?.remaining_days]);
+
+  // Daily spend target calculation
+  const spendTarget = dailyAllowance > 0 ? dailyAllowance : (monthlyBudgetVal > 0 ? monthlyBudgetVal / 30 : 0);
 
   return (
     <View style={s.container}>
@@ -254,13 +335,15 @@ function BudgetScreen() {
         contentContainerStyle={s.scroll} 
         showsVerticalScrollIndicator={false}
         scrollEventThrottle={16}
-        onScroll={(e) => {
-          if (scrollViewRef.current) {
-            scrollViewRef.current._scrollY = e.nativeEvent.contentOffset.y;
-          }
-        }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
       >
-        {/* Section 1 of 3: Live Budget */}
+        {/* ================= 1. COMPACT HEADER ================= */}
+        <View style={s.compactHeader}>
+          <Text style={s.pageTitle}>Smart Budgeting</Text>
+          <Text style={s.pageSubtitle}>Track spending targets and manage electricity costs.</Text>
+        </View>
+
+        {/* ================= 2. LIVE BUDGET PROGRESS (Matches smart-budgeting.png) ================= */}
         <CopilotStep
           text="Live Budget shows how much of your electricity budget has been used and helps you monitor your current budget status."
           order={12}
@@ -269,34 +352,41 @@ function BudgetScreen() {
           <CopilotView style={s.fullWidth}>
             {!editing ? (
               loading && !budgetData ? (
-                /* STATE 1: LOADING SKELETON (Prevents wrong UI flash) */
-                <GlassCard style={[s.progressCard, { alignItems: 'center', justifyContent: 'center', minHeight: 280, paddingVertical: 40 }]}>
-                  <ActivityIndicator size="large" color={COLORS.primary} style={{ marginBottom: 16 }} />
-                  <Text style={{ color: COLORS.textPrimary, fontSize: 16, fontWeight: '700', marginBottom: 6 }}>Loading Budget Data...</Text>
-                  <Text style={{ color: COLORS.textMuted, fontSize: 13, textAlign: 'center' }}>Retrieving your spending limits and allowance</Text>
-                </GlassCard>
+                /* Loading State */
+                <View style={s.loadingCard}>
+                  <ActivityIndicator size="large" color={COLORS.primary} />
+                  <Text style={s.loadingText}>Retrieving budget and spending limits...</Text>
+                </View>
               ) : !budgetData ? (
-                /* STATE 2: NO BUDGET CONFIGURED (Only after loading has verified no budget exists) */
-                <GlassCard style={s.emptyBudgetCard}>
+                /* Empty State: No Budget Set */
+                <View style={s.emptyBudgetCard}>
                   <View style={s.emptyBudgetIconWrap}>
-                    <Ionicons name="wallet-outline" size={40} color={COLORS.primary} />
+                    <Ionicons name="wallet-outline" size={32} color="#10B981" />
                   </View>
-                  <Text style={s.emptyBudgetTitle}>No Budget Set</Text>
-                  <Text style={s.emptyBudgetDesc}>Set a monthly budget to automatically track your daily and weekly allowances.</Text>
-                  <TouchableOpacity onPress={() => setEditing(true)} activeOpacity={0.8} style={s.fullWidth}>
-                    <LinearGradient colors={GRADIENTS.primary} style={s.emptyBudgetBtn}>
-                      <Text style={s.emptyBudgetBtnText}>Set Monthly Budget</Text>
-                    </LinearGradient>
+                  <Text style={s.emptyBudgetTitle}>No Budget Set Yet</Text>
+                  <Text style={s.emptyBudgetDesc}>
+                    Set a monthly budget to automatically track your daily and weekly electricity allowances.
+                  </Text>
+                  <TouchableOpacity 
+                    onPress={() => setEditing(true)} 
+                    activeOpacity={0.8} 
+                    style={s.emptyBudgetBtn}
+                  >
+                    <Text style={s.emptyBudgetBtnText}>Set Monthly Budget</Text>
                   </TouchableOpacity>
-                </GlassCard>
+                </View>
               ) : (
-                /* STATE 3: BUDGET EXISTS */
+                /* Configured Budget Display */
                 <View style={s.fullWidth}>
-                  {/* Period Tabs */}
+                  {/* Period Switcher Tabs */}
                   <View style={s.tabRow}>
                     {BUDGET_TABS.map(tab => (
-                      <TouchableOpacity key={tab} onPress={() => setActiveTab(tab)}
-                        style={[s.tabBtn, activeTab === tab && s.tabActive]} activeOpacity={0.7}>
+                      <TouchableOpacity 
+                        key={tab} 
+                        onPress={() => setActiveTab(tab)}
+                        style={[s.tabBtn, activeTab === tab && s.tabActive]} 
+                        activeOpacity={0.7}
+                      >
                         <Text style={[s.tabText, activeTab === tab && s.tabTextActive]}>
                           {tab.charAt(0).toUpperCase() + tab.slice(1)}
                         </Text>
@@ -304,45 +394,85 @@ function BudgetScreen() {
                     ))}
                   </View>
 
-                  {/* Progress Ring & Alert Status */}
-                  <GlassCard style={s.progressCard}>
+                  {/* Main Circular Progress Ring Card */}
+                  <View style={s.progressCard}>
+                    {/* Live Indicator & Status Badge */}
                     <View style={s.liveIndicatorWrap}>
-                      <View style={s.liveDot} />
-                      <Text style={s.liveText}>Live</Text>
+                      <View style={s.liveDotWrap}>
+                        <View style={s.liveDot} />
+                        <Text style={s.liveText}>LIVE</Text>
+                      </View>
+
+                      <View style={[s.statusBadge, { backgroundColor: statusInfo.bg, borderColor: statusInfo.border }]}>
+                        <Ionicons name={statusInfo.icon} size={13} color={statusInfo.color} />
+                        <Text style={[s.statusBadgeText, { color: statusInfo.color }]}>
+                          {statusInfo.text}
+                        </Text>
+                      </View>
                     </View>
 
+                    {/* Animated Circular Gauge */}
                     <View style={s.progressCenter}>
-                      <AnimatedBudgetRing spent={activeSpent} limit={activeLimit} size={200}
-                        label={`${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Budget`} />
+                      <AnimatedBudgetRing 
+                        spent={activeSpent} 
+                        limit={activeLimit} 
+                        size={190}
+                        label={`${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Budget`} 
+                      />
                     </View>
 
-                    {/* Modern Alert Badge */}
-                    <View style={[s.alertBadgeContainer, { backgroundColor: statusInfo.bg, borderColor: statusInfo.border }]}>
-                      <Text style={[s.alertBadgeText, { color: statusInfo.color }]}>
-                        {statusInfo.text}
+                    {/* Billing Cycle Pill (from smart-budgeting.png) */}
+                    <View style={s.cyclePill}>
+                      <Ionicons name="time-outline" size={14} color="#F59E0B" />
+                      <Text style={s.cyclePillText}>
+                        {daysRemaining} Days Left in Current Billing Cycle
                       </Text>
                     </View>
 
-                    {/* Main Action Buttons */}
+                    {/* Action Buttons: Edit & Reset */}
                     <View style={s.mainActionRow}>
-                      <TouchableOpacity onPress={() => setEditing(true)} style={s.mainEditBtn} activeOpacity={0.8}>
-                        <Ionicons name="create-outline" size={16} color={COLORS.textPrimary} />
-                        <Text style={{ color: COLORS.textPrimary, fontSize: 13, fontWeight: '600' }}>Edit Budget</Text>
+                      <TouchableOpacity 
+                        onPress={() => setEditing(true)} 
+                        style={s.mainEditBtn} 
+                        activeOpacity={0.8}
+                      >
+                        <Ionicons name="create-outline" size={15} color="#10B981" />
+                        <Text style={s.mainEditBtnText}>Edit Budget</Text>
                       </TouchableOpacity>
-                      <TouchableOpacity onPress={handleResetBudget} style={s.mainResetBtn} activeOpacity={0.8}>
-                        <Ionicons name="trash-outline" size={16} color={COLORS.danger} />
+
+                      <TouchableOpacity 
+                        onPress={handleResetBudget} 
+                        style={s.mainResetBtn} 
+                        activeOpacity={0.8}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      >
+                        <Ionicons name="trash-outline" size={15} color="#EF4444" />
+                        <Text style={s.mainResetBtnText}>Reset</Text>
                       </TouchableOpacity>
                     </View>
-                  </GlassCard>
+                  </View>
+
+                  {/* Daily Spend Target Card (from smart-budgeting.png) */}
+                  {spendTarget > 0 && (
+                    <View style={s.targetCard}>
+                      <View style={s.targetIconBadge}>
+                        <Ionicons name="calculator-outline" size={18} color="#10B981" />
+                      </View>
+                      <View style={s.targetContent}>
+                        <Text style={s.targetLabel}>Daily Spend Target</Text>
+                        <Text style={s.targetDesc}>
+                          Spend under ₱{spendTarget.toFixed(2)}/day to stay on track.
+                        </Text>
+                      </View>
+                    </View>
+                  )}
                 </View>
               )
-            ) : (
-              <View style={{ width: '100%', height: 1 }} />
-            )}
+            ) : null}
           </CopilotView>
         </CopilotStep>
 
-        {/* Section 2 of 3: Budget Breakdown */}
+        {/* ================= 3. BUDGET BREAKDOWN (PRIORITY SECTION) ================= */}
         <CopilotStep
           text="Budget Breakdown shows how your electricity budget is being used across the available periods."
           order={13}
@@ -350,203 +480,278 @@ function BudgetScreen() {
         >
           <CopilotView style={s.fullWidth}>
             {!loading && budgetData && !editing ? (
-              <GlassCard style={s.breakdownCard}>
-                <View style={s.breakdownHeader}>
-                  <Text style={s.breakdownTitle} numberOfLines={1}>Budget Breakdown</Text>
-                  <View style={s.breakdownActions}>
-                    <TouchableOpacity onPress={handleResetBudget} style={s.resetBudgetBtn}>
-                      <Ionicons name="refresh-outline" size={14} color={COLORS.danger} />
-                      <Text style={s.resetBudgetText}>Reset</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => setEditing(true)} style={s.editBudgetBtn}>
-                      <Ionicons name="create-outline" size={14} color={COLORS.primary} />
-                      <Text style={s.editBudgetText}>Edit</Text>
-                    </TouchableOpacity>
+              <View style={s.breakdownCard}>
+                {/* Header */}
+                <View style={s.sectionHeaderRow}>
+                  <View style={s.sectionTitleRow}>
+                    <Ionicons name="pie-chart-outline" size={15} color="#10B981" />
+                    <Text style={s.sectionTitle}>BUDGET BREAKDOWN</Text>
                   </View>
                 </View>
+
+                {/* Clear Math Formula Strip: [BUDGET] - [USED] = [REMAINING] */}
+                <View style={s.mathContainer}>
+                  <View style={s.mathCol}>
+                    <Text style={s.mathLabel}>Budget</Text>
+                    <Text style={s.mathValue}>₱{activeLimit.toFixed(2)}</Text>
+                    <Text style={s.mathSub}>{activeTab.toUpperCase()}</Text>
+                  </View>
+
+                  <View style={s.mathSign}>
+                    <Text style={s.mathSignText}>−</Text>
+                  </View>
+
+                  <View style={s.mathCol}>
+                    <Text style={s.mathLabel}>Cost Used</Text>
+                    <Text style={s.mathValue}>₱{activeSpent.toFixed(2)}</Text>
+                    <Text style={s.mathSub}>{activeEnergy.toFixed(2)} kWh</Text>
+                  </View>
+
+                  <View style={s.mathSign}>
+                    <Text style={s.mathSignText}>=</Text>
+                  </View>
+
+                  <View style={s.mathCol}>
+                    <Text style={s.mathLabel}>Remaining</Text>
+                    <Text style={[s.mathValue, { color: activeSpent > activeLimit ? '#EF4444' : '#10B981' }]}>
+                      ₱{activeRemaining.toFixed(2)}
+                    </Text>
+                    <Text style={[s.mathSub, { color: activeSpent > activeLimit ? '#EF4444' : '#10B981' }]}>
+                      {activeSpent > activeLimit ? 'EXCEEDED' : `${Math.round(100 - activePct)}% LEFT`}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Supporting Status Row */}
+                <View style={[s.statusRow, { backgroundColor: statusInfo.bg, borderColor: statusInfo.border }]}>
+                  <Ionicons name={statusInfo.icon} size={15} color={statusInfo.color} />
+                  <Text style={[s.statusText, { color: statusInfo.color }]}>
+                    {statusInfo.msg}
+                  </Text>
+                </View>
+
+                {/* Multi-Period Allowance Breakdown Bars */}
                 <View style={s.breakdownGrid}>
                   {[
-                    { label: 'Daily', limit: dailyAllowance, spent: todayUsage?.totalCost || 0, icon: 'today-outline', color: COLORS.info },
-                    { label: 'Weekly', limit: weeklyAllowance, spent: weekUsage?.totalCost || 0, icon: 'calendar-outline', color: COLORS.accent },
-                    { label: 'Monthly', limit: monthlyBudgetVal, spent: monthUsage?.electricityCharge !== undefined ? monthUsage.electricityCharge : (monthUsage?.totalCost || 0), icon: 'albums-outline', color: COLORS.primary },
+                    { label: 'Daily Allowance', limit: dailyAllowance, spent: todayUsage?.totalCost || 0, icon: 'today-outline', color: '#38BDF8' },
+                    { label: 'Weekly Allowance', limit: weeklyAllowance, spent: weekUsage?.totalCost || 0, icon: 'calendar-outline', color: '#A855F7' },
+                    { label: 'Monthly Budget', limit: monthlyBudgetVal, spent: monthUsage?.electricityCharge !== undefined ? monthUsage.electricityCharge : (monthUsage?.totalCost || 0), icon: 'albums-outline', color: '#10B981' },
                   ].map((item, i) => {
                     const safeLimit = Number(item.limit || 0);
                     const safeSpent = Number(item.spent || 0);
                     const pct = (safeLimit > 0 && isFinite(safeSpent / safeLimit)) ? Math.min(Math.max((safeSpent / safeLimit) * 100, 0), 100) : 0;
-                    const barColor = pct > 90 ? COLORS.danger : pct > 70 ? COLORS.warning : item.color;
+                    const barColor = pct >= 100 ? '#8B5CF6' : pct >= 90 ? '#EF4444' : pct >= 75 ? '#F59E0B' : item.color;
+
                     return (
                       <View key={i} style={s.breakdownItem}>
                         <View style={s.breakdownItemHeader}>
-                          <View style={s.breakdownIconWrap}>
-                            <Ionicons name={item.icon} size={16} color={item.color} />
+                          <View style={s.breakdownItemLeft}>
+                            <View style={[s.breakdownIconBadge, { backgroundColor: `${item.color}20` }]}>
+                              <Ionicons name={item.icon} size={14} color={item.color} />
+                            </View>
+                            <Text style={s.breakdownLabel}>{item.label}</Text>
                           </View>
-                          <Text style={s.breakdownLabel}>{item.label}</Text>
-                          <Text style={s.breakdownPct}>{pct.toFixed(0)}%</Text>
+
+                          <View style={s.breakdownAmounts}>
+                            <Text style={s.breakdownSpent}>₱{safeSpent.toFixed(2)}</Text>
+                            <Text style={s.breakdownLimit}>/ ₱{safeLimit.toFixed(2)}</Text>
+                            <Text style={[s.breakdownPct, { color: barColor }]}>
+                              ({Math.round(pct)}%)
+                            </Text>
+                          </View>
                         </View>
-                        <View style={s.bar}>
+
+                        <View style={s.barTrack}>
                           <View style={[s.barFill, { width: `${pct}%`, backgroundColor: barColor }]} />
-                        </View>
-                        <View style={s.breakdownAmounts}>
-                          <Text style={s.breakdownSpent}>₱{safeSpent.toFixed(2)}</Text>
-                          <Text style={s.breakdownLimit}>/ ₱{safeLimit.toFixed(2)}</Text>
                         </View>
                       </View>
                     );
                   })}
                 </View>
-                <View style={s.remainingInfo}>
-                  <Ionicons name="time-outline" size={14} color={COLORS.textMuted} />
-                  <Text style={s.remainingText}>
-                    {(() => {
-                      if (billingCycle?.cycle_end && typeof billingCycle.cycle_end === 'string') {
-                        try {
-                          const endTs = new Date(billingCycle.cycle_end.replace(' ', 'T')).getTime();
-                          if (!isNaN(endTs)) {
-                            return Math.max(0, Math.ceil((endTs - Date.now()) / (1000 * 60 * 60 * 24)));
-                          }
-                        } catch (_e) {}
-                      }
-                      return Math.max(0, Number(budgetData?.remaining_days || 0));
-                    })()} days remaining this cycle
-                  </Text>
-                </View>
-              </GlassCard>
-            ) : (
-              <GlassCard style={s.breakdownCard}>
-                <View style={s.breakdownHeader}>
-                  <Text style={s.breakdownTitle} numberOfLines={1}>Budget Breakdown</Text>
-                </View>
-                <View style={{ paddingVertical: 14, alignItems: 'center' }}>
-                  <Ionicons name="pie-chart-outline" size={28} color={COLORS.primary} style={{ marginBottom: 6 }} />
-                  <Text style={{ color: COLORS.textPrimary, fontSize: 13, fontWeight: '600', marginBottom: 2 }}>Daily, Weekly & Monthly Limits</Text>
-                  <Text style={{ color: COLORS.textMuted, fontSize: 11, textAlign: 'center' }}>Set a monthly budget to automatically distribute and track your allowances.</Text>
-                </View>
-              </GlassCard>
-            )}
+              </View>
+            ) : null}
           </CopilotView>
         </CopilotStep>
 
-        {/* Section 3 of 3: Budget Comparison */}
+        {/* ================= 4. BUDGET COMPARISON ================= */}
         <CopilotStep
           text="Budget Comparison allows you to compare your electricity consumption or budget performance across different periods."
           order={14}
           name="budget_comparison"
         >
           <CopilotView style={s.fullWidth}>
-            <GlassCard style={s.compCard}>
+            <View style={s.compCard}>
               <View style={s.compHeader}>
-                <View style={s.compTitleRow}>
-                  <Ionicons name="swap-horizontal" size={20} color={COLORS.info} />
-                  <Text style={s.compTitle}>Budget Comparison</Text>
+                <View style={s.sectionTitleRow}>
+                  <Ionicons name="swap-horizontal" size={15} color="#38BDF8" />
+                  <Text style={s.sectionTitle}>BUDGET COMPARISON</Text>
+                </View>
+              </View>
+
+              {/* Period Selector: Daily | Weekly | Monthly (Full width, no overflow) */}
+              <View style={s.compPeriodRow}>
+                {BUDGET_TABS.map(p => (
+                  <TouchableOpacity 
+                    key={p} 
+                    onPress={() => handleCompPeriodChange(p)}
+                    activeOpacity={0.7}
+                    style={[s.compPeriodBtn, compPeriod === p && s.compPeriodActive]}
+                  >
+                    <Text style={[s.compPeriodText, compPeriod === p && s.compPeriodTextActive]}>
+                      {p.charAt(0).toUpperCase() + p.slice(1)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* Side-by-Side Comparison Columns */}
+              <View style={s.compBody}>
+                <View style={s.compCol}>
+                  <Text style={s.compColLabel} numberOfLines={1}>
+                    Previous {compPeriod === 'daily' ? 'Day' : compPeriod === 'weekly' ? 'Week' : 'Month'}
+                  </Text>
+                  <Text style={s.compColVal}>
+                    ₱{Number.isFinite(Number(comparison?.previous?.totalCost)) ? Number(comparison.previous.totalCost).toFixed(2) : '0.00'}
+                  </Text>
+                  <Text style={s.compColSub}>
+                    {Number.isFinite(Number(comparison?.previous?.totalEnergy)) ? Number(comparison.previous.totalEnergy).toFixed(2) : '0.00'} kWh
+                  </Text>
                 </View>
 
-            <View style={s.compPeriodRow}>
-              {BUDGET_TABS.map(p => (
-                <TouchableOpacity 
-                  key={p} 
-                  onPress={() => handleCompPeriodChange(p)}
-                  activeOpacity={0.7}
-                  style={[s.compPeriodBtn, compPeriod === p && s.compPeriodActive]}
-                >
-                  <Text style={[s.compPeriodText, compPeriod === p && s.compPeriodTextActive]}>
-                    {p.charAt(0).toUpperCase() + p.slice(1)}
+                <View style={s.compArrow}>
+                  <Ionicons name="arrow-forward" size={18} color="#64748B" />
+                </View>
+
+                <View style={s.compCol}>
+                  <Text style={s.compColLabel} numberOfLines={1}>
+                    Current {compPeriod === 'daily' ? 'Day' : compPeriod === 'weekly' ? 'Week' : 'Month'}
                   </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-          <View style={s.compBody}>
-            <View style={s.compCol}>
-              <Text style={s.compColLabel}>Previous</Text>
-              <Text style={s.compColVal}>
-                ₱{Number.isFinite(Number(comparison?.previous?.totalCost)) ? Number(comparison.previous.totalCost).toFixed(2) : '0.00'}
-              </Text>
-              <Text style={s.compColSub}>
-                {Number.isFinite(Number(comparison?.previous?.totalEnergy)) ? Number(comparison.previous.totalEnergy).toFixed(3) : '0.000'} kWh
-              </Text>
-            </View>
-            <View style={s.compArrow}>
-              <Ionicons name="arrow-forward" size={20} color={COLORS.textMuted} />
-            </View>
-            <View style={s.compCol}>
-              <Text style={s.compColLabel}>Current</Text>
-              <Text style={s.compColVal}>
-                ₱{Number.isFinite(Number(comparison?.current?.totalCost)) ? Number(comparison.current.totalCost).toFixed(2) : '0.00'}
-              </Text>
-              <Text style={s.compColSub}>
-                {Number.isFinite(Number(comparison?.current?.totalEnergy)) ? Number(comparison.current.totalEnergy).toFixed(3) : '0.000'} kWh
-              </Text>
-            </View>
-          </View>
-          {(() => {
-            const pct = Number(comparison?.costPctChange);
-            const hasChange = Number.isFinite(pct) && pct !== 0;
-            if (hasChange) {
-              const isHigher = pct > 0;
-              const absPct = Math.abs(pct).toFixed(1);
-              const periodLabel = compPeriod === 'daily' ? 'day' : compPeriod === 'weekly' ? 'week' : 'month';
-              return (
-                <View key="badge-trend" style={[s.compBadge, { backgroundColor: isHigher ? 'rgba(239,68,68,0.1)' : 'rgba(34,197,94,0.1)' }]}>
-                  <Ionicons name={isHigher ? 'trending-up' : 'trending-down'} size={16}
-                    color={isHigher ? COLORS.danger : COLORS.primary} />
-                  <Text style={[s.compBadgeText, { color: isHigher ? COLORS.danger : COLORS.primary }]}>
-                    Consumption is {absPct}% {isHigher ? 'higher' : 'lower'} than last {periodLabel}
+                  <Text style={s.compColVal}>
+                    ₱{Number.isFinite(Number(comparison?.current?.totalCost)) ? Number(comparison.current.totalCost).toFixed(2) : '0.00'}
+                  </Text>
+                  <Text style={s.compColSub}>
+                    {Number.isFinite(Number(comparison?.current?.totalEnergy)) ? Number(comparison.current.totalEnergy).toFixed(2) : '0.00'} kWh
                   </Text>
                 </View>
-              );
-            }
-            return (
-              <View key="badge-info" style={[s.compBadge, { backgroundColor: 'rgba(59,130,246,0.08)' }]}>
-                <Ionicons name="information-circle-outline" size={16} color={COLORS.info} />
-                <Text style={[s.compBadgeText, { color: COLORS.info }]}>
-                  Compare spending trends against previous periods to keep consumption on track.
-                </Text>
               </View>
-            );
-          })()}
-        </GlassCard>
+
+              {/* Trend Indicator Badge */}
+              {(() => {
+                const pct = Number(comparison?.costPctChange);
+                const hasChange = Number.isFinite(pct) && pct !== 0;
+                if (hasChange) {
+                  const isHigher = pct > 0;
+                  const absPct = Math.abs(pct).toFixed(1);
+                  const periodLabel = compPeriod === 'daily' ? 'day' : compPeriod === 'weekly' ? 'week' : 'month';
+                  return (
+                    <View 
+                      style={[
+                        s.compBadge, 
+                        { 
+                          backgroundColor: isHigher ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)',
+                          borderColor: isHigher ? 'rgba(239, 68, 68, 0.25)' : 'rgba(16, 185, 129, 0.25)'
+                        }
+                      ]}
+                    >
+                      <Ionicons 
+                        name={isHigher ? 'trending-up' : 'trending-down'} 
+                        size={15}
+                        color={isHigher ? '#EF4444' : '#10B981'} 
+                      />
+                      <Text style={[s.compBadgeText, { color: isHigher ? '#EF4444' : '#10B981' }]}>
+                        Cost is {absPct}% {isHigher ? 'higher' : 'lower'} than previous {periodLabel}.
+                      </Text>
+                    </View>
+                  );
+                }
+                return (
+                  <View 
+                    style={[
+                      s.compBadge, 
+                      { backgroundColor: 'rgba(56, 189, 248, 0.08)', borderColor: 'rgba(56, 189, 248, 0.2)' }
+                    ]}
+                  >
+                    <Ionicons name="information-circle-outline" size={15} color="#38BDF8" />
+                    <Text style={[s.compBadgeText, { color: '#38BDF8' }]}>
+                      Track trends across periods to identify opportunities to conserve electricity.
+                    </Text>
+                  </View>
+                );
+              })()}
+            </View>
           </CopilotView>
         </CopilotStep>
 
+        {/* ================= 5. SMART BUDGET INSIGHT ================= */}
+        {!loading && budgetData && !editing && (
+          <View style={s.insightCard}>
+            <View style={s.insightHeader}>
+              <Ionicons name="sparkles" size={14} color="#10B981" />
+              <Text style={s.insightBadgeText}>BUDGET INSIGHT</Text>
+            </View>
+            <Text style={s.insightTitle}>
+              {activePct > 90 ? 'Consumption Alert' : activePct > 75 ? 'Pacing Recommendation' : 'On Track'}
+            </Text>
+            <Text style={s.insightDesc}>
+              {activePct > 90
+                ? `You have used ${Math.round(activePct)}% of your ${activeTab} electricity budget. Consider limiting standby appliance usage to stay on target.`
+                : activePct > 75
+                ? `Your current electricity spending is approaching your ${activeTab} target. Spending under ₱${spendTarget.toFixed(2)}/day will keep you balanced.`
+                : `Your electricity spending is pacing safely within your ${activeTab} target (${Math.round(activePct)}% used). Keep up the good habits!`}
+            </Text>
+          </View>
+        )}
       </ScrollView>
 
-      {/* Budget Setup / Edit Modal (Outside ScrollView to prevent nesting/focus bugs) */}
+      {/* ================= 6. MANUAL EDIT BUDGET MODAL (NO MIN/MAX RESTRICTIONS) ================= */}
       <BaseModal visible={editing} onClose={() => setEditing(false)}>
         <ModalHeader 
           title="Set Monthly Budget" 
           icon="wallet" 
-          iconColor={COLORS.primary} 
+          iconColor="#10B981" 
           onClose={budgetData ? () => setEditing(false) : null} 
         />
         <ModalBody scrollable={false}>
           <View style={s.budgetInputContainer}>
-            {/* Massive Floating Input */}
+            {/* Current Budget Indicator */}
+            {monthlyBudgetVal > 0 && (
+              <View style={s.currentBudgetPill}>
+                <Text style={s.currentBudgetText}>
+                  Current Budget: ₱{monthlyBudgetVal.toFixed(2)}
+                </Text>
+              </View>
+            )}
+
+            {/* Custom Numeric Input (NO MIN / MAX RESTRICTIONS) */}
             <View style={s.budgetInputWrap}>
               <Text style={s.currencyLabel}>₱</Text>
               <TextInput 
                 style={s.inputModal} 
-                placeholder="0" 
-                placeholderTextColor={COLORS.textMuted}
+                placeholder="0.00" 
+                placeholderTextColor="#64748B"
                 value={monthlyBudget} 
                 onChangeText={setMonthlyBudgetInput} 
                 keyboardType="numeric" 
+                autoFocus={true}
               />
             </View>
 
-            {/* Live Daily Preview */}
+            {/* Live Daily Preview Calculation */}
             {parseFloat(monthlyBudget) > 0 ? (
               <View style={s.livePreviewContainer}>
                 <Text style={s.livePreviewText}>
-                  ≈ ₱{(parseFloat(monthlyBudget) / (budgetData?.days_in_month || 30)).toFixed(2)} / day
+                  ≈ ₱{(parseFloat(monthlyBudget) / (budgetData?.days_in_month || 30)).toFixed(2)} / day allowance
                 </Text>
               </View>
             ) : (
-              <View style={[s.livePreviewContainer, { opacity: 0 }]}><Text style={s.livePreviewText}>Placeholder</Text></View>
+              <View style={[s.livePreviewContainer, { opacity: 0 }]}>
+                <Text style={s.livePreviewText}>Placeholder</Text>
+              </View>
             )}
 
-            {/* Quick Select Chips */}
+            {/* Quick Suggestion Chips (Purely for Convenience - NOT Min/Max bounds) */}
             <View style={s.presetChipsContainer}>
-              {['500', '1000', '2500', '5000'].map(amount => (
+              {['500', '1000', '2000', '3000', '5000'].map(amount => (
                 <TouchableOpacity 
                   key={amount}
                   style={s.presetChip}
@@ -560,7 +765,7 @@ function BudgetScreen() {
           </View>
         </ModalBody>
         <ModalFooter 
-          primaryLabel={budgetData ? 'Update Budget' : 'Set Budget'}
+          primaryLabel={budgetData ? 'Update Budget' : 'Save Budget'}
           onPrimaryPress={handleSetBudget}
           secondaryLabel={budgetData ? 'Cancel' : null}
           onSecondaryPress={() => setEditing(false)}

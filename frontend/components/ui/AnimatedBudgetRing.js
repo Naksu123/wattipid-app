@@ -75,15 +75,18 @@ export default function AnimatedBudgetRing({
         />
       </Svg>
       <View style={[styles.inner, { width: safeSize, height: safeSize }]}>
-        <Text style={[styles.spentAmount, { color: getColor() }]}>
-          {currency}{safeSpent.toFixed(2)}
+        <Text style={styles.usedLabel}>USED</Text>
+        <Text style={styles.spentAmount}>
+          {currency}{safeSpent.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
         </Text>
         <Text style={styles.limitAmount}>
-          of {currency}{safeLimit.toFixed(2)}
+          of {currency}{safeLimit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
         </Text>
-        <Text style={[styles.percentage, { color: getColor() }]}>
-          {Math.round(safePercentage * 100)}%
-        </Text>
+        <View style={[styles.pctBadge, { backgroundColor: `${getColor()}20` }]}>
+          <Text style={[styles.percentage, { color: getColor() }]}>
+            {Math.round(safePercentage * 100)}%
+          </Text>
+        </View>
       </View>
     </View>
   );
@@ -100,18 +103,34 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  usedLabel: {
+    fontSize: 10.5,
+    fontWeight: '800',
+    color: '#94A3B8',
+    letterSpacing: 1,
+    marginBottom: 2,
+    textTransform: 'uppercase',
+  },
   spentAmount: {
-    fontSize: 28,
-    fontWeight: FONT_WEIGHT.bold,
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.5,
   },
   limitAmount: {
-    fontSize: FONT_SIZE.sm,
-    color: COLORS.textMuted,
+    fontSize: 12,
+    color: '#94A3B8',
     marginTop: 2,
-    marginBottom: 8,
+    marginBottom: 6,
+    fontWeight: '500',
+  },
+  pctBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
   },
   percentage: {
-    fontSize: FONT_SIZE.md,
-    fontWeight: FONT_WEIGHT.bold,
+    fontSize: 11.5,
+    fontWeight: '800',
   },
 });

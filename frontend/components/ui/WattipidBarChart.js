@@ -27,9 +27,11 @@ export default function WattipidBarChart({
   comparisonData = null,
   unit = 'kWh',
   height = 220,
+  width = null,
   onBarPress,
   currentIndex = -1,
   lowlightIndex = -1,
+  peakIndex = -1,
   accentColor = COLORS.primary,
 }) {
   const [selectedBar, setSelectedBar] = useState(-1);
@@ -57,10 +59,10 @@ export default function WattipidBarChart({
     );
   }
 
-  const screenWidth = Dimensions.get('window').width - SPACING.lg * 2 - 32;
-  const barCount = data.length;
-  const barSlotWidth = Math.max(MIN_BAR_WIDTH, (screenWidth - CHART_PADDING.left - CHART_PADDING.right) / barCount);
-  const chartContentWidth = Math.max(screenWidth, barSlotWidth * barCount + CHART_PADDING.left + CHART_PADDING.right);
+  const containerWidth = width || (Dimensions.get('window').width - 80);
+  const barCount = Math.max(data.length, 1);
+  const barSlotWidth = Math.max(MIN_BAR_WIDTH, (containerWidth - CHART_PADDING.left - CHART_PADDING.right) / barCount);
+  const chartContentWidth = Math.max(containerWidth, barSlotWidth * barCount + CHART_PADDING.left + CHART_PADDING.right);
   const barWidth = barSlotWidth * (1 - BAR_GAP_RATIO);
   const compBarWidth = comparisonData ? barWidth * 0.4 : 0;
   const mainBarWidth = comparisonData ? barWidth * 0.55 : barWidth;
@@ -84,12 +86,16 @@ export default function WattipidBarChart({
       {selectedBar >= 0 && selectedBar < data.length && (
         <View style={styles.tooltip}>
           <View style={styles.tooltipRow}>
-            <View style={[styles.tooltipDot, { backgroundColor: accentColor }]} />
+            <View style={[styles.tooltipDot, { backgroundColor: selectedBar === peakIndex && data[selectedBar] > 0 ? '#F59E0B' : accentColor }]} />
             <Text style={styles.tooltipLabel}>{labels[selectedBar]}</Text>
           </View>
-          <Text style={styles.tooltipValue}>{data[selectedBar].toFixed(3)} {unit}</Text>
+          <Text style={styles.tooltipValue}>
+            {unit === '₱' ? `₱${data[selectedBar].toFixed(2)}` : `${data[selectedBar].toFixed(3)} ${unit}`}
+          </Text>
           {comparisonData && comparisonData[selectedBar] > 0 && (
-            <Text style={styles.tooltipComp}>Prev: {comparisonData[selectedBar].toFixed(3)} {unit}</Text>
+            <Text style={styles.tooltipComp}>
+              Prev: {unit === '₱' ? `₱${comparisonData[selectedBar].toFixed(2)}` : `${comparisonData[selectedBar].toFixed(3)} ${unit}`}
+            </Text>
           )}
         </View>
       )}
@@ -98,8 +104,14 @@ export default function WattipidBarChart({
       <View style={styles.legend}>
         <View style={styles.legendItem}>
           <View style={[styles.legendDot, { backgroundColor: accentColor }]} />
-          <Text style={styles.legendText}>Current</Text>
+          <Text style={styles.legendText}>Consumption</Text>
         </View>
+        {peakIndex >= 0 && data[peakIndex] > 0 && (
+          <View style={styles.legendItem}>
+            <View style={[styles.legendDot, { backgroundColor: '#F59E0B' }]} />
+            <Text style={styles.legendText}>Peak</Text>
+          </View>
+        )}
         {comparisonData && (
           <View style={styles.legendItem}>
             <View style={[styles.legendDot, { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: COLORS.textMuted }]} />
@@ -112,8 +124,12 @@ export default function WattipidBarChart({
         <Svg width={chartContentWidth} height={height}>
           <Defs>
             <LinearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
-              <Stop offset="0" stopColor={accentColor} stopOpacity="0.9" />
-              <Stop offset="1" stopColor={accentColor} stopOpacity="0.5" />
+              <Stop offset="0" stopColor={accentColor} stopOpacity="0.95" />
+              <Stop offset="1" stopColor={accentColor} stopOpacity="0.55" />
+            </LinearGradient>
+            <LinearGradient id="peakGradient" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0" stopColor="#F59E0B" stopOpacity="0.95" />
+              <Stop offset="1" stopColor="#D97706" stopOpacity="0.55" />
             </LinearGradient>
             <LinearGradient id="mutedGradient" x1="0" y1="0" x2="0" y2="1">
               <Stop offset="0" stopColor={COLORS.surfaceLight} stopOpacity="0.9" />
@@ -135,7 +151,7 @@ export default function WattipidBarChart({
                   x={CHART_PADDING.left - 6} y={y + 4}
                   fill={COLORS.textMuted} fontSize="10" textAnchor="end"
                 >
-                  {formatAxisValue(val)}
+                  {formatAxisValue(val, unit)}
                 </SvgText>
               </React.Fragment>
             );
@@ -157,11 +173,9 @@ export default function WattipidBarChart({
             const barY = CHART_PADDING.top + chartAreaHeight - barH;
 
             const isCurrent = i === currentIndex;
+            const isPeak = i === peakIndex && val > 0;
             const isLowlight = i === lowlightIndex;
             const isSelected = i === selectedBar;
-            
-            // If there's a current index in this view, mute the non-current ones
-            const useMuted = currentIndex >= 0 && !isCurrent;
 
             // Comparison bar (previous period)
             let compBarH = 0;
@@ -199,8 +213,8 @@ export default function WattipidBarChart({
                   width={mainBarWidth}
                   height={Math.max(barH, 0)}
                   rx={4}
-                  fill={useMuted ? 'url(#mutedGradient)' : 'url(#barGradient)'}
-                  opacity={isSelected ? 1 : (isLowlight ? 0.4 : 1)}
+                  fill={isPeak ? 'url(#peakGradient)' : 'url(#barGradient)'}
+                  opacity={isSelected ? 1 : (isLowlight ? 0.4 : (isCurrent ? 1 : 0.9))}
                 />
 
                 {/* Selection highlight */}
@@ -212,9 +226,9 @@ export default function WattipidBarChart({
                     height={Math.max(barH + 4, 0)}
                     rx={5}
                     fill="transparent"
-                    stroke={accentColor}
+                    stroke={isPeak ? '#F59E0B' : accentColor}
                     strokeWidth={2}
-                    opacity={0.6}
+                    opacity={0.8}
                   />
                 )}
 
@@ -222,10 +236,10 @@ export default function WattipidBarChart({
                 <SvgText
                   x={x + barWidth / 2}
                   y={CHART_PADDING.top + chartAreaHeight + 16}
-                  fill={isSelected ? COLORS.textPrimary : COLORS.textMuted}
+                  fill={isSelected ? COLORS.textPrimary : (isCurrent ? accentColor : COLORS.textMuted)}
                   fontSize={barCount > 16 ? 8 : 10}
                   textAnchor="middle"
-                  fontWeight={isSelected ? 'bold' : 'normal'}
+                  fontWeight={isSelected || isCurrent ? 'bold' : 'normal'}
                 >
                   {labels[i]}
                 </SvgText>
@@ -281,7 +295,12 @@ function getGridLines(niceMax) {
   return lines;
 }
 
-function formatAxisValue(val) {
+function formatAxisValue(val, unit = 'kWh') {
+  if (unit === '₱') {
+    if (val >= 1000) return '₱' + (val / 1000).toFixed(1) + 'k';
+    if (val >= 100) return '₱' + val.toFixed(0);
+    return '₱' + val.toFixed(1);
+  }
   if (val >= 1000) return (val / 1000).toFixed(1) + 'k';
   if (val >= 100) return val.toFixed(0);
   if (val >= 10) return val.toFixed(1);

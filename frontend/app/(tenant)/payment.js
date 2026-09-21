@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, TouchableOpacity, Image, ActivityIndicator, ScrollView, TextInput, Pressable, Animated } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { getAvailableBillingCycles, getMultipleSettings } from '../../services/database';
 import { submitPayment } from '../../services/paymentService';
@@ -104,6 +105,39 @@ export default function TenantPaymentScreen() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
+    const hasDataRef = useRef(false);
+
+    // Instant Cache Restoration (Stale-While-Revalidate)
+    useEffect(() => {
+        let isMounted = true;
+        const restoreCachedPayment = async () => {
+            if (!user?.room_id) return;
+            try {
+                const cached = await AsyncStorage.getItem(`@cached_tenant_payment_${user.room_id}`);
+                if (cached && isMounted) {
+                    const parsed = JSON.parse(cached);
+                    if (parsed && (parsed.billingCycle || (parsed.allCycles && parsed.allCycles.length > 0))) {
+                        if (parsed.allCycles) setAllCycles(parsed.allCycles);
+                        let targetCycle = parsed.billingCycle;
+                        if (cycleId && Array.isArray(parsed.allCycles)) {
+                            const found = parsed.allCycles.find(c => String(c.id) === String(cycleId));
+                            if (found) targetCycle = found;
+                        }
+                        if (targetCycle) setBillingCycle(targetCycle);
+                        if (parsed.billType) setBillType(parsed.billType);
+                        if (parsed.landlordInfo) setLandlordInfo(parsed.landlordInfo);
+                        hasDataRef.current = true;
+                        setLoading(false);
+                    }
+                }
+            } catch (err) {
+                console.warn('[TenantPayment] Cache restoration error:', err);
+            }
+        };
+        restoreCachedPayment();
+        return () => { isMounted = false; };
+    }, [user?.room_id, cycleId]);
+
     // Wizard State
     const [step, setStep] = useState(1);
     const [paymentMethod, setPaymentMethod] = useState(null); // 'Cash', 'GCash', 'Maya'
@@ -175,41 +209,50 @@ export default function TenantPaymentScreen() {
             }
 
             setBillingCycle(chosen);
+            let computedBillType = 'current';
             if (chosen) {
                 const isOverdue = type === 'overdue' || chosen.payment_status === 'overdue' || (chosen.days_overdue && chosen.days_overdue > 0);
-                setBillType(isOverdue ? 'overdue' : 'current');
+                computedBillType = isOverdue ? 'overdue' : 'current';
+                setBillType(computedBillType);
             }
 
             // Fetch landlord settings for payment methods in a single request
+            let updatedLandlordInfo = landlordInfo;
             try {
                 const settings = await getMultipleSettings([
                     'gcash_name', 'gcash_number', 'gcash_qr',
                     'maya_name', 'maya_number', 'maya_qr'
                 ]);
                 
-                setLandlordInfo({
+                updatedLandlordInfo = {
                     gcash_name: settings?.gcash_name || 'Not configured',
                     gcash_number: settings?.gcash_number || 'Not configured',
                     gcash_qr: settings?.gcash_qr || null,
                     maya_name: settings?.maya_name || 'Not configured',
                     maya_number: settings?.maya_number || 'Not configured',
                     maya_qr: settings?.maya_qr || null
-                });
+                };
+                setLandlordInfo(updatedLandlordInfo);
             } catch (settingsErr) {
                 console.warn('[TenantPayment] Failed to load landlord payment settings:', settingsErr);
-                setLandlordInfo({
-                    gcash_name: 'Not configured',
-                    gcash_number: 'Not configured',
-                    gcash_qr: null,
-                    maya_name: 'Not configured',
-                    maya_number: 'Not configured',
-                    maya_qr: null
-                });
             }
+
+            hasDataRef.current = true;
+
+            // Persist to cache
+            AsyncStorage.setItem(`@cached_tenant_payment_${user.room_id}`, JSON.stringify({
+                allCycles: unpaid,
+                billingCycle: chosen,
+                billType: computedBillType,
+                landlordInfo: updatedLandlordInfo
+            })).catch(() => {});
 
         } catch (err) {
             console.warn('[TenantPayment] Failed to load data:', err);
-            setError('Unable to load billing information.');
+            // Stale-While-Revalidate: If we already have cached data, keep it visible!
+            if (!hasDataRef.current && !billingCycle) {
+                setError('Unable to load billing information.');
+            }
         } finally {
             setLoading(false);
         }
@@ -334,6 +377,8 @@ export default function TenantPaymentScreen() {
             setProofBase64(null);
             setReferenceNumber('');
             setStep(4);
+            AsyncStorage.removeItem(`@cached_tenant_dashboard_${user.room_id}`).catch(() => {});
+            AsyncStorage.removeItem(`@cached_tenant_billing_hist_${user.room_id}`).catch(() => {});
             fetchData();
         } catch (err) {
             const errorMsg = typeof err === 'string' ? err : (err?.message || 'Failed to submit payment.');
@@ -378,7 +423,7 @@ export default function TenantPaymentScreen() {
         return status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
     };
 
-    if (loading || authLoading) {
+    if ((loading && !billingCycle) || (authLoading && !billingCycle)) {
         return (
             <View style={[styles.container, styles.center]}>
                 <ActivityIndicator size="large" color={COLORS.primary} />
@@ -387,7 +432,7 @@ export default function TenantPaymentScreen() {
         );
     }
 
-    if (error) {
+    if (error && !billingCycle) {
         return (
             <View style={[styles.container, styles.center]}>
                 <Ionicons name="alert-circle-outline" size={48} color={COLORS.danger} />
@@ -670,6 +715,17 @@ export default function TenantPaymentScreen() {
                     <GlassCard style={styles.paidBox}>
                         <Ionicons name="checkmark-circle-outline" size={48} color={COLORS.success} />
                         <Text style={styles.paidText}>This invoice has been fully paid and verified!</Text>
+                        <TouchableOpacity 
+                            style={styles.viewPdfBtn} 
+                            onPress={() => router.push({ 
+                                pathname: '/(tenant)/pdf-viewer', 
+                                params: { id: billingCycle.id, invoice_number: billingCycle.invoice_number } 
+                            })}
+                            activeOpacity={0.8}
+                        >
+                            <Ionicons name="document-text-outline" size={20} color="#fff" style={{ marginRight: 8 }} />
+                            <Text style={styles.viewPdfBtnText}>View Invoice / Receipt (PDF)</Text>
+                        </TouchableOpacity>
                     </GlassCard>
                 )}
             </ScrollView>

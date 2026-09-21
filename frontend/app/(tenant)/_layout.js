@@ -24,12 +24,12 @@ export default function TenantLayout() {
           sceneContainerStyle: { backgroundColor: COLORS.background },
         }}
       >
-        <Tabs.Screen name="dashboard" options={{ title: 'Dashboard' }} />
+        <Tabs.Screen name="dashboard" options={{ title: 'Home' }} />
         <Tabs.Screen name="analytics" options={{ title: 'Analytics' }} />
         <Tabs.Screen name="tips" options={{ title: 'Tips' }} />
         <Tabs.Screen name="budget" options={{ title: 'Budget' }} />
         <Tabs.Screen name="billing/index" options={{ title: 'Payment' }} />
-        <Tabs.Screen name="settings" options={{ title: 'Settings' }} />
+        <Tabs.Screen name="settings" options={{ href: null, tabBarStyle: { display: 'none' } }} />
         
         <Tabs.Screen name="notifications" options={{ href: null, tabBarStyle: { display: 'none' } }} />
         <Tabs.Screen name="edit-profile" options={{ href: null, tabBarStyle: { display: 'none' } }} />

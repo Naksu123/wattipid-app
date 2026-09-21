@@ -1,6 +1,7 @@
 import { SafeAreaView } from 'react-native-safe-area-context';
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, StatusBar } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useModal } from '../../contexts/ModalContext';
@@ -37,30 +38,53 @@ export default function ManageTipsScreen() {
     'Daily Habits'
   ];
 
+  // Instant Cache Restoration (Stale-While-Revalidate)
+  useEffect(() => {
+    let isMounted = true;
+    const restoreCached = async () => {
+      try {
+        const cached = await AsyncStorage.getItem('@cached_landlord_manage_tips');
+        if (cached && isMounted) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setTips(parsed);
+            setLoading(false);
+          }
+        }
+      } catch (err) {
+        console.warn('[ManageTipsScreen] Cache restore error:', err);
+      }
+    };
+    restoreCached();
+    return () => { isMounted = false; };
+  }, []);
+
   useEffect(() => { 
     loadTips(); 
     
-    // Background polling for live engagement stats
+    // Background polling for live engagement stats (relaxed to 30 seconds)
     const interval = setInterval(async () => {
       try {
         const res = await tipsService.getAllTips();
-        if (res && res.success) {
+        if (res && res.success && Array.isArray(res.data)) {
           setTips(currentTips => currentTips.map(t => {
-            const updatedTip = (res.data || []).find(ut => ut.id === t.id);
+            const updatedTip = res.data.find(ut => ut.id === t.id);
             return updatedTip ? { ...t, likesCount: updatedTip.likesCount, viewsCount: updatedTip.viewsCount, isActive: updatedTip.isActive } : t;
           }));
         }
       } catch (err) {}
-    }, 5000); // 5-second polling
+    }, 30000); // 30-second polling
 
     return () => clearInterval(interval);
   }, []);
 
   const loadTips = async () => {
     try {
-      setLoading(true);
       const res = await tipsService.getAllTips();
-      if (res && res.success) setTips(res.data || []);
+      if (res && res.success && Array.isArray(res.data)) {
+        setTips(res.data);
+        AsyncStorage.setItem('@cached_landlord_manage_tips', JSON.stringify(res.data)).catch(() => {});
+      }
     } catch (err) {
       console.error(err);
     } finally {
@@ -205,7 +229,7 @@ export default function ManageTipsScreen() {
         </View>
 
         {/* Tips List */}
-        {loading ? (
+        {loading && (!tips || tips.length === 0) ? (
           <View style={styles.loaderContainer}>
             <ActivityIndicator color={COLORS.primary} size="large" />
             <Text style={styles.loaderText}>Fetching tips...</Text>

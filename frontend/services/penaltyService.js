@@ -28,11 +28,12 @@ export const updatePenaltySettings = async (settings) => {
 export const getOverdueAccounts = async () => {
     try {
         const response = await apiClient.post('/api.php', { action: 'getOverdueAccounts' });
-        if (!response.data.success) throw new Error(response.data.message);
+        if (!response.data.success) throw new Error(response.data.message || 'Failed to fetch overdue accounts');
         return response.data.data;
     } catch (error) {
-        console.error('getOverdueAccounts error:', error);
-        throw error;
+        const message = error.response?.data?.message || error.message || 'Unknown error occurred while fetching overdue accounts';
+        console.error('getOverdueAccounts error:', message, error.response?.data || error);
+        throw new Error(message);
     }
 };
 

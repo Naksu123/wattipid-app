@@ -345,6 +345,22 @@ export default StyleSheet.create({
     fontWeight: FONT_WEIGHT.medium,
     lineHeight: 22,
   },
+  viewPdfBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.primary,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: RADIUS.lg,
+    marginTop: 16,
+    width: '100%',
+  },
+  viewPdfBtnText: {
+    color: '#ffffff',
+    fontSize: 15,
+    fontWeight: '700',
+  },
 
   // ============ Utility ============
   retryBtn: {

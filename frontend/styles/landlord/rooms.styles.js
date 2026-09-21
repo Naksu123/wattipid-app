@@ -2,626 +2,948 @@ import { StyleSheet, Platform } from 'react-native';
 import { COLORS, FONT_SIZE, FONT_WEIGHT, RADIUS, SPACING, SHADOWS } from '../theme';
 
 export default StyleSheet.create({
-  container: { 
-    flex: 1, 
-    backgroundColor: COLORS.background 
+  container: {
+    flex: 1,
+    backgroundColor: '#070C18',
   },
-  scroll: { 
-    padding: SPACING.lg, 
-    paddingTop: SPACING.xxl + 10, 
-    paddingBottom: SPACING.xxl 
+  scroll: {
+    paddingBottom: SPACING.xxl + 20,
   },
-  title: { 
-    fontSize: FONT_SIZE.xxl, 
-    fontWeight: FONT_WEIGHT.bold, 
-    color: COLORS.textPrimary 
+
+  // ── Header & Action Bar ──
+  listHeaderContainer: {
+    paddingTop: Platform.OS === 'ios' ? 14 : 20,
+    marginBottom: 8,
   },
-  statsContainer: {
+  headerTitleWrap: {
+    paddingHorizontal: 20,
+    marginBottom: 16,
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.5,
+  },
+  actionRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    backgroundColor: 'rgba(15, 23, 42, 0.6)',
-    borderRadius: RADIUS.xl, // Softer curves
-    padding: SPACING.md,
-    marginBottom: SPACING.lg,
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    gap: 10,
+    marginBottom: 16,
+  },
+  searchBarWrap: {
+    flex: 1,
+    height: 46,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+  },
+  searchInput: {
+    flex: 1,
+    height: '100%',
+    color: '#FFFFFF',
+    fontSize: 14,
+    marginLeft: 8,
+  },
+  searchClearBtn: {
+    padding: 4,
+  },
+  addBtn: {
+    height: 46,
+    paddingHorizontal: 18,
+    borderRadius: 14,
+    backgroundColor: '#10B981',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    ...SHADOWS.sm,
+  },
+  addBtnText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+
+  // ── Clean Filter Tabs (No nested badge clutter) ──
+  filtersScroll: {
+    marginBottom: 16,
+  },
+  filtersContent: {
+    paddingHorizontal: 20,
+    gap: 8,
+  },
+  filterChipItem: {
+    paddingHorizontal: 18,
+    paddingVertical: 9,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  filterChipItemActive: {
+    backgroundColor: '#10B981',
+    borderColor: '#10B981',
+  },
+  filterChipItemText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#94A3B8',
+  },
+  filterChipItemTextActive: {
+    color: '#070C18',
+    fontWeight: '700',
+  },
+
+  // ── Room Card Styles (Sleek, Compact, Proportionate) ──
+  cardWrapper: {
+    paddingHorizontal: 16,
+  },
+  roomCard: {
+    backgroundColor: 'rgba(15, 23, 42, 0.75)',
+    borderRadius: 16,
+    marginBottom: 12,
+    paddingVertical: 13,
+    paddingHorizontal: 15,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.07)',
+    ...SHADOWS.sm,
+  },
+  roomCardOccupied: {
+    borderColor: 'rgba(16, 185, 129, 0.22)',
+  },
+  cardHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 10,
+  },
+  cardHeaderTitleWrap: {
+    flex: 1,
+    marginRight: 8,
+  },
+  cardRoomNumber: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.2,
+  },
+  cardRoomType: {
+    fontSize: 12,
+    color: '#94A3B8',
+    marginTop: 1,
+  },
+  cardHeaderRightWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  statusBadgePill: {
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+    borderRadius: 10,
+    borderWidth: 1,
+    maxWidth: 130,
+  },
+  statusBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  moreIconButton: {
+    padding: 2,
+  },
+
+  // Compact Info Section
+  cardInfoSection: {
+    marginBottom: 10,
+  },
+  cardInfoColumnsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  cardInfoCol: {
+    flex: 1,
+  },
+  cardInfoLabel: {
+    fontSize: 11,
+    color: '#94A3B8',
+    fontWeight: '500',
+    marginBottom: 2,
+  },
+  cardInfoValue: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  cardTenantRow: {
+    marginTop: 6,
+  },
+  cardTenantMutedValue: {
+    fontSize: 13,
+    color: '#94A3B8',
+    fontWeight: '500',
+  },
+
+  // Month Accumulation (Compact Dual Tiles)
+  accumulationSection: {
+    marginBottom: 0,
+  },
+  accumulationHeading: {
+    fontSize: 11,
+    color: '#94A3B8',
+    fontWeight: '600',
+    marginBottom: 6,
+  },
+  accumulationBoxesRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  accumulateBox: {
+    flex: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.05)',
-    ...SHADOWS.md
   },
-  statBox: {
-    width: '33.33%',
-    alignItems: 'center',
-    paddingVertical: SPACING.sm
+  accumulateLabel: {
+    fontSize: 10,
+    color: '#94A3B8',
+    marginBottom: 2,
   },
-  statNum: { 
-    fontSize: FONT_SIZE.xl, 
-    fontWeight: FONT_WEIGHT.bold, 
-    color: COLORS.textPrimary 
+  accumulateValue: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#FFFFFF',
   },
-  statLabel: { 
-    fontSize: FONT_SIZE.xs, 
-    color: COLORS.textMuted, 
-    marginTop: 2 
-  },
-  roomCard: { 
-    backgroundColor: 'rgba(15, 23, 42, 0.6)',
-    borderRadius: RADIUS.xl,
-    marginBottom: SPACING.md, 
-    padding: SPACING.lg, 
-    borderWidth: 1, 
-    borderColor: 'rgba(255, 255, 255, 0.05)',
-    ...SHADOWS.md
-  },
-  roomHeader: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    alignItems: 'center', 
-    marginBottom: SPACING.sm 
-  },
-  roomInfo: { 
+
+  // ── Bottom Sheet Modals (Action Menu & Room Form) ──
+  bottomSheetOverlay: {
     flex: 1,
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    gap: SPACING.md,
-    marginRight: SPACING.sm
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    justifyContent: 'flex-end',
   },
-  roomIcon: { 
-    width: 44, 
-    height: 44, 
-    borderRadius: 12, 
-    alignItems: 'center', 
-    justifyContent: 'center' 
+  bottomSheetContainer: {
+    backgroundColor: '#0B132B',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: Platform.OS === 'ios' ? 36 : 24,
+    maxHeight: '82%',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
-  roomId: { 
-    fontSize: FONT_SIZE.lg, 
-    fontWeight: FONT_WEIGHT.bold, 
-    color: COLORS.textPrimary 
-  },
-  tenantName: { 
-    fontSize: FONT_SIZE.sm, 
-    color: COLORS.textSecondary, 
-    marginTop: 2 
-  },
-  moveInRow: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    gap: SPACING.xs, 
-    marginBottom: SPACING.sm 
-  },
-  moveInText: { 
-    fontSize: FONT_SIZE.xs, 
-    color: COLORS.textMuted 
-  },
-  consumptionRow: { 
-    flexDirection: 'row', 
-    gap: SPACING.sm, 
-    paddingTop: SPACING.sm, 
-    borderTopWidth: 1, 
-    borderTopColor: COLORS.border, 
-    marginBottom: SPACING.sm 
-  },
-  consumptionItem: { 
-    flex: 1 
-  },
-  consumptionLabel: { 
-    fontSize: 10, 
-    color: COLORS.textMuted, 
-    textTransform: 'uppercase', 
-    letterSpacing: 0.5 
-  },
-  consumptionValue: { 
-    fontSize: FONT_SIZE.md, 
-    fontWeight: FONT_WEIGHT.bold, 
-    color: COLORS.textPrimary, 
-    marginTop: 2 
-  },
-  codeFooter: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    gap: SPACING.xs, 
-    paddingTop: SPACING.sm, 
-    borderTopWidth: 1, 
-    borderTopColor: COLORS.border 
-  },
-  codeLabel: { 
-    fontSize: FONT_SIZE.xs, 
-    color: COLORS.textMuted 
-  },
-  codeValue: { 
-    fontSize: FONT_SIZE.xs, 
-    color: COLORS.textSecondary, 
-    fontWeight: FONT_WEIGHT.semibold, 
-    fontFamily: 'monospace' 
-  },
-  cardActions: { 
-    flexDirection: 'row', 
-    flexWrap: 'wrap',
-    alignItems: 'center', 
-    justifyContent: 'space-between', 
-    borderTopWidth: 1, 
-    borderTopColor: COLORS.border, 
-    paddingTop: SPACING.sm, 
-    marginTop: SPACING.xs, 
-    gap: SPACING.xs 
-  },
-  actionBtnText: { 
-    fontSize: 12, 
-    fontWeight: FONT_WEIGHT.semibold 
-  },
-  moreBtn: {
-    padding: 6,
-    borderRadius: RADIUS.round,
+
+  // ── Center Floating Modal (Edit / Add Room) ──
+  centerModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.78)',
     justifyContent: 'center',
-    alignItems: 'center'
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 30,
   },
-  menuHeader: {
+  centerModalContainer: {
+    width: '100%',
+    maxWidth: 420,
+    maxHeight: '86%',
+    backgroundColor: '#0B132B',
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    paddingHorizontal: 20,
+    paddingTop: 18,
+    paddingBottom: 20,
+    ...SHADOWS.lg,
+  },
+  centerModalHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border
+    marginBottom: 8,
   },
-  menuTitle: {
-    fontSize: FONT_SIZE.lg,
-    fontWeight: FONT_WEIGHT.bold,
-    color: COLORS.textPrimary
+  centerModalTitleWrap: {
+    flex: 1,
+    marginRight: 10,
   },
-  menuItem: {
+  centerModalTitle: {
+    fontSize: 19,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.3,
+  },
+  centerModalSubtitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#10B981',
+    marginTop: 2,
+  },
+  centerModalDivider: {
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    marginBottom: 8,
+  },
+  bottomSheetHandle: {
+    width: 44,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    alignSelf: 'center',
+    marginBottom: 14,
+  },
+  menuHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  menuHeaderTitleWrap: {
+    flex: 1,
+    marginRight: 10,
+  },
+  menuHeaderTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.3,
+  },
+  menuHeaderSubtitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.success,
+    marginTop: 2,
+  },
+  menuCloseBtn: {
+    padding: 2,
+  },
+  menuDivider: {
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    marginBottom: 6,
+  },
+  menuScrollList: {
+    width: '100%',
+  },
+  actionRowItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 4,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border
+    borderBottomColor: 'rgba(255, 255, 255, 0.04)',
   },
-  menuIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+  actionIconBadge: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12
+    marginRight: 12,
   },
-  menuItemText: {
-    fontSize: FONT_SIZE.md,
-    color: COLORS.textPrimary,
-    fontWeight: FONT_WEIGHT.medium
+  actionRowLabel: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
-  overlay: { 
-    flex: 1, 
-    backgroundColor: 'rgba(0,0,0,0.75)', 
-    justifyContent: 'center', 
-    alignItems: 'center', 
+
+  // Form Modal Styles
+  formSheetTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  formScrollView: {
+    width: '100%',
+    marginTop: 8,
+  },
+  formFieldLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: COLORS.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 6,
+  },
+  formInputBox: {
+    height: 46,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+  },
+  formInputBoxError: {
+    borderColor: COLORS.danger,
+  },
+  formTextInput: {
+    flex: 1,
+    height: '100%',
+    color: '#FFFFFF',
+    fontSize: 14,
+  },
+  formErrorText: {
+    fontSize: 11,
+    color: COLORS.danger,
+    marginTop: 4,
+  },
+  currencyPrefix: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: COLORS.textMuted,
+    marginRight: 8,
+  },
+  typeChipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  typeChipItem: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  typeChipItemActive: {
+    backgroundColor: '#10B981',
+    borderColor: '#10B981',
+  },
+  typeChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+  },
+  typeChipTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  statusChipsWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  statusChipBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  statusChipBtnActive: {
+    backgroundColor: 'rgba(16, 185, 129, 0.2)',
+    borderColor: '#10B981',
+  },
+  statusChipBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+  },
+  statusChipBtnTextActive: {
+    color: '#10B981',
+    fontWeight: '700',
+  },
+  formFooterActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 16,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  formCancelBtn: {
+    flex: 1,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  formCancelBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  formSaveBtn: {
+    flex: 1,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: '#10B981',
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...SHADOWS.md,
+  },
+  formSaveBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+
+  // ── Empty & Error States ──
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+    paddingHorizontal: 24,
+  },
+  emptyIconWrap: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    textAlign: 'center',
+    marginBottom: 6,
+  },
+  emptyText: {
+    fontSize: 13,
+    color: COLORS.textMuted,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 20,
+  },
+  emptyAddBtn: {
+    paddingHorizontal: 22,
+    paddingVertical: 12,
+    borderRadius: 14,
+    backgroundColor: '#10B981',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  emptyAddBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  errorBanner: {
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.25)',
+    borderRadius: 14,
+    padding: 14,
+    marginHorizontal: SPACING.lg,
+    marginBottom: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  errorText: {
+    fontSize: 13,
+    color: '#EF4444',
+    flex: 1,
+    marginRight: 10,
+  },
+  retryBtn: {
+    backgroundColor: '#EF4444',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  retryBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  skeletonCard: {
+    height: 180,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: 20,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+  },
+
+  // ── Legacy Dialog / Modal Styles (Preserved for Secondary Dialogs) ──
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.75)',
+    justifyContent: 'center',
+    alignItems: 'center',
     padding: 20,
-    zIndex: 999 
+    zIndex: 999,
   },
-  modal: { 
-    backgroundColor: COLORS.surface, 
-    borderRadius: RADIUS.xl, 
-    padding: SPACING.xl, 
-    width: '100%', 
-    maxWidth: 360, 
-    maxHeight: '85%', 
-    borderWidth: 1, 
+  modal: {
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.xl,
+    padding: SPACING.xl,
+    width: '100%',
+    maxWidth: 360,
+    maxHeight: '85%',
+    borderWidth: 1,
     borderColor: COLORS.border,
     elevation: 10,
-    zIndex: 1000
+    zIndex: 1000,
   },
-  modalIcon: { 
-    width: 64, 
-    height: 64, 
-    borderRadius: 32, 
-    backgroundColor: 'rgba(34,197,94,0.12)', 
-    alignItems: 'center', 
-    justifyContent: 'center', 
-    alignSelf: 'center', 
-    marginBottom: SPACING.md 
+  modalIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: 'rgba(34,197,94,0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+    marginBottom: SPACING.md,
   },
-  modalTitle: { 
-    fontSize: FONT_SIZE.xl, 
-    fontWeight: FONT_WEIGHT.bold, 
-    color: COLORS.textPrimary, 
-    textAlign: 'center', 
-    marginBottom: SPACING.sm 
+  modalTitle: {
+    fontSize: FONT_SIZE.xl,
+    fontWeight: FONT_WEIGHT.bold,
+    color: COLORS.textPrimary,
+    textAlign: 'center',
+    marginBottom: SPACING.sm,
   },
-  modalDesc: { 
-    fontSize: FONT_SIZE.sm, 
-    color: COLORS.textSecondary, 
-    textAlign: 'center', 
-    lineHeight: 20, 
-    marginBottom: SPACING.md 
+  modalDesc: {
+    fontSize: FONT_SIZE.sm,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: SPACING.md,
   },
-  modalRoom: { 
-    color: COLORS.primary, 
-    fontWeight: FONT_WEIGHT.semibold 
+  modalRoom: {
+    color: COLORS.primary,
+    fontWeight: FONT_WEIGHT.semibold,
   },
-  codePreview: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    gap: SPACING.xs, 
-    backgroundColor: 'rgba(245,158,11,0.08)', 
-    borderRadius: RADIUS.md, 
-    padding: SPACING.sm, 
-    marginBottom: SPACING.md, 
-    justifyContent: 'center' 
-  },
-  codePreviewText: { 
-    fontSize: FONT_SIZE.sm, 
-    color: COLORS.textSecondary 
-  },
-  codePreviewValue: { 
-    fontSize: FONT_SIZE.md, 
-    fontWeight: FONT_WEIGHT.bold, 
-    color: COLORS.warning, 
-    fontFamily: 'monospace', 
-    letterSpacing: 1 
-  },
-  emailWrap: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    gap: SPACING.sm, 
-    backgroundColor: COLORS.backgroundLight, 
-    borderRadius: RADIUS.md, 
-    borderWidth: 1, 
-    borderColor: COLORS.border, 
-    paddingHorizontal: SPACING.md, 
-    height: 50, 
-    marginBottom: SPACING.xs 
-  },
-  emailWrapErr: { 
-    borderColor: COLORS.danger 
-  },
-  emailInput: { 
-    flex: 1, 
-    fontSize: FONT_SIZE.md, 
-    color: COLORS.textPrimary 
-  },
-  emailError: { 
-    fontSize: FONT_SIZE.xs, 
-    color: COLORS.danger, 
-    marginBottom: SPACING.sm 
-  },
-  timerNote: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    backgroundColor: 'rgba(245,158,11,0.08)', 
-    borderRadius: RADIUS.md, 
-    padding: SPACING.sm, 
-    marginBottom: SPACING.sm 
-  },
-  timerNoteText: { 
-    fontSize: FONT_SIZE.xs, 
-    color: COLORS.warning, 
-    flex: 1, 
-    marginLeft: SPACING.xs 
-  },
-  modalActions: { 
-    flexDirection: 'row', 
-    marginTop: SPACING.md 
-  },
-  cancelBtn: { 
-    flex: 1, 
-    paddingVertical: SPACING.md, 
-    borderRadius: RADIUS.md, 
-    borderWidth: 1, 
-    borderColor: COLORS.border, 
-    alignItems: 'center' 
-  },
-  cancelText: { 
-    fontSize: FONT_SIZE.md, 
-    color: COLORS.textSecondary, 
-    fontWeight: FONT_WEIGHT.medium 
-  },
-  cancelBtnOutline: { 
-    flex: 1, 
-    paddingVertical: SPACING.md, 
-    borderRadius: RADIUS.md, 
-    borderWidth: 1, 
-    borderColor: COLORS.primary, 
-    alignItems: 'center' 
-  },
-  cancelTextGreen: { 
-    fontSize: FONT_SIZE.md, 
-    color: COLORS.primary, 
-    fontWeight: FONT_WEIGHT.semibold 
-  },
-  removeBtnSolid: { 
-    flex: 1, 
-    paddingVertical: SPACING.md, 
-    borderRadius: RADIUS.md, 
-    backgroundColor: COLORS.danger, 
-    alignItems: 'center' 
-  },
-  primaryBtnSolid: { 
-    flex: 1, 
-    paddingVertical: SPACING.md, 
-    borderRadius: RADIUS.md, 
-    backgroundColor: COLORS.primary, 
-    alignItems: 'center' 
-  },
-  removeTextWhite: { 
-    fontSize: FONT_SIZE.md, 
-    color: '#fff', 
-    fontWeight: FONT_WEIGHT.semibold 
-  },
-  successBtnSolid: { 
-    width: '100%', 
-    paddingVertical: SPACING.md, 
-    borderRadius: RADIUS.md, 
-    backgroundColor: COLORS.primary, 
-    alignItems: 'center', 
-    marginTop: SPACING.md 
-  },
-  closeModalBtn: { 
-    position: 'absolute', 
-    top: 16, 
-    right: 16, 
-    zIndex: 10 
-  },
-  revokeInfoBox: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    backgroundColor: COLORS.backgroundLight, 
-    borderRadius: RADIUS.md, 
-    padding: SPACING.md, 
-    marginBottom: SPACING.md, 
-    gap: SPACING.md 
-  },
-  revokeInfoText: { 
-    fontSize: FONT_SIZE.sm, 
-    color: COLORS.textSecondary, 
-    flex: 1 
-  },
-  successIconWrap: { 
-    alignSelf: 'center', 
-    marginBottom: SPACING.lg, 
-    marginTop: SPACING.md, 
-    position: 'relative' 
-  },
-  successIconInner: { 
-    width: 64, 
-    height: 64, 
-    borderRadius: 32, 
-    backgroundColor: COLORS.primary, 
-    alignItems: 'center', 
-    justifyContent: 'center' 
-  },
-  particle: { 
-    position: 'absolute', 
-    width: 6, 
-    height: 6, 
-    borderRadius: 3, 
-    backgroundColor: COLORS.primary, 
-    opacity: 0.7 
-  },
-  sendBtnWrap: { 
-    flex: 1, 
-    borderRadius: RADIUS.md, 
-    overflow: 'hidden' 
-  },
-  sendBtn: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    justifyContent: 'center', 
-    gap: SPACING.xs, 
-    paddingVertical: SPACING.md 
-  },
-  sendText: { 
-    fontSize: FONT_SIZE.md, 
-    fontWeight: FONT_WEIGHT.semibold, 
-    color: '#fff' 
-  },
-  reportPreview: { 
-    backgroundColor: COLORS.backgroundLight, 
-    borderRadius: RADIUS.md, 
-    borderWidth: 1, 
-    borderColor: COLORS.border, 
-    marginBottom: SPACING.md, 
-    overflow: 'hidden' 
-  },
-  reportRow: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    padding: SPACING.md, 
-    borderBottomWidth: 1, 
-    borderBottomColor: COLORS.border 
-  },
-  reportLabel: { 
-    fontSize: FONT_SIZE.sm, 
-    color: COLORS.textSecondary 
-  },
-  reportValue: { 
-    fontSize: FONT_SIZE.sm, 
-    fontWeight: FONT_WEIGHT.bold, 
-    color: COLORS.textPrimary 
-  },
-  transferItem: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    gap: SPACING.md, 
-    padding: SPACING.md, 
-    backgroundColor: COLORS.backgroundLight, 
-    borderRadius: RADIUS.md, 
-    borderWidth: 1, 
-    borderColor: COLORS.border, 
-    marginBottom: SPACING.sm 
-  },
-  transferItemText: { 
-    flex: 1, 
-    fontSize: FONT_SIZE.md, 
-    fontWeight: FONT_WEIGHT.semibold, 
-    color: COLORS.textPrimary 
-  },
-  successModal: { 
-    backgroundColor: COLORS.surface, 
-    borderRadius: RADIUS.xl, 
-    width: '100%', 
-    maxWidth: 320, 
-    maxHeight: '85%', 
-    ...SHADOWS.lg,
-    overflow: 'hidden',
+  emailWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.backgroundLight,
     borderWidth: 1,
     borderColor: COLORS.border,
-    elevation: 12, 
-    zIndex: 1100
+    borderRadius: RADIUS.md,
+    paddingHorizontal: SPACING.md,
+    height: 48,
+    marginBottom: SPACING.xs,
   },
-  successScroll: { 
-    flexGrow: 0 
+  emailWrapErr: {
+    borderColor: COLORS.danger,
   },
-  successScrollContent: { 
-    padding: 24, 
-    alignItems: 'center' 
+  emailInput: {
+    flex: 1,
+    fontSize: FONT_SIZE.md,
+    color: COLORS.textPrimary,
+    paddingHorizontal: SPACING.sm,
+    height: '100%',
   },
-  successHeader: { 
-    alignItems: 'center', 
-    marginBottom: 20 
+  emailError: {
+    fontSize: FONT_SIZE.xs,
+    color: COLORS.danger,
+    marginBottom: SPACING.sm,
+    marginLeft: SPACING.xs,
   },
-  successIconPill: { 
-    marginBottom: 16 
+  timerNote: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+    backgroundColor: 'rgba(245,158,11,0.08)',
+    borderRadius: RADIUS.sm,
+    padding: SPACING.sm,
+    marginBottom: SPACING.md,
+    borderWidth: 1,
+    borderColor: 'rgba(245,158,11,0.2)',
   },
-  successIconBg: { 
-    width: 80, 
-    height: 80, 
-    borderRadius: 40, 
-    backgroundColor: 'rgba(34,197,94,0.1)', 
-    alignItems: 'center', 
-    justifyContent: 'center', 
-    borderWidth: 1, 
-    borderColor: 'rgba(34,197,94,0.2)' 
+  timerNoteText: {
+    fontSize: FONT_SIZE.xs,
+    color: COLORS.warning,
+    flex: 1,
   },
-  successTitle: { 
-    fontSize: 24, 
-    fontWeight: '800', 
-    color: COLORS.textPrimary, 
-    marginBottom: 8 
+  modalActions: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+    marginTop: SPACING.sm,
   },
-  successSubtitle: { 
-    fontSize: 14, 
-    color: COLORS.textSecondary, 
-    textAlign: 'center', 
-    lineHeight: 20 
+  cancelBtn: {
+    flex: 1,
+    height: 48,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  codeContainer: { 
-    width: '100%', 
-    backgroundColor: COLORS.backgroundLight, 
-    borderRadius: RADIUS.lg, 
-    padding: 20, 
-    alignItems: 'center', 
-    marginBottom: 20, 
-    borderWidth: 1, 
-    borderColor: COLORS.border 
+  cancelText: {
+    fontSize: FONT_SIZE.sm,
+    fontWeight: FONT_WEIGHT.semibold,
+    color: COLORS.textSecondary,
   },
-  codeContainerLabel: { 
-    fontSize: 10, 
-    fontWeight: '700', 
-    color: COLORS.textMuted, 
-    letterSpacing: 1, 
-    marginBottom: 12 
+  cancelBtnOutline: {
+    flex: 1,
+    height: 48,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  codeBox: { 
-    backgroundColor: COLORS.surface, 
-    paddingHorizontal: 24, 
-    paddingVertical: 12, 
-    borderRadius: 12, 
-    borderWidth: 1, 
-    borderColor: COLORS.primary, 
-    marginBottom: 12 
+  cancelTextGreen: {
+    fontSize: FONT_SIZE.sm,
+    fontWeight: FONT_WEIGHT.semibold,
+    color: COLORS.textSecondary,
   },
-  codeText: { 
-    fontSize: 28, 
-    fontWeight: '800', 
-    color: COLORS.primary, 
-    fontFamily: Platform.OS === 'ios' ? 'Courier New' : 'monospace', 
-    letterSpacing: 2 
+  removeBtnSolid: {
+    flex: 1,
+    height: 48,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.danger,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  roomBadge: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    backgroundColor: 'rgba(34,197,94,0.1)', 
-    paddingHorizontal: 12, 
-    paddingVertical: 6, 
-    borderRadius: 20 
+  removeTextWhite: {
+    color: '#FFFFFF',
+    fontSize: FONT_SIZE.sm,
+    fontWeight: FONT_WEIGHT.bold,
   },
-  roomBadgeText: { 
-    fontSize: 12, 
-    fontWeight: '700', 
-    color: COLORS.primary, 
-    marginLeft: 6 
+  sendBtnWrap: {
+    flex: 1,
+    height: 48,
+    borderRadius: RADIUS.md,
+    overflow: 'hidden',
   },
-  successDetails: { 
-    width: '100%', 
-    paddingHorizontal: 4 
+  sendBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.xs,
   },
-  detailRow: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    marginBottom: 14 
+  sendText: {
+    fontSize: FONT_SIZE.sm,
+    fontWeight: FONT_WEIGHT.bold,
+    color: '#FFFFFF',
   },
-  detailText: { 
-    fontSize: 13, 
-    color: COLORS.textSecondary, 
-    flex: 1, 
-    marginLeft: 12 
+  closeModalBtn: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    zIndex: 10,
+    padding: 4,
   },
-  successFooter: { 
-    padding: 20, 
-    paddingTop: 0 
+  transferItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.backgroundLight,
+    padding: SPACING.md,
+    borderRadius: RADIUS.md,
+    marginBottom: SPACING.sm,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
-  successOkBtn: { 
-    backgroundColor: COLORS.primary, 
-    width: '100%', 
-    height: 54, 
-    borderRadius: RADIUS.md, 
-    alignItems: 'center', 
-    justifyContent: 'center', 
-    ...SHADOWS.md 
+  transferItemText: {
+    fontSize: FONT_SIZE.md,
+    fontWeight: FONT_WEIGHT.semibold,
+    color: COLORS.textPrimary,
+    flex: 1,
+    marginLeft: SPACING.sm,
   },
-  successOkBtnText: { 
-    color: '#FFFFFF', 
-    fontSize: 16, 
-    fontWeight: '700' 
+  roomIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  resetWarningBox: { 
-    backgroundColor: 'rgba(245,158,11,0.08)', 
-    borderRadius: RADIUS.lg, 
-    padding: SPACING.md, 
+  revokeInfoBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    backgroundColor: 'rgba(34,197,94,0.06)',
+    borderRadius: RADIUS.md,
+    padding: SPACING.md,
+    marginBottom: SPACING.md,
+    borderWidth: 1,
+    borderColor: 'rgba(34,197,94,0.15)',
+  },
+  revokeInfoText: {
+    fontSize: FONT_SIZE.xs,
+    color: COLORS.textSecondary,
+    flex: 1,
+    lineHeight: 16,
+  },
+  successModal: {
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.xl,
+    width: '100%',
+    maxWidth: 340,
+    maxHeight: '85%',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    elevation: 10,
+    overflow: 'hidden',
+  },
+  successScroll: {
+    maxHeight: 380,
+  },
+  successScrollContent: {
+    padding: 24,
+    alignItems: 'center',
+  },
+  successHeader: {
+    alignItems: 'center',
+    marginBottom: 20,
+    width: '100%',
+  },
+  successIconPill: {
+    marginBottom: 16,
+  },
+  successIconBg: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: 'rgba(34,197,94,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(34,197,94,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  successTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: COLORS.textPrimary,
+    textAlign: 'center',
+    marginBottom: 6,
+  },
+  successSubtitle: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    lineHeight: 18,
+    paddingHorizontal: 8,
+  },
+  codeContainer: {
+    width: '100%',
+    backgroundColor: COLORS.backgroundLight,
+    borderRadius: RADIUS.lg,
+    padding: 16,
+    alignItems: 'center',
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  codeContainerLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: COLORS.textMuted,
+    letterSpacing: 1,
+    marginBottom: 10,
+  },
+  codeBox: {
+    backgroundColor: COLORS.surface,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+    marginBottom: 10,
+  },
+  codeText: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: COLORS.primary,
+    fontFamily: Platform.OS === 'ios' ? 'Courier New' : 'monospace',
+    letterSpacing: 2,
+  },
+  roomBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(34,197,94,0.1)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
+  },
+  roomBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: COLORS.primary,
+    marginLeft: 6,
+  },
+  successDetails: {
+    width: '100%',
+    paddingHorizontal: 4,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  detailText: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    flex: 1,
+    marginLeft: 10,
+  },
+  successFooter: {
+    padding: 20,
+    paddingTop: 0,
+  },
+  successOkBtn: {
+    backgroundColor: COLORS.primary,
+    width: '100%',
+    height: 48,
+    borderRadius: RADIUS.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...SHADOWS.md,
+  },
+  successOkBtnText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  resetWarningBox: {
+    backgroundColor: 'rgba(245,158,11,0.08)',
+    borderRadius: RADIUS.lg,
+    padding: SPACING.md,
     marginBottom: SPACING.lg,
     borderWidth: 1,
-    borderColor: 'rgba(245,158,11,0.15)'
+    borderColor: 'rgba(245,158,11,0.15)',
+    width: '100%',
   },
-  resetWarningHeader: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    gap: 6, 
-    marginBottom: 10 
+  resetWarningHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 8,
   },
-  resetWarningTitle: { 
-    fontSize: 11, 
-    fontWeight: '800', 
-    color: COLORS.warning, 
-    letterSpacing: 1 
+  resetWarningTitle: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: COLORS.warning,
+    letterSpacing: 1,
   },
-  resetWarningItem: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    gap: 8, 
-    marginBottom: 6 
+  resetWarningItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 6,
   },
-  bullet: { 
-    width: 4, 
-    height: 4, 
-    borderRadius: 2, 
-    backgroundColor: COLORS.warning 
+  bullet: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: COLORS.warning,
   },
-  resetWarningText: { 
-    fontSize: 12, 
-    color: COLORS.textSecondary, 
-    flex: 1 
-  },
-  resetBtnSolid: { 
-    flex: 1, 
-    paddingVertical: SPACING.md, 
-    borderRadius: RADIUS.md, 
-    backgroundColor: COLORS.warning, 
-    alignItems: 'center' 
+  resetWarningText: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    flex: 1,
   },
 });

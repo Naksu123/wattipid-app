@@ -90,19 +90,19 @@ export default function UserManualScreen() {
             <View style={[s.iconBox, { backgroundColor: isExpanded ? section.iconColor : section.iconBg }]}>
               <Ionicons
                 name={section.icon}
-                size={20}
-                color={isExpanded ? '#fff' : section.iconColor}
+                size={18}
+                color={isExpanded ? '#FFFFFF' : section.iconColor}
               />
             </View>
-            <Text style={[s.sectionTitle, isExpanded && { color: section.iconColor }]}>
+            <Text style={[s.sectionTitle, isExpanded && { color: '#FFFFFF' }]}>
               {section.title}
             </Text>
           </View>
           <View style={s.chevron}>
             <Ionicons
               name={isExpanded ? 'chevron-up' : 'chevron-down'}
-              size={16}
-              color={COLORS.textMuted}
+              size={15}
+              color={isExpanded ? '#10B981' : '#64748B'}
             />
           </View>
         </TouchableOpacity>
@@ -118,7 +118,7 @@ export default function UserManualScreen() {
 
   return (
     <View style={s.container}>
-      {/* Header */}
+      {/* Header (Matches Screenshot 2) */}
       <View style={s.header}>
         <TouchableOpacity
           style={s.backBtn}
@@ -126,7 +126,7 @@ export default function UserManualScreen() {
           accessibilityRole="button"
           accessibilityLabel="Go back"
         >
-          <Ionicons name="arrow-back" size={22} color={COLORS.textPrimary} />
+          <Ionicons name="arrow-back" size={18} color="#FFFFFF" />
         </TouchableOpacity>
 
         <View style={s.headerTitleWrap}>
@@ -141,13 +141,13 @@ export default function UserManualScreen() {
         </View>
       </View>
 
-      {/* Search */}
+      {/* Search Field */}
       <View style={s.searchContainer}>
-        <Ionicons name="search" size={18} color={COLORS.textMuted} style={s.searchIcon} />
+        <Ionicons name="search" size={17} color="#64748B" style={s.searchIcon} />
         <TextInput
           style={s.searchInput}
           placeholder="Search User Manual..."
-          placeholderTextColor={COLORS.textMuted}
+          placeholderTextColor="#64748B"
           value={searchQuery}
           onChangeText={setSearchQuery}
           returnKeyType="search"
@@ -155,7 +155,7 @@ export default function UserManualScreen() {
         />
         {searchQuery.length > 0 && (
           <TouchableOpacity onPress={() => setSearchQuery('')} style={s.clearBtn} accessibilityLabel="Clear search">
-            <Ionicons name="close-circle" size={20} color={COLORS.textMuted} />
+            <Ionicons name="close-circle" size={18} color="#64748B" />
           </TouchableOpacity>
         )}
       </View>
@@ -178,41 +178,30 @@ export default function UserManualScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
+        {/* Full Tour CTA Card (Matches Screenshot 2) */}
         {!searchQuery.trim() && !isLandlord && (
-          <View style={{ marginBottom: 20 }}>
-            {/* Full Tour Hero Card */}
-            <TouchableOpacity 
-              onPress={startFullTour} 
-              activeOpacity={0.85}
-              style={{ 
-                backgroundColor: '#10B981', 
-                padding: 16, 
-                borderRadius: 18, 
-                alignItems: 'center', 
-                flexDirection: 'row', 
-                justifyContent: 'center', 
-                gap: 12, 
-                shadowColor: '#10B981', 
-                shadowOffset: { width: 0, height: 6 }, 
-                shadowOpacity: 0.35, 
-                shadowRadius: 10, 
-                elevation: 6 
-              }}
-            >
-              <Ionicons name="play-circle" size={26} color="#fff" />
-              <View style={{ flex: 1 }}>
-                <Text style={{ color: '#fff', fontWeight: '800', fontSize: 15 }}>Start Full Tour</Text>
-                <Text style={{ color: 'rgba(255, 255, 255, 0.85)', fontSize: 11 }}>Complete walkthrough across all 6 main screens (23 steps)</Text>
-              </View>
-              <Ionicons name="arrow-forward" size={18} color="#fff" />
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity 
+            onPress={startFullTour} 
+            activeOpacity={0.85}
+            style={s.tourCard}
+            accessibilityRole="button"
+            accessibilityLabel="Start Full Tour"
+          >
+            <View style={s.tourIconWrap}>
+              <Ionicons name="play-circle" size={28} color="#FFFFFF" />
+            </View>
+            <View style={s.tourContent}>
+              <Text style={s.tourTitle}>Start Full Tour</Text>
+              <Text style={s.tourSubtitle}>Complete walkthrough across all 6 main screens (23 steps)</Text>
+            </View>
+            <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
+          </TouchableOpacity>
         )}
 
         {filteredSections.length === 0 ? (
           <View style={s.emptyState}>
             <View style={s.emptyIcon}>
-              <Ionicons name="search-outline" size={32} color={COLORS.textMuted} />
+              <Ionicons name="search-outline" size={28} color="#64748B" />
             </View>
             <Text style={s.emptyTitle}>No results found</Text>
             <Text style={s.emptyText}>

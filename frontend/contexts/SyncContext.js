@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import { Platform } from 'react-native';
+import { Platform, DeviceEventEmitter } from 'react-native';
 import { apiCall } from '../services/api';
 import { useAuth } from './AuthContext';
 import * as Notifications from 'expo-notifications';
@@ -33,6 +33,7 @@ export const SyncProvider = ({ children }) => {
 
   const syncInterval = useRef(null);
   const syncTickRef = useRef(0);
+  const consecutiveErrorsRef = useRef(0);
 
   // 1. Network Connectivity Monitoring
   // Fallback to assuming online initially.
@@ -51,13 +52,19 @@ export const SyncProvider = ({ children }) => {
     }
   }, [isAuthenticated]);
 
-  // 3. The Core Sync Engine (1 Second Polling)
+  // 3. The Core Sync Engine (Adaptive Polling: 2s online, 6s on connection drops)
   const performSync = useCallback(async () => {
     if (!isAuthenticated || isSyncingRef.current) return;
 
+    syncTickRef.current += 1;
+
+    // Adaptive backoff: If connection is failing, relax polling to every 3rd tick (6s)
+    if (consecutiveErrorsRef.current >= 3 && (syncTickRef.current % 3 !== 0)) {
+      return;
+    }
+
     try {
       isSyncingRef.current = true;
-      syncTickRef.current += 1;
 
       // Throttle heavy landlord queries to every 3rd tick (6 seconds) to protect database CPU
       const requestLandlordData = (syncTickRef.current % 3 === 0);
@@ -69,27 +76,30 @@ export const SyncProvider = ({ children }) => {
       });
 
       // apiCall bridge returns response.data.data, so there is no .success property here
-        if (res) {
-          lastSyncTimeRef.current = res.server_timestamp;
-          
-          if (res.new_notifications_count > 0) {
-            setUnreadCount(prev => prev + res.new_notifications_count);
-            
-            // Trigger toast for actual notifications
-            if (res.new_notifications && Array.isArray(res.new_notifications)) {
-              import('react-native').then(({ DeviceEventEmitter }) => {
-                res.new_notifications.forEach(notif => {
-                  DeviceEventEmitter.emit('showBanner', { 
-                    title: notif.severity === 'critical' ? 'Urgent Alert' : 'Notification',
-                    message: notif.message, 
-                    type: notif.severity === 'critical' ? 'error' : 'info'
-                  });
-                });
-              });
-            }
-          }
+      if (res) {
+        const isFirstSync = lastSyncTimeRef.current === '2000-01-01 00:00:00';
+        lastSyncTimeRef.current = res.server_timestamp;
+        
+        // Authoritative unread count from backend
+        if (typeof res.unread_notifications_count === 'number') {
+          setUnreadCount(res.unread_notifications_count);
+        } else if (res.new_notifications_count > 0) {
+          setUnreadCount(prev => prev + res.new_notifications_count);
+        }
+        
+        // Trigger toast for new notifications that arrived after the initial sync
+        if (!isFirstSync && res.new_notifications_count > 0 && Array.isArray(res.new_notifications)) {
+          res.new_notifications.forEach(notif => {
+            DeviceEventEmitter.emit('showBanner', { 
+              title: notif.title || (notif.severity === 'critical' ? 'Urgent Alert' : 'Notification'),
+              message: notif.message, 
+              type: notif.severity === 'critical' ? 'error' : 'info',
+              data: notif
+            });
+          });
+        }
 
-          // If the server says there's a major update (payment, bill, activity)
+        // If the server says there's a major update (payment, bill, activity)
         if (res.trigger_full_refresh) {
           setGlobalRefreshTick(prev => prev + 1);
         }
@@ -100,7 +110,8 @@ export const SyncProvider = ({ children }) => {
         }
       }
       
-      // If we made it here, we are online
+      // If we made it here, connection is healthy
+      consecutiveErrorsRef.current = 0;
       setIsOnline(true);
       
     } catch (e) {
@@ -110,7 +121,8 @@ export const SyncProvider = ({ children }) => {
         console.warn(`Sync Engine Error (${e.response.status}):`, e.message);
       } else {
         console.warn("Sync Engine Error:", e.message);
-        // If it's a network error (like timeout), assume offline
+        // Track consecutive network failure and back off
+        consecutiveErrorsRef.current += 1;
         setIsOnline(false);
       }
     } finally {

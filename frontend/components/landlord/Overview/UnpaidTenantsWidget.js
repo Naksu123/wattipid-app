@@ -64,7 +64,7 @@ export default function UnpaidTenantsWidget({ unpaidBills }) {
         </View>
         <View style={styles.details}>
           <Text style={styles.tenantName} numberOfLines={1}>{item.tenant_name || 'Unknown Tenant'}</Text>
-          <Text style={styles.metaText}>Room: {item.room_name || item.room_id}</Text>
+          <Text style={styles.metaText}>Room: {item.room_name || item.room_id}{item.invoice_number ? ` · ${item.invoice_number}` : ''}</Text>
           {daysRemaining !== null && !isOverdue && (
             <Text style={[styles.metaText, { color: statusColor, fontWeight: '600' }]}>
               {daysRemaining > 0 ? `${daysRemaining} day${daysRemaining !== 1 ? 's' : ''} remaining` : 'Due today'}

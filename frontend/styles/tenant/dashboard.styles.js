@@ -573,5 +573,392 @@ export default StyleSheet.create({
     paddingTop: SPACING.md,
     borderTopWidth: 1,
     borderTopColor: COLORS.border
-  }
+  },
+
+  // ================= REDESIGN STYLES =================
+  redesignHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+    paddingTop: 8,
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  avatarCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#10B981',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#10B981',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  avatarText: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: 0.5,
+  },
+  headerInfo: {
+    justifyContent: 'center',
+  },
+  greetingText: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.3,
+  },
+  roomPill: {
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.28)',
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+    borderRadius: 9,
+    alignSelf: 'flex-start',
+    marginTop: 4,
+  },
+  roomPillText: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#10B981',
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flexShrink: 0,
+  },
+  liveOnlineBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.28)',
+    paddingHorizontal: 9,
+    paddingVertical: 6,
+    borderRadius: 14,
+  },
+  liveOnlineDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#10B981',
+  },
+  liveOnlineText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#10B981',
+  },
+  liveOnlineBadgeOffline: {
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    borderColor: 'rgba(239, 68, 68, 0.28)',
+  },
+  liveOnlineDotOffline: {
+    backgroundColor: '#EF4444',
+  },
+  liveOnlineTextOffline: {
+    color: '#EF4444',
+  },
+  headerActionBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: '#0E1626',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  notifBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: '#0E1626',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  notifBadgeDot: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#EF4444',
+    borderWidth: 1.5,
+    borderColor: '#0E1626',
+  },
+
+  // Cards
+  redesignCard: {
+    backgroundColor: '#0C1322',
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    padding: 20,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  cardHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  cardHeaderTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: 0.6,
+  },
+  cardHeaderSub: {
+    fontSize: 12,
+    color: '#64748B',
+    fontWeight: '600',
+  },
+  cardDivider: {
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    marginVertical: 14,
+  },
+
+  // Hero Card Sub-metrics
+  subMetricsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    paddingTop: 4,
+  },
+  subMetricCol: {
+    alignItems: 'center',
+  },
+  subMetricLabel: {
+    fontSize: 11.5,
+    color: '#64748B',
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  subMetricValue: {
+    fontSize: 15.5,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+
+  // Billing Cycle Summary Box
+  billingBoxesRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 6,
+  },
+  billingBox: {
+    flex: 1,
+    backgroundColor: '#090F1C',
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.04)',
+  },
+  billingBoxLabel: {
+    fontSize: 12,
+    color: '#94A3B8',
+    fontWeight: '500',
+    marginBottom: 6,
+  },
+  billingBoxKwh: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    marginBottom: 4,
+  },
+  billingBoxCostToday: {
+    fontSize: 14.5,
+    fontWeight: '800',
+    color: '#10B981',
+  },
+  billingBoxCostCycle: {
+    fontSize: 14.5,
+    fontWeight: '800',
+    color: '#F59E0B',
+  },
+
+  // Itemized breakdown
+  breakdownToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 12,
+    marginTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  breakdownToggleText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  breakdownList: {
+    marginTop: 10,
+    gap: 8,
+    backgroundColor: '#080E1A',
+    padding: 12,
+    borderRadius: 12,
+  },
+  breakdownItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  breakdownLabel: {
+    fontSize: 12.5,
+    color: '#94A3B8',
+  },
+  breakdownValue: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+
+  // Budget Tracking Card
+  budgetMetricsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+  },
+  budgetMetricCol: {
+    flex: 1,
+  },
+  budgetMetricLabel: {
+    fontSize: 11,
+    color: '#64748B',
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  budgetMetricValue: {
+    fontSize: 14.5,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  budgetProgressBarBg: {
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    overflow: 'hidden',
+    marginBottom: 8,
+  },
+  budgetProgressBarFill: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  budgetStatusBadge: {
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+    borderRadius: 9,
+  },
+  budgetStatusText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  budgetPromptWrap: {
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  budgetPromptText: {
+    fontSize: 13,
+    color: '#94A3B8',
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  setBudgetBtn: {
+    backgroundColor: '#10B981',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 10,
+  },
+  setBudgetBtnText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#042F2E',
+  },
+
+  // Wattage Trend
+  noTrendDataBox: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 28,
+  },
+  noTrendDataText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#64748B',
+    marginBottom: 4,
+  },
+  noTrendDataSubtext: {
+    fontSize: 12,
+    color: '#475569',
+    textAlign: 'center',
+  },
+  trendTimeAxisRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    paddingHorizontal: 12,
+    marginTop: 6,
+  },
+  trendTimeLabel: {
+    fontSize: 10,
+    color: '#475569',
+    fontWeight: '600',
+  },
+
+  // Energy Tip Banner
+  tipBannerCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#0C1322',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    padding: 14,
+    marginBottom: 20,
+  },
+  tipIconBadge: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.25)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  tipMessageText: {
+    flex: 1,
+    fontSize: 12.5,
+    color: '#94A3B8',
+    lineHeight: 18,
+  },
+  tipDismissBtn: {
+    padding: 4,
+    marginLeft: 8,
+  },
 });
+

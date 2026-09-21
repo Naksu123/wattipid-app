@@ -1,26 +1,33 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform, Animated } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../styles/theme';
 
 const ICONS = {
-  'overview': 'grid-outline',
-  'rooms': 'home-outline',
-  'payments': 'wallet-outline',
-  'penalties': 'warning-outline',
-  'settings': 'settings-outline',
+  'overview': { active: 'home', inactive: 'home-outline' },
+  'rooms': { active: 'business', inactive: 'business-outline' },
+  'payments': { active: 'wallet', inactive: 'wallet-outline' },
+  'penalties': { active: 'alert-circle', inactive: 'alert-circle-outline' },
 };
 
 const LABELS = {
-  'overview': 'Overview',
+  'overview': 'Dashboard',
   'rooms': 'Rooms',
   'payments': 'Payments',
   'penalties': 'Penalties',
-  'settings': 'Settings',
 };
 
-// Excluded routes
-const HIDDEN_ROUTES = ['manage-tips', 'audit', 'notifications', 'manual', 'payment-settings', 'user-manual'];
+// Excluded routes from the bottom tab bar (Settings accessed via Dashboard top header)
+const HIDDEN_ROUTES = [
+  'settings',
+  'manage-tips',
+  'audit',
+  'notifications',
+  'manual',
+  'payment-settings',
+  'user-manual',
+];
 
 const TabBarItem = ({ isFocused, onPress, onLongPress, routeName }) => {
   const scaleAnim = useRef(new Animated.Value(isFocused ? 1 : 0)).current;
@@ -28,59 +35,67 @@ const TabBarItem = ({ isFocused, onPress, onLongPress, routeName }) => {
   useEffect(() => {
     Animated.spring(scaleAnim, {
       toValue: isFocused ? 1 : 0,
-      tension: 100,
-      friction: 12,
+      tension: 120,
+      friction: 14,
       useNativeDriver: true,
     }).start();
-  }, [isFocused]);
+  }, [isFocused, scaleAnim]);
 
-  const iconName = ICONS[routeName] || 'square-outline';
+  const iconConfig = ICONS[routeName] || { active: 'square', inactive: 'square-outline' };
+  const iconName = isFocused ? iconConfig.active : iconConfig.inactive;
   const label = LABELS[routeName] || routeName;
 
-  // Interpolations
   const iconScale = scaleAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [1, 1.15]
+    outputRange: [1, 1.1],
   });
 
-  const dotOpacity = scaleAnim.interpolate({
+  const indicatorOpacity = scaleAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, 1]
+    outputRange: [0, 1],
   });
 
-  const dotScale = scaleAnim.interpolate({
+  const indicatorScaleX = scaleAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [0.5, 1]
+    outputRange: [0.3, 1],
   });
 
-  const color = isFocused ? COLORS.primary : COLORS.textMuted;
-  
-  // Replace the outline with filled icon when active if possible
-  const activeIconName = isFocused ? iconName.replace('-outline', '') : iconName;
+  const color = isFocused ? '#10B981' : '#64748B';
 
   return (
     <TouchableOpacity
       accessibilityRole="button"
       accessibilityState={isFocused ? { selected: true } : {}}
+      accessibilityLabel={label}
       onPress={onPress}
       onLongPress={onLongPress}
       style={styles.tabItem}
-      activeOpacity={0.8}
+      activeOpacity={0.75}
     >
       <Animated.View style={[styles.iconContainer, { transform: [{ scale: iconScale }] }]}>
-        <Ionicons name={activeIconName} size={22} color={color} />
+        <Ionicons name={iconName} size={21} color={color} />
       </Animated.View>
       
-      <Text style={[styles.label, { color, fontWeight: isFocused ? '600' : '500' }]}>
+      <Text 
+        style={[
+          styles.label, 
+          { 
+            color, 
+            fontWeight: isFocused ? '700' : '500',
+          }
+        ]}
+        numberOfLines={1}
+      >
         {label}
       </Text>
       
+      {/* Active screen indicator: Sleek horizontal pill matching landlord-dashboard.png */}
       <Animated.View 
         style={[
-          styles.indicatorDot, 
+          styles.activeIndicator, 
           { 
-            opacity: dotOpacity,
-            transform: [{ scale: dotScale }] 
+            opacity: indicatorOpacity,
+            transform: [{ scaleX: indicatorScaleX }],
           }
         ]} 
       />
@@ -89,8 +104,18 @@ const TabBarItem = ({ isFocused, onPress, onLongPress, routeName }) => {
 };
 
 export default function LandlordTabBar({ state, descriptors, navigation }) {
+  const insets = useSafeAreaInsets();
+  const bottomMargin = insets.bottom > 0 ? insets.bottom + 4 : (Platform.OS === 'ios' ? 24 : 14);
+
+  // Check if current focused route should hide the tab bar
+  const focusedRoute = state.routes[state.index];
+  const focusedDescriptor = descriptors[focusedRoute?.key];
+  if (focusedDescriptor?.options?.tabBarStyle?.display === 'none') {
+    return null;
+  }
+
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { bottom: bottomMargin }]}>
       <View style={styles.blurContainer}>
         {state.routes.map((route, index) => {
           if (HIDDEN_ROUTES.includes(route.name)) return null;
@@ -105,7 +130,6 @@ export default function LandlordTabBar({ state, descriptors, navigation }) {
             });
 
             if (!isFocused && !event.defaultPrevented) {
-              // Defer navigation to allow the touch animation (scale) to start smoothly
               requestAnimationFrame(() => {
                 navigation.navigate({ name: route.name, merge: true });
               });
@@ -137,10 +161,8 @@ export default function LandlordTabBar({ state, descriptors, navigation }) {
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    bottom: Platform.OS === 'ios' ? 24 : 16,
-    left: 16,
-    right: 16,
-    height: 65,
+    left: 14,
+    right: 14,
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 100,
@@ -148,43 +170,43 @@ const styles = StyleSheet.create({
   blurContainer: {
     flexDirection: 'row',
     width: '100%',
-    height: '100%',
-    backgroundColor: 'rgba(15, 23, 42, 0.96)', // Deep premium dark background
-    borderRadius: 35,
+    height: 64,
+    backgroundColor: '#0C1322', // Sleek dark navy matching landlord-dashboard.png
+    borderRadius: 32,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
     alignItems: 'center',
     justifyContent: 'space-evenly',
-    paddingHorizontal: 8,
-    // Soft shadow for elevation
+    paddingHorizontal: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 8,
+    shadowOpacity: 0.38,
+    shadowRadius: 14,
+    elevation: 10,
   },
   tabItem: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     height: '100%',
-    paddingBottom: 4, // push content slightly up to balance the dot
+    paddingTop: 4,
+    position: 'relative',
   },
   iconContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    height: 26,
+    height: 24,
   },
   label: {
-    fontSize: 10,
+    fontSize: 10.5,
     marginTop: 2,
+    letterSpacing: 0.1,
   },
-  indicatorDot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: COLORS.primary,
-    position: 'absolute',
-    bottom: 6,
-  }
+  activeIndicator: {
+    width: 14,
+    height: 2.5,
+    borderRadius: 1.5,
+    backgroundColor: '#10B981',
+    marginTop: 3,
+  },
 });

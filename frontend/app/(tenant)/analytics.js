@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
@@ -17,6 +18,7 @@ import { getMonthlyForecast } from '../../services/notificationApi';
 import { BaseModal, ModalHeader, ModalBody } from '../../components/modals/BaseModal';
 import GlassCard from '../../components/ui/GlassCard';
 import WattipidBarChart from '../../components/ui/WattipidBarChart';
+import { buildAnalyticsReportHtml } from '../../services/pdfReportGenerator';
 import { COLORS, SPACING, RADIUS } from '@/styles/theme';
 import s from '@/styles/tenant/analytics.styles';
 
@@ -26,7 +28,6 @@ const MONTH_FULL = ['January','February','March','April','May','June','July','Au
 const DAY_NAMES = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 
 const CopilotView = walkthroughable(View);
-const CopilotGlassCard = walkthroughable(GlassCard);
 
 export default function AnalyticsScreen() {
   const { user } = useAuth();
@@ -36,31 +37,19 @@ export default function AnalyticsScreen() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [history, setHistory] = useState([]);
   const [comparison, setComparison] = useState(null);
-  const [breakdown, setBreakdown] = useState([]);
-  const [hourlyBreakdown, setHourlyBreakdown] = useState([]);
+  const [analysisUnit, setAnalysisUnit] = useState('kWh'); // 'kWh' or '₱'
 
   const [rate, setRate] = useState(12.50);
   const [availableCycles, setAvailableCycles] = useState([]);
   const [selectedPdfCycle, setSelectedPdfCycle] = useState(null);
-  const [activeView, setActiveView] = useState('charts');
   const [generatingPdf, setGeneratingPdf] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [transactions, setTransactions] = useState([]);
-  const [historyStartDate, setHistoryStartDate] = useState(null);
-  const [historyEndDate, setHistoryEndDate] = useState(null);
-  const [historyTitle, setHistoryTitle] = useState('Active Billing Cycle');
-  const [showHistoryModal, setShowHistoryModal] = useState(false);
-  const [customStart, setCustomStart] = useState(new Date());
-  const [customEnd, setCustomEnd] = useState(new Date());
-  const [historyFilter, setHistoryFilter] = useState('minute');
-  const [historyLimit, setHistoryLimit] = useState(20);
   const [forecast, setForecast] = useState(null);
 
-  // --- NEW PERFORMANCE STATES ---
+  // Loading states
   const [loadingPeriod, setLoadingPeriod] = useState(false);
   const [loadingForecast, setLoadingForecast] = useState(false);
   const [forecastError, setForecastError] = useState(false);
-  const [loadingPdfId, setLoadingPdfId] = useState(null);
   
   const router = useRouter();
   
@@ -82,32 +71,53 @@ export default function AnalyticsScreen() {
   };
 
   // ─── Data Loading ────────────────────────────────────────────────────────────
+  // Instant Cache Restoration (Stale-While-Revalidate)
+  useEffect(() => {
+    let isMounted = true;
+    const restoreCached = async () => {
+      if (!roomId) return;
+      try {
+        const targetYear = selectedDate.getFullYear();
+        const targetMonth = selectedDate.getMonth() + 1;
+        const targetDateStr = getLocalDateStr(selectedDate);
+        const cacheKey = `${period}-${targetYear}-${targetMonth}-${targetDateStr}`;
+        const storageKey = `@cached_analytics_${roomId}_${cacheKey}`;
+        const cached = await AsyncStorage.getItem(storageKey);
+        if (cached && isMounted) {
+          const parsed = JSON.parse(cached);
+          if (parsed && Array.isArray(parsed.history) && parsed.history.length > 0) {
+            cacheRef.current[cacheKey] = parsed;
+            setHistory(parsed.history);
+            if (parsed.comp) setComparison(parsed.comp);
+            setLoadingPeriod(false);
+          }
+        }
+      } catch (err) {
+        console.warn('[Analytics] Cache restore error:', err);
+      }
+    };
+    restoreCached();
+    return () => { isMounted = false; };
+  }, [roomId, period, selectedDate]);
+
   const loadStatsData = useCallback(async (isBackgroundRefresh = false) => {
     if (!user || !roomId) return;
 
     const seq = ++statsSeqRef.current;
-
     const tenantName = user?.name;
     const targetYear = selectedDate.getFullYear();
-    const targetMonth = selectedDate.getMonth() + 1; // 1-12
+    const targetMonth = selectedDate.getMonth() + 1;
     const targetDateStr = getLocalDateStr(selectedDate);
     const cacheKey = `${period}-${targetYear}-${targetMonth}-${targetDateStr}`;
+    const storageKey = `@cached_analytics_${roomId}_${cacheKey}`;
 
     if (cacheRef.current[cacheKey] && !isBackgroundRefresh && !refreshing) {
-        const cached = cacheRef.current[cacheKey];
-        setHistory(cached.history);
-        setComparison(cached.comp);
-        
-        if (period === 'daily') {
-          setHourlyBreakdown([...cached.history].reverse());
-          setBreakdown([]);
-        } else {
-          setBreakdown([...cached.history].reverse());
-          setHourlyBreakdown([]);
-        }
-        setLoadingPeriod(false);
-    } else if (!isBackgroundRefresh) {
-        setLoadingPeriod(true);
+      const cached = cacheRef.current[cacheKey];
+      setHistory(cached.history);
+      setComparison(cached.comp);
+      setLoadingPeriod(false);
+    } else if (!isBackgroundRefresh && !cacheRef.current[cacheKey]) {
+      setLoadingPeriod(true);
     }
 
     try {
@@ -118,43 +128,37 @@ export default function AnalyticsScreen() {
 
       if (seq !== statsSeqRef.current) return;
 
-      const fetchedRate = rate || 12.50; // Use state rate or default
-
-      const alignedData = (data || []).map(item => ({
-        ...item,
-        cost: (item.energy || item.totalEnergy || 0) * fetchedRate,
-        totalCost: (item.totalEnergy || item.energy || 0) * fetchedRate
-      }));
+      const fetchedRate = rate || 12.50;
+      const alignedData = (data || []).map(item => {
+        const energy = item.energy || item.totalEnergy || 0;
+        const totalCost = item.cost || item.totalCost || 0;
+        return {
+          ...item,
+          energy,
+          cost: totalCost > 0 ? totalCost : energy * fetchedRate,
+          totalCost: totalCost > 0 ? totalCost : energy * fetchedRate
+        };
+      });
 
       const ascendingData = [...alignedData].sort((a, b) => {
         const dateA = new Date(a.group_date || a.day || a.timestamp || a.cycle_start || 0).getTime();
         const dateB = new Date(b.group_date || b.day || b.timestamp || b.cycle_start || 0).getTime();
         if (dateA !== dateB && !isNaN(dateA) && !isNaN(dateB)) return dateA - dateB;
-        const keysA = Object.keys(a);
-        const keysB = Object.keys(b);
-        if (keysA.includes('hour') && keysB.includes('hour')) return a.hour - b.hour;
-        if (keysA.includes('month') && keysB.includes('month')) return a.month - b.month;
         return 0;
       });
 
       setHistory(ascendingData);
       setComparison(comp);
 
-      if (period === 'daily') {
-        setHourlyBreakdown([...ascendingData].reverse());
-        setBreakdown([]);
-      } else {
-        setBreakdown([...ascendingData].reverse());
-        setHourlyBreakdown([]);
-      }
-
-      cacheRef.current[cacheKey] = {
-          history: ascendingData,
-          comp
+      const toCache = {
+        history: ascendingData,
+        comp
       };
+      cacheRef.current[cacheKey] = toCache;
+      AsyncStorage.setItem(storageKey, JSON.stringify(toCache)).catch(() => {});
     } catch (e) {
       if (e.message !== 'canceled' && e.name !== 'CanceledError') {
-         console.warn('[Analytics] Core load error:', e.message);
+        console.warn('[Analytics] Core load error:', e.message);
       }
     } finally {
       setLoadingPeriod(false);
@@ -174,21 +178,15 @@ export default function AnalyticsScreen() {
       if (cyclesData && cyclesData.length > 0) {
         setAvailableCycles(cyclesData);
         if (!selectedPdfCycle) setSelectedPdfCycle(cyclesData[0]);
-        if (!historyStartDate) {
-          setHistoryStartDate(new Date(cyclesData[0].cycle_start));
-          setHistoryEndDate(new Date(cyclesData[0].cycle_end));
-        }
       }
     } catch (e) {
       console.warn('[Analytics] Static load error:', e.message);
     }
-  }, [roomId, user?.name, selectedPdfCycle, historyStartDate]);
+  }, [roomId, user?.name, selectedPdfCycle]);
 
   const loadForecastData = useCallback(async () => {
     if (!user || !roomId) return;
-    
     const seq = ++forecastSeqRef.current;
-    
     setLoadingForecast(true);
     setForecastError(false);
     try {
@@ -206,37 +204,21 @@ export default function AnalyticsScreen() {
     }
   }, [roomId, user?.name]);
 
-  const loadHistoryData = useCallback(async () => {
-    if (!user || !roomId) return;
-    const tenantName = user?.name;
-    const startStr = getLocalDateStr(historyStartDate);
-    const endStr = getLocalDateStr(historyEndDate);
-    const txns = await getTransactionHistory(roomId, 500, historyFilter, tenantName, 0, startStr, endStr);
-    setTransactions(txns || []);
-  }, [roomId, historyFilter, historyStartDate, historyEndDate, user?.name]);
-
   useEffect(() => {
     loadStaticData();
   }, [loadStaticData]);
 
   useEffect(() => {
     loadStatsData();
-    loadForecastData();
-    const interval = setInterval(() => { loadStatsData(true); loadForecastData(); }, 60000);
-    return () => clearInterval(interval);
-  }, [loadStatsData, loadForecastData]);
+  }, [loadStatsData]);
 
   useEffect(() => {
-    loadHistoryData();
-    const interval = setInterval(loadHistoryData, 60000);
-    return () => clearInterval(interval);
-  }, [loadHistoryData]);
+    loadForecastData();
+  }, [loadForecastData]);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadStatsData(true);
-    await loadForecastData();
-    await loadHistoryData();
+    await Promise.all([loadStatsData(true), loadForecastData()]);
     setRefreshing(false);
   };
 
@@ -250,7 +232,6 @@ export default function AnalyticsScreen() {
     
     const today = new Date();
     if (d > today) {
-      // Cap navigation to today so users don't get stuck if the exact date is in the future
       setSelectedDate(today);
     } else {
       setSelectedDate(d);
@@ -260,622 +241,479 @@ export default function AnalyticsScreen() {
   const getDateLabel = () => {
     const d = selectedDate;
     if (period === 'daily') {
-      return `${d.getDate()} ${MONTH_FULL[d.getMonth()]} ${d.getFullYear()}`;
+      return `${MONTH_NAMES[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
     }
     if (period === 'weekly') {
       const dayOfWeek = d.getDay();
-      const offset = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-      const weekStart = new Date(d);
-      weekStart.setDate(d.getDate() - offset);
-      const weekEnd = new Date(weekStart);
-      weekEnd.setDate(weekStart.getDate() + 6);
-      return `${weekStart.getDate()} ${MONTH_NAMES[weekStart.getMonth()]} – ${weekEnd.getDate()} ${MONTH_NAMES[weekEnd.getMonth()]}`;
+      const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+      const monday = new Date(d);
+      monday.setDate(d.getDate() + mondayOffset);
+      const sunday = new Date(monday);
+      sunday.setDate(monday.getDate() + 6);
+
+      const startMonth = MONTH_NAMES[monday.getMonth()];
+      const endMonth = MONTH_NAMES[sunday.getMonth()];
+      if (startMonth === endMonth) {
+        return `${startMonth} ${monday.getDate()} – ${sunday.getDate()}, ${monday.getFullYear()}`;
+      } else {
+        return `${startMonth} ${monday.getDate()} – ${endMonth} ${sunday.getDate()}, ${sunday.getFullYear()}`;
+      }
     }
     if (period === 'monthly') {
-      return `${MONTH_FULL[d.getMonth()]} ${d.getFullYear()}`;
+      const start = new Date(d.getFullYear(), d.getMonth(), 1);
+      const end = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+      return `${MONTH_NAMES[start.getMonth()]} 1 – ${MONTH_NAMES[end.getMonth()]} ${end.getDate()}, ${d.getFullYear()}`;
     }
     return `${d.getFullYear()}`;
   };
 
-  // ─── Computed Data ────────────────────────────────────────────────────────────
-  const currentIndex = useMemo(() => {
+  // ─── Real Timeline Chart Computations (Zero Artificial Mock Data) ───────────
+  const { chartLabels, chartData, chartValues, currentIndex, peakIndex, totalPeriodEnergy, totalPeriodCost } = useMemo(() => {
+    let labels = [];
+    let items = [];
     const today = new Date();
-    const isSameDay = selectedDate.getDate() === today.getDate() && selectedDate.getMonth() === today.getMonth() && selectedDate.getFullYear() === today.getFullYear();
-    const isSameMonth = selectedDate.getMonth() === today.getMonth() && selectedDate.getFullYear() === today.getFullYear();
-    const isSameYear = selectedDate.getFullYear() === today.getFullYear();
+    const isToday = selectedDate.toDateString() === today.toDateString();
 
-    if (period === 'daily' && isSameDay) {
-      const currentHour = today.getHours();
-      return history.findIndex(h => parseInt(h.hour) === currentHour);
+    if (period === 'daily') {
+      // 24-hour timeline of the selected day: 12AM to 11PM
+      const hourlyMap = {};
+      (history || []).forEach(h => {
+        const hr = parseInt(h.hour !== undefined ? h.hour : new Date(h.timestamp).getHours(), 10);
+        if (!isNaN(hr)) {
+          hourlyMap[hr] = h;
+        }
+      });
+
+      for (let hr = 0; hr < 24; hr++) {
+        const ampm = hr >= 12 ? 'PM' : 'AM';
+        const hr12 = hr % 12 || 12;
+        labels.push(`${hr12}${ampm}`);
+
+        const entry = hourlyMap[hr];
+        const energy = entry ? Number(entry.energy || entry.totalEnergy || 0) : 0;
+        const cost = entry ? Number(entry.totalCost || entry.cost || 0) : energy * rate;
+        items.push({
+          energy,
+          cost,
+          value: analysisUnit === '₱' ? cost : energy,
+        });
+      }
+
+      const curIdx = isToday ? today.getHours() : -1;
+      const maxVal = Math.max(...items.map(i => i.value), 0);
+      const pkIdx = maxVal > 0 ? items.findIndex(i => i.value === maxVal) : -1;
+      const totalE = items.reduce((sum, i) => sum + i.energy, 0);
+      const totalC = items.reduce((sum, i) => sum + i.cost, 0);
+
+      return {
+        chartLabels: labels,
+        chartData: items,
+        chartValues: items.map(i => i.value),
+        currentIndex: curIdx,
+        peakIndex: pkIdx,
+        totalPeriodEnergy: totalE,
+        totalPeriodCost: totalC,
+      };
     }
+
     if (period === 'weekly') {
-      const todayStr = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
-      return history.findIndex(h => h.day === todayStr);
+      // 7 days of the week: Mon to Sun
+      const d = new Date(selectedDate);
+      const dayOfWeek = d.getDay();
+      const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+      const monday = new Date(d);
+      monday.setDate(d.getDate() + mondayOffset);
+
+      const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+      const dayMap = {};
+      (history || []).forEach(h => {
+        // Use day or group_date directly as they're already 'YYYY-MM-DD' format
+        if (h.day) dayMap[h.day] = h;
+        else if (h.group_date) dayMap[h.group_date] = h;
+        else if (h.timestamp) {
+          // Extract date portion safely without UTC conversion
+          const ds = String(h.timestamp).substring(0, 10);
+          if (ds.length === 10) dayMap[ds] = h;
+        }
+      });
+
+      let curIdx = -1;
+      for (let i = 0; i < 7; i++) {
+        const curDay = new Date(monday);
+        curDay.setDate(monday.getDate() + i);
+        const dateStr = getLocalDateStr(curDay);
+        labels.push(dayNames[i]);
+
+        if (curDay.toDateString() === today.toDateString()) {
+          curIdx = i;
+        }
+
+        const entry = dayMap[dateStr] || null;
+        const energy = entry ? Number(entry.energy || entry.totalEnergy || 0) : 0;
+        const cost = entry ? Number(entry.totalCost || entry.cost || 0) : energy * rate;
+        items.push({
+          energy,
+          cost,
+          value: analysisUnit === '₱' ? cost : energy,
+        });
+      }
+
+      const maxVal = Math.max(...items.map(i => i.value), 0);
+      const pkIdx = maxVal > 0 ? items.findIndex(i => i.value === maxVal) : -1;
+      const totalE = items.reduce((sum, i) => sum + i.energy, 0);
+      const totalC = items.reduce((sum, i) => sum + i.cost, 0);
+
+      return {
+        chartLabels: labels,
+        chartData: items,
+        chartValues: items.map(i => i.value),
+        currentIndex: curIdx,
+        peakIndex: pkIdx,
+        totalPeriodEnergy: totalE,
+        totalPeriodCost: totalC,
+      };
     }
-    if (period === 'monthly' && isSameMonth) {
-      const todayDate = today.getDate();
-      return history.findIndex(h => {
-         const d = new Date(h.day || h.timestamp);
-         return !isNaN(d.getTime()) && d.getDate() === todayDate;
+
+    if (period === 'monthly') {
+      // All days of the selected month
+      const year = selectedDate.getFullYear();
+      const month = selectedDate.getMonth();
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+      const dayMap = {};
+      (history || []).forEach(h => {
+        const dateField = h.day || h.group_date || h.timestamp;
+        if (!dateField) return;
+        // Parse day number from YYYY-MM-DD string safely (avoid UTC timezone shift)
+        const dateStr = String(dateField).substring(0, 10); // get 'YYYY-MM-DD'
+        const parts = dateStr.split('-');
+        if (parts.length >= 3) {
+          const dayNum = parseInt(parts[2], 10);
+          if (!isNaN(dayNum) && dayNum >= 1 && dayNum <= 31) {
+            dayMap[dayNum] = h;
+          }
+        }
+      });
+
+      const isCurrentMonth = today.getFullYear() === year && today.getMonth() === month;
+      const curIdx = isCurrentMonth ? today.getDate() - 1 : -1;
+
+      for (let d = 1; d <= daysInMonth; d++) {
+        labels.push(`${d}`);
+        const entry = dayMap[d];
+        const energy = entry ? Number(entry.energy || entry.totalEnergy || 0) : 0;
+        const cost = entry ? Number(entry.totalCost || entry.cost || 0) : energy * rate;
+        items.push({
+          energy,
+          cost,
+          value: analysisUnit === '₱' ? cost : energy,
+        });
+      }
+
+      const maxVal = Math.max(...items.map(i => i.value), 0);
+      const pkIdx = maxVal > 0 ? items.findIndex(i => i.value === maxVal) : -1;
+      const totalE = items.reduce((sum, i) => sum + i.energy, 0);
+      const totalC = items.reduce((sum, i) => sum + i.cost, 0);
+
+      return {
+        chartLabels: labels,
+        chartData: items,
+        chartValues: items.map(i => i.value),
+        currentIndex: curIdx,
+        peakIndex: pkIdx,
+        totalPeriodEnergy: totalE,
+        totalPeriodCost: totalC,
+      };
+    }
+
+    // Yearly: 12 months Jan to Dec
+    const year = selectedDate.getFullYear();
+    const monthMap = {};
+    (history || []).forEach(h => {
+      let m;
+      if (h.month !== undefined) {
+        m = parseInt(h.month, 10);
+      } else {
+        // Extract month from YYYY-MM-DD string safely (avoid UTC timezone shift)
+        const dateField = h.day || h.group_date || h.timestamp;
+        if (dateField) {
+          const parts = String(dateField).substring(0, 7).split('-');
+          if (parts.length >= 2) m = parseInt(parts[1], 10);
+        }
+      }
+      if (!isNaN(m) && m >= 1 && m <= 12) {
+        monthMap[m] = h;
+      }
+    });
+
+    const isCurrentYear = today.getFullYear() === year;
+    const curIdx = isCurrentYear ? today.getMonth() : -1;
+
+    for (let m = 1; m <= 12; m++) {
+      labels.push(MONTH_NAMES[m - 1]);
+      const entry = monthMap[m];
+      const energy = entry ? Number(entry.energy || entry.totalEnergy || 0) : 0;
+      const cost = entry ? Number(entry.totalCost || entry.cost || 0) : energy * rate;
+      items.push({
+        energy,
+        cost,
+        value: analysisUnit === '₱' ? cost : energy,
       });
     }
-    if (period === 'yearly' && isSameYear) {
-      const currentMonth = today.getMonth() + 1;
-      return history.findIndex(h => parseInt(h.month) === currentMonth);
-    }
-    return -1;
-  }, [history, period, selectedDate]);
 
-  const labels = useMemo(() => {
-    if (history.length === 0) return [];
-    return history.map((h, i) => {
+    const maxVal = Math.max(...items.map(i => i.value), 0);
+    const pkIdx = maxVal > 0 ? items.findIndex(i => i.value === maxVal) : -1;
+    const totalE = items.reduce((sum, i) => sum + i.energy, 0);
+    const totalC = items.reduce((sum, i) => sum + i.cost, 0);
+
+    return {
+      chartLabels: labels,
+      chartData: items,
+      chartValues: items.map(i => i.value),
+      currentIndex: curIdx,
+      peakIndex: pkIdx,
+      totalPeriodEnergy: totalE,
+      totalPeriodCost: totalC,
+    };
+  }, [history, period, selectedDate, rate, analysisUnit]);
+
+  const getFootnoteText = () => {
+    if (totalPeriodEnergy === 0) {
+      return "No electricity consumption recorded for this period. IoT device was offline or drawing 0W.";
+    }
+    if (peakIndex >= 0 && chartLabels[peakIndex]) {
+      const peakEnergy = chartData[peakIndex].energy;
+      const peakCost = chartData[peakIndex].cost;
+      const peakStr = analysisUnit === '₱' ? `₱${peakCost.toFixed(2)}` : `${peakEnergy.toFixed(3)} kWh`;
+
       if (period === 'daily') {
-        if (h.hour !== undefined) {
-          const hr = parseInt(h.hour);
-          const ampm = hr >= 12 ? 'PM' : 'AM';
-          const hr12 = hr % 12 || 12;
-          return `${hr12}${ampm}`; // e.g. "1PM", "2PM"
-        }
-        return `${String(i).padStart(2,'0')}:00`;
+        return `Highest usage today was ${peakStr} at ${chartLabels[peakIndex]}.`;
       }
       if (period === 'weekly') {
-        if (h.label !== undefined && h.label !== null) {
-          return DAY_NAMES[parseInt(h.label)] || DAY_NAMES[i % 7];
-        }
-        return DAY_NAMES[i % 7];
+        const fullDay = { Mon: 'Monday', Tue: 'Tuesday', Wed: 'Wednesday', Thu: 'Thursday', Fri: 'Friday', Sat: 'Saturday', Sun: 'Sunday' }[chartLabels[peakIndex]] || chartLabels[peakIndex];
+        return `Highest usage this week was ${peakStr} on ${fullDay}.`;
       }
-      if (period === 'yearly') {
-        return MONTH_NAMES[(h.month || i + 1) - 1];
+      if (period === 'monthly') {
+        return `Highest usage this month was ${peakStr} on ${MONTH_NAMES[selectedDate.getMonth()]} ${chartLabels[peakIndex]}.`;
       }
-      // monthly
-      if (h.day || h.timestamp || h.group_date) {
-        const dt = new Date(h.day || h.timestamp || h.group_date);
-        if (!isNaN(dt.getTime())) return `${dt.getDate()}`;
-      }
-      return `${h.label || (i + 1)}`;
-    });
-  }, [history, period]);
-
-  const energyData = useMemo(() =>
-    history.length > 0 ? history.map(h => h.energy || 0) : []
-  , [history]);
-
-  const totalEnergy = energyData.reduce((a, b) => a + b, 0);
-  const totalCost = totalEnergy * rate;
-  const avgEnergy = history.length > 0 ? totalEnergy / history.length : 0;
-  const avgPower = history.length > 0 ? history.reduce((a, h) => a + (h.avgPower || 0), 0) / history.length : 0;
-  const peakPower = Math.max(...history.map(h => h.peakPower || 0), 0);
-
-  const peakIndex = energyData.length > 0 ? energyData.indexOf(Math.max(...energyData)) : -1;
-  const nonZeroEnergies = energyData.filter(e => e > 0);
-  const lowestIndex = nonZeroEnergies.length > 0 ? energyData.indexOf(Math.min(...nonZeroEnergies)) : -1;
-
-  // Previous period comparison data for chart overlay
-  const comparisonChartData = useMemo(() => {
-    if (period !== 'weekly' && period !== 'yearly') return null;
-    // We don't have per-bar comparison data from the API, so we return null
-    // The comparison banner will still show totals
-    return null;
-  }, [period]);
-
-  const formatDate = (dateStr) => {
-    if (!dateStr) return '';
-    const d = new Date(dateStr);
-    return `${MONTH_NAMES[d.getMonth()]} ${d.getDate()}`;
+      return `Highest usage this year was ${peakStr} in ${chartLabels[peakIndex]}.`;
+    }
+    return "Normal consumption activity recorded.";
   };
 
-  // ─── Insights Generator ──────────────────────────────────────────────────────
-  const insights = useMemo(() => {
-    const arr = [];
-    if (peakIndex >= 0 && labels[peakIndex]) {
-      arr.push(`Highest consumption was recorded at ${labels[peakIndex]} with ${energyData[peakIndex].toFixed(3)} kWh.`);
-    }
-    if (avgPower > 0) arr.push(`Average power draw: ${avgPower.toFixed(0)}W`);
-    if (peakPower > 0) arr.push(`Peak power recorded: ${peakPower.toFixed(0)}W`);
-    if (totalCost > 0) {
-      const estMonthly = totalCost * (30 / Math.max(history.length, 1));
-      arr.push(`Estimated monthly cost at current rate: ₱${estMonthly.toFixed(2)}`);
-    }
-    return arr;
-  }, [peakIndex, labels, energyData, avgPower, peakPower, totalCost, history.length]);
+  // Comparison Metrics (strict real data, no hardcoded fallbacks)
+  const compPct = comparison ? Number(comparison.energyPctChange || 0) : 0;
+  const compCost = comparison ? Number(comparison.costDiff || 0) : 0;
 
-  const recommendation = useMemo(() => {
-    if (!comparison) return 'Keep monitoring your consumption patterns to optimize electricity usage.';
-    const pct = comparison.energyPctChange || 0;
-    if (pct <= -10) return "Excellent! Your electricity consumption is highly efficient. Continue your current habits to maintain savings.";
-    if (pct < 0) return "Good progress! Your consumption is decreasing. Keep it up by turning off unused appliances.";
-    if (pct <= 5) return "Your consumption is stable. Unplugging idle chargers and turning off unused lights could yield further savings.";
-    if (pct <= 15) return "Your consumption is slightly increasing. Consider reviewing high-wattage appliance usage during peak hours.";
-    return "High consumption detected. Reduce appliance usage during peak hours and unplug unused devices to save on electricity costs.";
-  }, [comparison]);
+  // Forecast Metrics (strict real data, no hardcoded fallbacks)
+  const forecastVal = forecast?.forecast_amount != null
+    ? Number(forecast.forecast_amount)
+    : (totalPeriodCost > 0 ? totalPeriodCost : 0);
+  const forecastOver = forecast?.budget_diff != null
+    ? Number(forecast.budget_diff)
+    : 0;
 
-  // ─── View Tabs ────────────────────────────────────────────────────────────────
-  const VIEW_TABS = [
-    { key: 'charts', icon: 'bar-chart-outline', label: 'Charts' },
-    { key: 'breakdown', icon: 'list-outline', label: 'Breakdown' },
-    { key: 'history', icon: 'receipt-outline', label: 'History' }
-  ];
-
-  // ─── PDF Report ───────────────────────────────────────────────────────────────
+  // ─── PDF Report Export ───────────────────────────────────────────────────────
   const generateReport = async () => {
     setGeneratingPdf(true);
     try {
-      if (!selectedPdfCycle) return;
-      let startDate, endDate, reportType;
-      if (period === 'daily') {
-        startDate = new Date(selectedDate); endDate = new Date(selectedDate);
-        reportType = 'Daily Consumption Analytics Report';
-      } else if (period === 'weekly') {
-        startDate = new Date(selectedDate);
-        startDate.setDate(startDate.getDate() - startDate.getDay());
-        endDate = new Date(startDate); endDate.setDate(endDate.getDate() + 6);
-        reportType = 'Weekly Consumption Analytics Report';
-      } else if (period === 'yearly') {
-        startDate = new Date(selectedDate.getFullYear(), 0, 1);
-        endDate = new Date(selectedDate.getFullYear(), 11, 31);
-        reportType = 'Yearly Consumption Analytics Report';
-      } else {
-        const activeCycle = availableCycles?.find(c => new Date(c.cycle_start) <= selectedDate && new Date(c.cycle_end) >= selectedDate) || availableCycles?.[0];
-        if (activeCycle) { startDate = new Date(activeCycle.cycle_start); endDate = new Date(activeCycle.cycle_end); }
-        else { startDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1); endDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0); }
-        reportType = 'Monthly Consumption Analytics Report';
-      }
-      const startStr = getLocalDateStr(startDate);
-      const endStr = getLocalDateStr(endDate);
-      const [fetchedHistory, fetchedComp] = await Promise.all([
-        getTransactionHistory(roomId, 300, 'daily', user?.name, 0, startStr, endStr),
-        getConsumptionComparison(roomId, period, user?.name)
-      ]);
-      const flattenedHistory = (fetchedHistory || []).reduce((acc, group) => {
-        if (group.data && Array.isArray(group.data)) return acc.concat(group.data);
-        return acc;
-      }, []);
-      const startBoundary = new Date(startDate); startBoundary.setHours(0,0,0,0);
-      const endBoundary = new Date(endDate); endBoundary.setHours(23,59,59,999);
-      const filteredHistory = flattenedHistory.filter(h => {
-        const d = new Date(h.group_date || h.day || h.timestamp);
-        return d >= startBoundary && d <= endBoundary;
+      const activeCycle = selectedPdfCycle || availableCycles?.[0] || {
+        cycle_start: getLocalDateStr(new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1)),
+        cycle_end: getLocalDateStr(new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0)),
+      };
+
+      const html = buildAnalyticsReportHtml({
+        period,
+        dateLabel: getDateLabel(),
+        selectedDate,
+        roomId,
+        tenantName: user?.name,
+        rate,
+        totalPeriodEnergy,
+        totalPeriodCost,
+        chartLabels,
+        chartData,
+        chartValues,
+        peakIndex,
+        analysisUnit,
+        compPct,
+        compCost,
+        forecastVal,
+        forecastOver,
+        footnote: getFootnoteText(),
+        activeCycle,
       });
-      const now = new Date();
-      const dateRange = `${MONTH_FULL[startDate.getMonth()]} ${startDate.getDate()} – ${MONTH_FULL[endDate.getMonth()]} ${endDate.getDate()}, ${endDate.getFullYear()}`;
-      const compData = fetchedComp || { current: { totalEnergy: 0, totalCost: 0 }, previous: { totalEnergy: 0, totalCost: 0 }, costPctChange: 0, energyPctChange: 0, costDiff: 0 };
-      const repTotalEnergy = filteredHistory.reduce((a, b) => a + (Number(b.totalEnergy || b.energy) || 0), 0);
-      const repTotalCost = repTotalEnergy * rate;
-      const validPowerHistory = filteredHistory.filter(h => Number(h.avgPower) > 0);
-      const repAvgPower = validPowerHistory.length > 0 ? validPowerHistory.reduce((a, h) => a + Number(h.avgPower), 0) / validPowerHistory.length : 0;
-      let efficiencyScore = 'Average', efficiencyPct = 50, effStatusColor = '#EAB308';
-      if (compData.energyPctChange <= -10) { efficiencyScore = 'Excellent'; efficiencyPct = 95; effStatusColor = '#22C55E'; }
-      else if (compData.energyPctChange < 0) { efficiencyScore = 'Good'; efficiencyPct = 80; effStatusColor = '#10B981'; }
-      else if (compData.energyPctChange <= 5) { efficiencyScore = 'Average'; efficiencyPct = 60; effStatusColor = '#3B82F6'; }
-      else if (compData.energyPctChange <= 15) { efficiencyScore = 'High Consumption'; efficiencyPct = 35; effStatusColor = '#F97316'; }
-      else { efficiencyScore = 'Critical Consumption'; efficiencyPct = 15; effStatusColor = '#EF4444'; }
-      const pdfInsights = [];
-      if (compData.energyPctChange > 0) pdfInsights.push(`Electricity consumption increased by ${compData.energyPctChange.toFixed(1)}% compared to the previous period.`);
-      else if (compData.energyPctChange < 0) pdfInsights.push(`Great job! Consumption reduced by ${Math.abs(compData.energyPctChange).toFixed(1)}% compared to the previous period.`);
-      else pdfInsights.push(`Consumption remains perfectly stable compared to the previous period.`);
-      let pdfRecommendation = '';
-      if (efficiencyScore === 'Excellent' || efficiencyScore === 'Good') pdfRecommendation = "Your electricity consumption is highly efficient. Continue your current habits to maintain savings.";
-      else if (efficiencyScore === 'Average') pdfRecommendation = "Your consumption is stable. Unplugging idle chargers and turning off unused lights could yield further savings.";
-      else pdfRecommendation = "High consumption detected. Consider reviewing high-wattage appliance usage during peak hours.";
-      const breakdownRows = filteredHistory.map(r => {
-        const energy = Number(r.totalEnergy || r.energy || 0);
-        const cost = energy * rate;
-        const pwr = Number(r.avgPower || 0);
-        let status = 'Normal';
-        if (pwr > 1000) status = 'High';
-        if (pwr < 100) status = 'Low';
-        const pct = repTotalEnergy > 0 ? ((energy / repTotalEnergy) * 100).toFixed(1) : '0.0';
-        return `<tr><td>${formatDate(r.group_date || r.day || r.timestamp)}</td><td>${energy.toFixed(3)} kWh</td><td>₱${cost.toFixed(2)}</td><td>${pwr.toFixed(1)}W</td><td><span class="status-badge ${status.toLowerCase()}">${status}</span></td><td>${pct}%</td></tr>`;
-      }).join('');
-      const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>*{margin:0;padding:0;box-sizing:border-box;}body{font-family:'Helvetica Neue',Arial,sans-serif;color:#1E293B;padding:30px;font-size:11px;background:#fff;line-height:1.4;}.report-container{max-width:800px;margin:0 auto;}.header{display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #10B981;padding-bottom:15px;margin-bottom:20px;}.company h1{color:#10B981;font-size:24px;letter-spacing:1px;margin-bottom:2px;}.company p{color:#475569;font-size:10px;font-weight:bold;letter-spacing:.5px;}.report-title-box{text-align:right;}.report-title-box h2{font-size:14px;color:#0F172A;text-transform:uppercase;margin-bottom:4px;}.report-title-box p{font-size:10px;color:#64748B;}.tenant-info{display:flex;justify-content:space-between;background:#F8FAFC;padding:12px;border-radius:6px;margin-bottom:20px;border:1px solid #E2E8F0;}.tenant-col{flex:1;}.tenant-col span{display:block;font-size:9px;color:#64748B;text-transform:uppercase;margin-bottom:2px;}.tenant-col strong{display:block;font-size:12px;color:#0F172A;}.section-title{font-size:12px;font-weight:700;color:#10B981;border-bottom:1px solid #E2E8F0;padding-bottom:6px;margin-bottom:12px;text-transform:uppercase;letter-spacing:.5px;}.kpi-grid{display:flex;gap:10px;margin-bottom:20px;}.kpi-card{flex:1;background:#F8FAFC;border:1px solid #E2E8F0;padding:12px;border-radius:6px;text-align:center;}.kpi-card span{display:block;font-size:9px;color:#64748B;text-transform:uppercase;margin-bottom:4px;}.kpi-card strong{display:block;font-size:16px;color:#0F172A;}.kpi-card.highlight{background:#10B981;color:white;border-color:#10B981;}.kpi-card.highlight span,.kpi-card.highlight strong{color:white;}.row{display:flex;gap:20px;margin-bottom:20px;}.col{flex:1;}.efficiency-box{border:1px solid #E2E8F0;padding:16px;border-radius:6px;text-align:center;height:100%;}.eff-score{font-size:28px;font-weight:bold;color:${effStatusColor};margin:10px 0;}.eff-bar-bg{background:#E2E8F0;height:8px;border-radius:4px;margin-top:10px;overflow:hidden;}.eff-bar-fill{background:${effStatusColor};height:100%;width:${efficiencyPct}%;}.comp-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}.comp-item{background:#F8FAFC;padding:10px;border-radius:4px;border:1px solid #E2E8F0;}.comp-item span{font-size:9px;color:#64748B;display:block;}.comp-item strong{font-size:13px;color:#0F172A;display:block;margin-top:2px;}.comp-item.diff strong{color:${compData.energyPctChange > 0 ? '#EF4444' : '#10B981'};}.insight-list{list-style:none;padding-left:0;margin-bottom:0;}.insight-list li{background:#F0FDF4;border-left:3px solid #10B981;padding:8px 12px;margin-bottom:8px;font-size:11px;color:#0F172A;}.rec-box{background:#FEF3C7;border:1px solid #FCD34D;padding:12px;border-radius:6px;color:#92400E;font-size:11px;font-weight:500;}table{width:100%;border-collapse:collapse;margin-bottom:20px;}th{background:#F1F5F9;color:#475569;padding:8px;text-align:left;font-size:9px;text-transform:uppercase;border-bottom:2px solid #E2E8F0;}td{padding:8px;border-bottom:1px solid #E2E8F0;font-size:11px;}tr:nth-child(even) td{background:#FAFAF9;}.status-badge{padding:2px 6px;border-radius:12px;font-size:9px;font-weight:bold;text-transform:uppercase;}.status-badge.normal{background:#E0F2FE;color:#0369A1;}.status-badge.high{background:#FEE2E2;color:#B91C1C;}.status-badge.low{background:#DCFCE7;color:#15803D;}.footer{text-align:center;border-top:1px solid #E2E8F0;padding-top:15px;color:#64748B;font-size:9px;line-height:1.5;}.footer strong{color:#0F172A;display:block;margin-bottom:4px;font-size:10px;}</style></head><body><div class="report-container"><div class="header"><div class="company"><h1>⚡ WATTIPID</h1><p>SMART ELECTRICITY MONITORING</p></div><div class="report-title-box"><h2>${reportType}</h2><p>Generated: ${now.toLocaleDateString()} ${now.toLocaleTimeString()}</p></div></div><div class="tenant-info"><div class="tenant-col"><span>Tenant Name</span><strong>${user?.name || 'Tenant'}</strong></div><div class="tenant-col"><span>Room Number</span><strong>${roomId}</strong></div><div class="tenant-col"><span>Reporting Period</span><strong>${dateRange}</strong></div><div class="tenant-col" style="text-align:right;"><span>Current Rate</span><strong>₱${rate.toFixed(2)} / kWh</strong></div></div><div class="section-title">Executive Summary</div><div class="kpi-grid"><div class="kpi-card highlight"><span>Total Energy Consumed</span><strong>${repTotalEnergy.toFixed(3)} kWh</strong></div><div class="kpi-card"><span>Estimated Cost</span><strong>₱${repTotalCost.toFixed(2)}</strong></div><div class="kpi-card"><span>Daily Average</span><strong>${(repTotalEnergy / Math.max(filteredHistory.length, 1)).toFixed(3)} kWh/day</strong></div><div class="kpi-card"><span>Average Power Load</span><strong>${repAvgPower.toFixed(1)} W</strong></div></div><div class="row"><div class="col"><div class="section-title">Energy Efficiency Score</div><div class="efficiency-box"><div style="font-size:10px;color:#64748B;text-transform:uppercase;">Consumption Rating</div><div class="eff-score">${efficiencyScore}</div><div style="font-size:11px;color:#475569;">Performance relative to baseline</div><div class="eff-bar-bg"><div class="eff-bar-fill"></div></div></div></div><div class="col"><div class="section-title">Historical Comparison</div><div class="comp-grid"><div class="comp-item"><span>Current Period</span><strong>${compData.current.totalEnergy.toFixed(3)} kWh</strong></div><div class="comp-item"><span>Previous Period</span><strong>${compData.previous.totalEnergy.toFixed(3)} kWh</strong></div><div class="comp-item diff"><span>Difference</span><strong>${compData.energyPctChange > 0 ? '↑' : '↓'} ${Math.abs(compData.energyPctChange).toFixed(1)}%</strong></div><div class="comp-item"><span>Cost Difference</span><strong>${compData.costDiff > 0 ? '+' : ''}₱${compData.costDiff.toFixed(2)}</strong></div></div></div></div><div class="section-title">Wattipid Smart Insights</div><ul class="insight-list">${pdfInsights.map(i => `<li>${i}</li>`).join('')}</ul><div style="margin-top:15px;margin-bottom:20px;"><div class="rec-box"><strong>RECOMMENDATION:</strong> ${pdfRecommendation}</div></div><div class="section-title">Detailed Consumption Breakdown</div><table><thead><tr><th>Date</th><th>Energy (kWh)</th><th>Est. Cost</th><th>Avg Load</th><th>Status</th><th>Contribution</th></tr></thead><tbody>${breakdownRows || '<tr><td colspan="6" style="text-align:center;">No data available for this period.</td></tr>'}</tbody></table><div class="footer"><strong>DISCLAIMER</strong>This report is intended for electricity consumption monitoring and analytics purposes only.<br>It is NOT an official billing statement, invoice, or statement of account.<br>Actual billing information can be viewed separately within the Wattipid Billing Module.<div style="margin-top:10px;opacity:0.7;">This is a computer-generated report. No signature required.<br>Generated by Wattipid Smart Electricity Monitoring System.</div></div></div></body></html>`;
-      const { uri } = await Print.printToFileAsync({ html, base64: false });
-      await Sharing.shareAsync(uri, { mimeType: 'application/pdf', dialogTitle: reportType });
-    } catch (err) {
-      showModal({ type: 'error', title: 'Error', message: 'Failed to generate report: ' + err.message });
+
+      const { uri } = await Print.printToFileAsync({ html });
+      await Sharing.shareAsync(uri, {
+        UTI: '.pdf',
+        mimeType: 'application/pdf',
+        dialogTitle: `Wattipid_${period.toUpperCase()}_Report`,
+      });
+    } catch (e) {
+      showModal({ type: 'error', title: 'Export Failed', message: 'Unable to generate PDF report: ' + e.message });
     } finally {
       setGeneratingPdf(false);
     }
   };
 
-  // ─── Render ───────────────────────────────────────────────────────────────────
   return (
     <View style={s.container}>
       <ScrollView
         ref={scrollViewRef}
         contentContainerStyle={s.scroll}
-        showsVerticalScrollIndicator={false}
-        scrollEventThrottle={16}
-        onScroll={(e) => {
-          if (scrollViewRef.current) {
-            scrollViewRef.current._scrollY = e.nativeEvent.contentOffset.y;
-          }
-        }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
+        showsVerticalScrollIndicator={false}
       >
+        {/* ── Header ────────────────────────────────────────────────────────── */}
+        <View style={s.header}>
+          <Text style={s.title}>Energy Analytics</Text>
+        </View>
 
-
-        {/* ── Period Tabs (Step 1 of 5) ─────────────────────────────────────────── */}
-        <CopilotStep text="Use these tabs to switch between daily, weekly, monthly, and yearly electricity analytics." order={4} name="analytics_period_selector">
+        {/* ── Period Selector Pills ─────────────────────────────────────────── */}
+        <CopilotStep text="Switch between Daily, Weekly, Monthly, and Yearly consumption analytics." order={1} name="analytics_period_tabs">
           <CopilotView style={s.periodRow}>
             {PERIODS.map(p => (
-              <TouchableOpacity key={p} onPress={() => setPeriod(p)}
-                style={[s.periodBtn, period === p && s.periodActive]} activeOpacity={0.7}>
+              <TouchableOpacity
+                key={p}
+                onPress={() => setPeriod(p)}
+                style={[s.periodBtn, period === p && s.periodActive]}
+                activeOpacity={0.8}
+              >
                 <Text style={[s.periodText, period === p && s.periodTextActive]}>
-                  {p === 'daily' ? 'DAY' : p === 'weekly' ? 'WEEK' : p === 'monthly' ? 'MONTH' : 'YEAR'}
+                  {p.charAt(0).toUpperCase() + p.slice(1)}
                 </Text>
               </TouchableOpacity>
             ))}
           </CopilotView>
         </CopilotStep>
 
-        {/* ── Date Navigation ─────────────────────────────────────────────────── */}
+        {/* ── Date Navigator ────────────────────────────────────────────────── */}
         <View style={s.dateNav}>
           <TouchableOpacity style={s.dateNavBtn} onPress={() => navigateDate(-1)} activeOpacity={0.7}>
-            <Ionicons name="chevron-back" size={18} color={COLORS.textPrimary} />
+            <Ionicons name="chevron-back" size={18} color="#FFFFFF" />
           </TouchableOpacity>
-          <View style={s.dateNavCapsule}>
-            <Ionicons name="calendar-outline" size={16} color={COLORS.primary} style={{ marginRight: 6 }} />
-            <Text style={s.dateNavTitle}>{getDateLabel()}</Text>
-          </View>
+          <Text style={s.dateNavTitle}>{getDateLabel()}</Text>
           <TouchableOpacity style={s.dateNavBtn} onPress={() => navigateDate(1)} activeOpacity={0.7}>
-            <Ionicons name="chevron-forward" size={18} color={COLORS.textPrimary} />
+            <Ionicons name="chevron-forward" size={18} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
 
-        {/* ── Period Summary Card (Step 2 of 5) ─────────────────────────────────────── */}
-        <CopilotStep text="This section summarizes your electricity consumption and cost for the selected period, including the daily average." order={5} name="analytics_period_summary">
-          <CopilotView style={{ marginBottom: SPACING.sm }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, marginLeft: 4, marginRight: 4 }}>
-              <Text style={{ fontSize: 14, fontWeight: '600', color: COLORS.textSecondary }}>Period Summary</Text>
-              {loadingPeriod && (
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <ActivityIndicator size="small" color={COLORS.primary} style={{ marginRight: 4, transform: [{ scale: 0.7 }] }} />
-                  <Text style={{ fontSize: 11, color: COLORS.primary, fontWeight: '500' }}>Updating...</Text>
-                </View>
-              )}
-            </View>
-            <GlassCard style={[s.financialCard, loadingPeriod && { opacity: 0.6 }]}>
-              <View style={s.financialRow}>
-                <View style={s.financialBlock}>
-                  <Text style={s.financialLabel}>Consumption Cost</Text>
-                  <View style={s.financialValueRow}>
-                    <Text style={s.financialPrefix}>₱</Text>
-                    <Text style={s.financialValue} numberOfLines={1} adjustsFontSizeToFit>{totalCost.toFixed(2)}</Text>
-                  </View>
-                  <Text style={{fontSize: 10, color: COLORS.textMuted, marginTop: 2}}>Calendar period only. Excludes fees/rent.</Text>
-                </View>
-                
-                <View style={[s.financialBlock, { alignItems: 'flex-end' }]}>
-                  <Text style={s.financialLabel}>Daily Average</Text>
-                  <View style={s.financialValueRow}>
-                    <Text style={s.financialValue} numberOfLines={1} adjustsFontSizeToFit>{avgEnergy.toFixed(2)}</Text>
-                    <Text style={s.financialUnit}>kWh</Text>
-                  </View>
-                  {comparison && comparison.energyPctChange !== 0 && (
-                    <Text style={[s.summaryCardTrend, { color: comparison.energyPctChange > 0 ? COLORS.danger : COLORS.success, marginTop: 4 }]}>
-                      {comparison.energyPctChange > 0 ? '↑' : '↓'} {Math.abs(comparison.energyPctChange).toFixed(1)}%
-                    </Text>
-                  )}
-                </View>
-              </View>
-            </GlassCard>
-          </CopilotView>
-        </CopilotStep>
-
-        {/* ── Electricity Consumption (Step 3 of 5) ───────────────────────────────── */}
-        <CopilotStep
-          text="This section visualizes your electricity consumption and lets you review your data through Charts, Breakdown, and History."
-          order={6}
-          name="analytics_consumption"
-        >
-          <CopilotView>
-            {/* ── View Toggle ── */}
-            <View style={{ marginBottom: SPACING.md }}>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.viewToggle}>
-                {VIEW_TABS.map(tab => (
-                  <TouchableOpacity key={tab.key} onPress={() => { setActiveView(tab.key); setHistoryLimit(20); }}
-                    style={[s.viewTab, activeView === tab.key && s.viewTabActive]} activeOpacity={0.7}>
-                    <Ionicons name={tab.icon} size={16} color={activeView === tab.key ? COLORS.primary : COLORS.textMuted} />
-                    <Text style={[s.viewTabText, activeView === tab.key && s.viewTabTextActive]}>{tab.label}</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
-
-            {/* ── Charts View ── */}
-            {activeView === 'charts' && (
-              <View style={loadingPeriod ? { opacity: 0.6 } : {}}>
-                {/* Bar Chart */}
-                <GlassCard style={s.chartCard}>
-                  <View style={[s.chartHeader, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
-                    <View>
-                      <Text style={s.chartTitle}>Electricity Consumption</Text>
-                      <Text style={s.chartUnit}>{period === 'daily' ? 'Wh' : 'kWh'}</Text>
-                    </View>
-                    {loadingPeriod && <ActivityIndicator size="small" color={COLORS.primary} />}
-                  </View>
-
-                  {energyData.length > 0 ? (
-                    <WattipidBarChart
-                      labels={labels}
-                      data={energyData}
-                      comparisonData={comparisonChartData}
-                      unit={period === 'daily' ? 'Wh' : 'kWh'}
-                      height={230}
-                      currentIndex={currentIndex}
-                      lowlightIndex={lowestIndex}
-                      accentColor={COLORS.primary}
-                    />
-                  ) : (
-                    <Text style={s.noData}>No consumption data available yet</Text>
-                  )}
-                </GlassCard>
-
-                <Text style={s.disclaimer}>
-                  Power consumption is approximate and may differ from the actual value.
-                </Text>
-              </View>
-            )}
-          </CopilotView>
-        </CopilotStep>
-
-        {/* ══════════════════════════════════════════════════════════════════════ */}
-        {/* ── Breakdown View ──────────────────────────────────────────────────── */}
-        {activeView === 'breakdown' && (
-          <>
-            {breakdown.length > 0 && (
-              <GlassCard style={s.breakdownCard}>
-                <View style={s.breakdownHeader}>
-                  <Ionicons name="calendar" size={18} color={COLORS.primary} />
-                  <Text style={s.breakdownTitle}>
-                    {period === 'monthly' ? 'Monthly' : (period === 'weekly' ? 'Weekly' : period === 'yearly' ? 'Yearly' : 'Daily')} Breakdown
-                  </Text>
-                </View>
-                <Text style={s.breakdownDesc}>Detailed consumption metrics</Text>
-                <View style={s.tableHeader}>
-                  <Text style={[s.tableHeaderCell, s.colDate]}>Date</Text>
-                  <Text style={[s.tableHeaderCell, s.colKwh]}>kWh</Text>
-                  <Text style={[s.tableHeaderCell, s.colWatts]}>Watts</Text>
-                  <Text style={[s.tableHeaderCell, s.colCost, { color: COLORS.primary }]}>Cost</Text>
-                  <Text style={[s.tableHeaderCell, s.colReads]}>Read</Text>
-                </View>
-                {breakdown.map((row, i) => (
-                  <View key={i} style={[s.tableRow, i % 2 === 0 && s.tableRowAlt]}>
-                    <Text style={[s.tableCell, s.colDate]} numberOfLines={1}>{formatDate(row.day || row.timestamp)}</Text>
-                    <Text style={[s.tableCell, s.colKwh]} numberOfLines={1}>{Number(row.totalEnergy || row.energy || 0).toFixed(3)}</Text>
-                    <Text style={[s.tableCell, s.colWatts]} numberOfLines={1}>{(row.avgPower || 0).toFixed(0)}</Text>
-                    <Text style={[s.tableCellHighlight, s.colCost]} numberOfLines={1}>₱{Number(row.totalCost || row.cost || 0).toFixed(2)}</Text>
-                    <Text style={[s.tableCell, s.colReads]} numberOfLines={1}>{row.entries || row.entryCount || '-'}</Text>
-                  </View>
-                ))}
-                <View style={s.tableTotalRow}>
-                  <Text style={[s.tableTotalCell, s.colDate]}>TOTAL</Text>
-                  <Text style={[s.tableTotalCell, s.colKwh]} numberOfLines={1}>{breakdown.reduce((a, r) => a + (Number(r.totalEnergy || r.energy || 0)), 0).toFixed(3)}</Text>
-                  <Text style={[s.tableTotalCell, s.colWatts]} numberOfLines={1}>{(breakdown.reduce((a, r) => a + (Number(r.avgPower || 0)), 0) / Math.max(breakdown.length, 1)).toFixed(0)}</Text>
-                  <Text style={[s.tableTotalCell, s.colCost, { color: COLORS.primary }]} numberOfLines={1}>₱{breakdown.reduce((a, r) => a + (Number(r.totalCost || r.cost || 0)), 0).toFixed(2)}</Text>
-                  <Text style={[s.tableTotalCell, s.colReads]} numberOfLines={1}>{breakdown.reduce((a, r) => a + (Number(r.entries || r.entryCount || 0)), 0)}</Text>
-                </View>
-              </GlassCard>
-            )}
-
-            {hourlyBreakdown.length > 0 && period === 'daily' && (
-              <GlassCard style={s.breakdownCard}>
-                <View style={s.breakdownHeader}>
-                  <Ionicons name="time" size={18} color={COLORS.accent} />
-                  <Text style={s.breakdownTitle}>Hourly Breakdown (24h)</Text>
-                </View>
-                <Text style={s.breakdownDesc}>Consumption per hour today (00:00–23:59)</Text>
-                <View style={s.tableHeader}>
-                  <Text style={[s.tableHeaderCell, s.colDate]}>Hour</Text>
-                  <Text style={[s.tableHeaderCell, s.colKwh]}>kWh</Text>
-                  <Text style={[s.tableHeaderCell, s.colWatts]}>Watts</Text>
-                  <Text style={[s.tableHeaderCell, s.colCost, { color: COLORS.primary }]}>Cost</Text>
-                  <Text style={[s.tableHeaderCell, s.colReads]}></Text>
-                </View>
-                {hourlyBreakdown.map((row, i) => (
-                  <View key={i} style={[s.tableRow, i % 2 === 0 && s.tableRowAlt]}>
-                    <Text style={[s.tableCell, s.colDate]} numberOfLines={1}>{String(row.hour).padStart(2,'0')}:00</Text>
-                    <Text style={[s.tableCell, s.colKwh]} numberOfLines={1}>{(parseFloat(row.totalEnergy || row.energy || 0)).toFixed(3)}</Text>
-                    <Text style={[s.tableCell, s.colWatts]} numberOfLines={1}>{(parseFloat(row.avgPower || 0)).toFixed(0)}</Text>
-                    <Text style={[s.tableCellHighlight, s.colCost]} numberOfLines={1}>₱{(parseFloat(row.totalCost || row.cost || 0)).toFixed(2)}</Text>
-                    <Text style={[s.tableCell, s.colReads]}></Text>
-                  </View>
-                ))}
-                <View style={s.tableTotalRow}>
-                  <Text style={[s.tableTotalCell, s.colDate]}>TOTAL</Text>
-                  <Text style={[s.tableTotalCell, s.colKwh]} numberOfLines={1}>{hourlyBreakdown.reduce((a, r) => a + (Number(r.totalEnergy || r.energy || 0)), 0).toFixed(3)}</Text>
-                  <Text style={[s.tableTotalCell, s.colWatts]} numberOfLines={1}>{(hourlyBreakdown.reduce((a, r) => a + (Number(r.avgPower || 0)), 0) / Math.max(hourlyBreakdown.length, 1)).toFixed(0)}</Text>
-                  <Text style={[s.tableTotalCell, s.colCost, { color: COLORS.primary }]} numberOfLines={1}>₱{hourlyBreakdown.reduce((a, r) => a + (Number(r.totalCost || r.cost || 0)), 0).toFixed(2)}</Text>
-                  <Text style={[s.tableTotalCell, s.colReads]}></Text>
-                </View>
-              </GlassCard>
-            )}
-          </>
-        )}
-
-        {/* ══════════════════════════════════════════════════════════════════════ */}
-        {/* ── History View ────────────────────────────────────────────────────── */}
-        {activeView === 'history' && (
-          <View style={s.historySection}>
-            <View style={s.filterHeader}>
-              <Text style={s.filterTitle}>History Logs</Text>
-              <TouchableOpacity style={s.filterDropdown} onPress={() => setShowHistoryModal(true)} activeOpacity={0.7}>
-                <Text style={s.filterDropdownText}>{historyTitle}</Text>
-                <Ionicons name="calendar-outline" size={16} color={COLORS.textPrimary} />
-              </TouchableOpacity>
-            </View>
-
-            {transactions.length > 0 ? (
-              transactions.map((group, gIdx) => (
-                <View key={gIdx} style={s.histGroup}>
-                  <View style={s.histGroupHeader}>
-                    <Text style={s.histDate}>{group.title}</Text>
-                    <Ionicons name="calendar-outline" size={16} color={COLORS.primary} />
-                  </View>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.histTableWrapper}>
-                    <View style={{ minWidth: 350, paddingHorizontal: 0 }}>
-                      {group.data.slice(0, historyLimit).map((tx, i) => {
-                        const power = Number(tx.power || 0);
-                        const statusColor = power > 1500 ? COLORS.danger : (power > 500 ? COLORS.warning : COLORS.primary);
-                        return (
-                          <View key={i} style={[s.histRow, i % 2 === 0 && s.histRowAlt]}>
-                            <Text style={s.histColTime} numberOfLines={1}>{tx.time_label || '--'}</Text>
-                            <Text style={s.histColWatts} numberOfLines={1}>{power.toFixed(0)}W</Text>
-                            <Text style={s.histColKwh} numberOfLines={1}>{Number(tx.energy || 0).toFixed(4)}</Text>
-                            <Text style={s.histColCost} numberOfLines={1}>₱{Math.abs(Number(tx.cost || 0)).toFixed(2)}</Text>
-                            <View style={s.histColStatus}>
-                              <View style={[s.statusDot, { backgroundColor: statusColor }]} />
-                            </View>
-                          </View>
-                        );
-                      })}
-                      {group.data.length > historyLimit && (
-                        <TouchableOpacity
-                          onPress={() => setHistoryLimit(prev => prev + 20)}
-                          style={{ padding: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.03)', marginTop: 10, borderRadius: RADIUS.md }}>
-                          <Text style={{ color: COLORS.primary, fontWeight: 'bold' }}>Load 20 More Logs</Text>
-                        </TouchableOpacity>
-                      )}
-                    </View>
-                  </ScrollView>
-                </View>
-              ))
-            ) : (
-              <GlassCard style={s.emptyHist}>
-                <Ionicons name="analytics-outline" size={36} color={COLORS.textMuted} />
-                <Text style={s.emptyHistText}>No history logs found</Text>
-              </GlassCard>
-            )}
-          </View>
-        )}
-
-        {/* ── History Date Filter Modal ───────────────────────────────────────── */}
-        <BaseModal visible={showHistoryModal} onClose={() => setShowHistoryModal(false)}>
-          <ModalHeader title="Filter History" icon="calendar" iconColor={COLORS.primary} onClose={() => setShowHistoryModal(false)} />
-          <ModalBody scrollable={true}>
-            <Text style={{ color: COLORS.textMuted, fontSize: 13, marginBottom: 12 }}>Select a predefined range or pick custom dates to filter logs.</Text>
-
-            <TouchableOpacity style={{ padding: 16, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: RADIUS.md, marginBottom: 8, borderWidth: 1, borderColor: historyTitle === 'Active Billing Cycle' ? COLORS.primary : 'rgba(255,255,255,0.05)' }}
-              onPress={() => {
-                if (availableCycles.length > 0) {
-                  setHistoryStartDate(new Date(availableCycles[0].cycle_start));
-                  setHistoryEndDate(new Date(availableCycles[0].cycle_end));
-                  setHistoryTitle('Active Billing Cycle');
-                }
-                setShowHistoryModal(false);
-              }}>
-              <Text style={{ color: COLORS.textPrimary, fontWeight: 'bold' }}>Active Billing Cycle</Text>
-              {availableCycles.length > 0 && <Text style={{ color: COLORS.textMuted, fontSize: 12, marginTop: 4 }}>{new Date(availableCycles[0].cycle_start).toLocaleDateString('default', { month: 'short', day: 'numeric' })} – {new Date(availableCycles[0].cycle_end).toLocaleDateString('default', { month: 'short', day: 'numeric' })}</Text>}
-            </TouchableOpacity>
-
-            <TouchableOpacity style={{ padding: 16, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: RADIUS.md, marginBottom: 8, borderWidth: 1, borderColor: historyTitle === 'Previous Billing Cycle' ? COLORS.primary : 'rgba(255,255,255,0.05)' }}
-              onPress={() => {
-                if (availableCycles.length > 1) {
-                  setHistoryStartDate(new Date(availableCycles[1].cycle_start));
-                  setHistoryEndDate(new Date(availableCycles[1].cycle_end));
-                  setHistoryTitle('Previous Billing Cycle');
-                } else { showModal({ type: 'warning', title: 'Not Available', message: 'No previous billing cycle found.' }); }
-                setShowHistoryModal(false);
-              }}>
-              <Text style={{ color: COLORS.textPrimary, fontWeight: 'bold' }}>Previous Billing Cycle</Text>
-              {availableCycles.length > 1 && <Text style={{ color: COLORS.textMuted, fontSize: 12, marginTop: 4 }}>{new Date(availableCycles[1].cycle_start).toLocaleDateString('default', { month: 'short', day: 'numeric' })} – {new Date(availableCycles[1].cycle_end).toLocaleDateString('default', { month: 'short', day: 'numeric' })}</Text>}
-            </TouchableOpacity>
-
-            <TouchableOpacity style={{ padding: 16, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: RADIUS.md, marginBottom: 16, borderWidth: 1, borderColor: historyTitle === 'Today' ? COLORS.primary : 'rgba(255,255,255,0.05)' }}
-              onPress={() => {
-                const today = new Date();
-                setHistoryStartDate(today); setHistoryEndDate(today); setHistoryTitle('Today');
-                setShowHistoryModal(false);
-              }}>
-              <Text style={{ color: COLORS.textPrimary, fontWeight: 'bold' }}>Today</Text>
-            </TouchableOpacity>
-
-            <Text style={{ color: COLORS.textPrimary, fontWeight: 'bold', marginBottom: 12 }}>Custom Date Range</Text>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 12 }}>
-              <View style={{ flex: 1 }}>
-                <Text style={{ color: COLORS.textMuted, fontSize: 12, marginBottom: 4 }}>Start Date</Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: RADIUS.md, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }}>
-                  <TouchableOpacity onPress={() => { const d = new Date(customStart); d.setDate(d.getDate()-1); setCustomStart(d); }} style={{ padding: 10 }}><Ionicons name="chevron-back" size={16} color={COLORS.primary}/></TouchableOpacity>
-                  <Text style={{ flex: 1, textAlign: 'center', color: COLORS.textPrimary, fontSize: 13 }}>{customStart.toLocaleDateString('default', { month: 'short', day: 'numeric' })}</Text>
-                  <TouchableOpacity onPress={() => { const d = new Date(customStart); d.setDate(d.getDate()+1); setCustomStart(d); }} style={{ padding: 10 }}><Ionicons name="chevron-forward" size={16} color={COLORS.primary}/></TouchableOpacity>
-                </View>
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={{ color: COLORS.textMuted, fontSize: 12, marginBottom: 4 }}>End Date</Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: RADIUS.md, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }}>
-                  <TouchableOpacity onPress={() => { const d = new Date(customEnd); d.setDate(d.getDate()-1); setCustomEnd(d); }} style={{ padding: 10 }}><Ionicons name="chevron-back" size={16} color={COLORS.primary}/></TouchableOpacity>
-                  <Text style={{ flex: 1, textAlign: 'center', color: COLORS.textPrimary, fontSize: 13 }}>{customEnd.toLocaleDateString('default', { month: 'short', day: 'numeric' })}</Text>
-                  <TouchableOpacity onPress={() => { const d = new Date(customEnd); d.setDate(d.getDate()+1); setCustomEnd(d); }} style={{ padding: 10 }}><Ionicons name="chevron-forward" size={16} color={COLORS.primary}/></TouchableOpacity>
-                </View>
-              </View>
-            </View>
-
-            <TouchableOpacity style={{ backgroundColor: COLORS.primary, padding: 14, borderRadius: RADIUS.md, alignItems: 'center', marginTop: 16 }}
-              onPress={() => {
-                if (customStart > customEnd) { showModal({ type: 'error', title: 'Invalid Range', message: 'Start date cannot be after end date.' }); return; }
-                setHistoryStartDate(customStart); setHistoryEndDate(customEnd);
-                setHistoryTitle(`${customStart.toLocaleDateString('default', { month: 'short', day: 'numeric' })} – ${customEnd.toLocaleDateString('default', { month: 'short', day: 'numeric' })}`);
-                setShowHistoryModal(false);
-              }}>
-              <Text style={{ color: '#000', fontWeight: 'bold' }}>Apply Custom Range</Text>
-            </TouchableOpacity>
-          </ModalBody>
-        </BaseModal>
-
-        {/* ── Wattipid Smart Insights (Step 4 of 5) ────────────────────────────────── */}
-        <CopilotStep text="Smart Insights analyzes your consumption patterns and provides useful recommendations based on your electricity usage." order={7} name="analytics_smart_insights">
-          <CopilotView style={{ marginTop: 8 }}>
-            <GlassCard style={s.insightCard}>
-              <View style={s.insightHeader}>
-                <Ionicons name="sparkles" size={20} color={COLORS.primary} />
-                <Text style={[s.insightTitle, { color: COLORS.primary }]}>Wattipid Smart Insights</Text>
-              </View>
-              
-              <View style={{ marginBottom: 12 }}>
-                <Text style={{ fontSize: 13, fontWeight: '500', color: COLORS.textPrimary, lineHeight: 20 }}>
-                  {recommendation || "Monitoring your consumption patterns to optimize electricity usage."}
-                </Text>
-              </View>
-
-              {insights.length > 0 ? (
-                insights.map((text, i) => (
-                  <View key={i} style={s.insightItem}>
-                    <View style={s.insightDot} />
-                    <Text style={s.insightText}>{text}</Text>
-                  </View>
-                ))
-              ) : (
-                <View style={s.insightItem}>
-                  <View style={s.insightDot} />
-                  <Text style={s.insightText}>Keep your appliances energy-efficient to maximize savings.</Text>
-                </View>
-              )}
-            </GlassCard>
-          </CopilotView>
-        </CopilotStep>
-
-        {/* ── PDF Report (Step 5 of 5) ────────────────────────────────────────────── */}
-        <CopilotStep text="Generate a report for the selected period to review and keep a record of your electricity consumption." order={8} name="analytics_generate_report">
-          <CopilotView style={{ marginTop: 8 }}>
-            <GlassCard style={s.reportCard}>
-              <View style={s.reportHeader}>
-                <Ionicons name="document-text" size={18} color={COLORS.info} />
-                <Text style={s.reportTitle}>Generate Report</Text>
-              </View>
-              <Text style={s.reportDesc}>Export a detailed PDF analytics report for the currently viewed {period} period.</Text>
-              <View style={{ marginTop: 12 }}>
+        {/* ── Consumption Analysis Card ─────────────────────────────────────── */}
+        <CopilotStep text="Visual breakdown of your consumption across intervals with peak highlight." order={2} name="analytics_consumption_card">
+          <CopilotView style={s.analysisCard}>
+            <View style={s.analysisHeaderRow}>
+              <Text style={s.analysisTitle}>CONSUMPTION ANALYSIS</Text>
+              <View style={s.unitToggle}>
                 <TouchableOpacity
-                  style={{ backgroundColor: COLORS.info, padding: 14, borderRadius: RADIUS.md, alignItems: 'center', justifyContent: 'center', marginTop: 8, flexDirection: 'row', gap: 8 }}
-                  onPress={() => generateReport()} disabled={generatingPdf} activeOpacity={0.7}>
-                  {generatingPdf ? <ActivityIndicator size="small" color="#fff" /> : (
-                    <><Ionicons name="download-outline" size={18} color="#fff" />
-                    <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 14 }}>Download {period.charAt(0).toUpperCase() + period.slice(1)} Report</Text></>
-                  )}
+                  style={[s.unitBtn, analysisUnit === 'kWh' && s.unitBtnActive]}
+                  onPress={() => setAnalysisUnit('kWh')}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[s.unitText, analysisUnit === 'kWh' && s.unitTextActive]}>kWh</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[s.unitBtn, analysisUnit === '₱' && s.unitBtnActive]}
+                  onPress={() => setAnalysisUnit('₱')}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[s.unitText, analysisUnit === '₱' && s.unitTextActive]}>₱</Text>
                 </TouchableOpacity>
               </View>
-            </GlassCard>
+            </View>
+
+            {/* Real SVG Interactive Chart */}
+            <View style={{ minHeight: 230, marginBottom: 12 }}>
+              {loadingPeriod && history.length === 0 ? (
+                <View style={{ height: 230, justifyContent: 'center', alignItems: 'center' }}>
+                  <ActivityIndicator size="small" color={COLORS.primary} />
+                  <Text style={{ color: COLORS.textMuted, fontSize: 12, marginTop: 8 }}>Updating consumption timeline...</Text>
+                </View>
+              ) : (
+                <View>
+                  {loadingPeriod && (
+                    <View style={{ position: 'absolute', top: 4, right: 4, zIndex: 10, flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(15,23,42,0.7)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 12 }}>
+                      <ActivityIndicator size="small" color={COLORS.primary} style={{ transform: [{ scale: 0.6 }], marginRight: 4 }} />
+                      <Text style={{ color: COLORS.textMuted, fontSize: 10 }}>Syncing...</Text>
+                    </View>
+                  )}
+                  <WattipidBarChart
+                    labels={chartLabels}
+                    data={chartValues}
+                    unit={analysisUnit}
+                    height={230}
+                    currentIndex={currentIndex}
+                    peakIndex={peakIndex}
+                    accentColor="#10B981"
+                  />
+                </View>
+              )}
+            </View>
+
+            {/* Footnote / Smart Insight */}
+            <View style={[s.footnoteBox, totalPeriodEnergy === 0 && { backgroundColor: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.08)' }]}>
+              <View style={[s.footnoteDot, totalPeriodEnergy === 0 && { backgroundColor: '#64748B' }]} />
+              <Text style={[s.footnoteText, totalPeriodEnergy === 0 && { color: '#94A3B8' }]}>
+                {getFootnoteText()}
+              </Text>
+            </View>
           </CopilotView>
         </CopilotStep>
+
+        {/* ── VS LAST PERIOD Card ────────────────────────────────────────────── */}
+        <View style={s.metricCard}>
+          <View style={s.metricIconRed}>
+            <Ionicons name="trending-up" size={24} color="#EF4444" />
+          </View>
+          <View style={s.metricContent}>
+            <Text style={s.metricLabel}>
+              VS LAST {period === 'daily' ? 'DAY' : period === 'weekly' ? 'WEEK' : period === 'yearly' ? 'YEAR' : 'MONTH'}
+            </Text>
+            <Text style={s.metricValueRed}>
+              {compPct >= 0 ? `+${compPct.toFixed(1)}%` : `${compPct.toFixed(1)}%`} kWh • {compCost >= 0 ? `+₱${compCost.toFixed(2)}` : `-₱${Math.abs(compCost).toFixed(2)}`}
+            </Text>
+            <Text style={s.metricSubtext}>
+              {totalPeriodEnergy === 0
+                ? 'No active consumption recorded on this date'
+                : `Total ${totalPeriodEnergy.toFixed(3)} kWh consumed this ${period === 'daily' ? 'day' : period === 'weekly' ? 'week' : period === 'yearly' ? 'year' : 'month'}`}
+            </Text>
+          </View>
+        </View>
+
+        {/* ── EOM FORECASTED BILL Card ──────────────────────────────────────── */}
+        <View style={s.metricCard}>
+          <View style={s.metricIconAmber}>
+            <Ionicons name="pie-chart" size={24} color="#F59E0B" />
+          </View>
+          <View style={s.metricContent}>
+            <Text style={s.metricLabel}>EOM FORECASTED BILL</Text>
+            <Text style={s.metricValueAmber}>₱{forecastVal.toFixed(2)}</Text>
+            <Text style={s.metricSubtext}>
+              {forecastOver > 0
+                ? `Estimated to be ₱${forecastOver.toFixed(0)} over your preset budget cap`
+                : 'Projected within your designated monthly budget target'}
+            </Text>
+          </View>
+        </View>
+
+        {/* ── PDF Export Button ─────────────────────────────────────────────── */}
+        <TouchableOpacity
+          style={s.exportCta}
+          onPress={generateReport}
+          disabled={generatingPdf}
+          activeOpacity={0.85}
+        >
+          {generatingPdf ? (
+            <ActivityIndicator size="small" color="#0A0F1D" />
+          ) : (
+            <>
+              <Ionicons name="document-text" size={18} color="#0A0F1D" />
+              <Text style={s.exportCtaText}>
+                Export {period.charAt(0).toUpperCase() + period.slice(1)} Report as PDF
+              </Text>
+            </>
+          )}
+        </TouchableOpacity>
 
       </ScrollView>
     </View>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, TextInput, BackHandler, RefreshControl } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
@@ -20,14 +21,40 @@ export default function TenantBillingHistoryScreen() {
     const [searchQuery, setSearchQuery] = useState('');
     const [filterYear, setFilterYear] = useState('All');
 
+    // Instant Cache Restoration (Stale-While-Revalidate)
+    useEffect(() => {
+        let isMounted = true;
+        const restoreCache = async () => {
+            if (!user?.room_id) return;
+            try {
+                const cached = await AsyncStorage.getItem(`@cached_tenant_billing_hist_${user.room_id}`);
+                if (cached && isMounted) {
+                    const parsed = JSON.parse(cached);
+                    if (Array.isArray(parsed) && parsed.length > 0) {
+                        setHistory(parsed);
+                        setFilteredHistory(parsed);
+                        setLoading(false);
+                    }
+                }
+            } catch (err) {
+                console.warn('[BillingHistory] Cache restore error:', err);
+            }
+        };
+        restoreCache();
+        return () => { isMounted = false; };
+    }, [user?.room_id]);
+
     const fetchHistory = useCallback(async () => {
         try {
             if (!user?.room_id) return;
             
             // We fetch a large limit to allow local filtering
             const data = await getTenantBillingHistory(user.room_id, 100, 0);
-            setHistory(data);
-            setFilteredHistory(data);
+            if (Array.isArray(data)) {
+                setHistory(data);
+                setFilteredHistory(data);
+                AsyncStorage.setItem(`@cached_tenant_billing_hist_${user.room_id}`, JSON.stringify(data)).catch(() => {});
+            }
         } catch (error) {
             console.error('Failed to fetch billing history:', error);
         } finally {
@@ -154,7 +181,7 @@ export default function TenantBillingHistoryScreen() {
         );
     };
 
-    if (loading) {
+    if (loading && (!history || history.length === 0)) {
         return (
             <View style={styles.centerContainer}>
                 <ActivityIndicator size="large" color={COLORS.primary} />

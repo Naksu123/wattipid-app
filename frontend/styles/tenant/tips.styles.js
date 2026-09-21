@@ -1,5 +1,5 @@
-import { StyleSheet } from 'react-native';
-import { COLORS, FONT_SIZE, FONT_WEIGHT, RADIUS, SPACING } from '../theme';
+import { StyleSheet, Platform, StatusBar } from 'react-native';
+import { COLORS } from '../theme';
 
 export default StyleSheet.create({
   container: { 
@@ -7,532 +7,583 @@ export default StyleSheet.create({
     backgroundColor: COLORS.background 
   },
   scroll: { 
-    paddingHorizontal: SPACING.lg, 
-    paddingTop: SPACING.xl + 20, 
-    paddingBottom: SPACING.xxl * 2 
+    paddingHorizontal: 16, 
+    paddingTop: Platform.OS === 'ios' ? 56 : (StatusBar.currentHeight || 20) + 16, 
+    paddingBottom: 110,
   },
-  title: { 
-    fontSize: FONT_SIZE.xxl, 
-    fontWeight: FONT_WEIGHT.bold, 
-    color: COLORS.textPrimary,
-    letterSpacing: -0.5
+
+  // Compact Header (NO large hero)
+  compactHeader: {
+    marginBottom: 16,
   },
-  subtitle: { 
-    fontSize: FONT_SIZE.md, 
-    color: COLORS.textSecondary, 
-    marginBottom: SPACING.xl 
+  pageTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.4,
   },
-  dailyCard: { 
-    marginBottom: SPACING.lg, 
-    paddingTop: SPACING.xl 
+  pageSubtitle: {
+    fontSize: 13,
+    color: '#94A3B8',
+    marginTop: 4,
+    lineHeight: 18,
   },
-  dailyBadge: { 
-    position: 'absolute', 
-    top: 12, 
-    right: 12, 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    gap: 4, 
-    backgroundColor: COLORS.primary, 
-    paddingHorizontal: SPACING.sm, 
-    paddingVertical: 3, 
-    borderRadius: RADIUS.full 
-  },
-  dailyBadgeText: { 
-    fontSize: 10, 
-    color: '#fff', 
-    fontWeight: FONT_WEIGHT.bold, 
-    textTransform: 'uppercase', 
-    letterSpacing: 0.5 
-  },
-  dailyContent: { 
-    flexDirection: 'row', 
-    alignItems: 'flex-start', 
-    gap: SPACING.md 
-  },
-  dailyIcon: { 
-    width: 48, 
-    height: 48, 
-    borderRadius: 14, 
-    backgroundColor: 'rgba(34,197,94,0.12)', 
-    alignItems: 'center', 
-    justifyContent: 'center' 
-  },
-  dailyText: { 
-    flex: 1 
-  },
-  dailyCat: { 
-    fontSize: FONT_SIZE.xs, 
-    color: COLORS.primary, 
-    fontWeight: FONT_WEIGHT.semibold, 
-    textTransform: 'uppercase', 
-    letterSpacing: 1, 
-    marginBottom: 4 
-  },
-  dailyTip: { 
-    fontSize: FONT_SIZE.sm, 
-    color: COLORS.textSecondary, 
-    lineHeight: 20 
-  },
-  tabRow: { 
-    flexDirection: 'row', 
-    marginBottom: SPACING.lg,
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderRadius: RADIUS.full,
-    padding: 4,
+
+  // Search Bar
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#0C1322',
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)'
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    paddingHorizontal: 12,
+    height: 40,
+    marginBottom: 12,
+    gap: 8,
   },
-  tabBtn: { 
-    flex: 1, 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    justifyContent: 'center', 
-    gap: 6, 
-    paddingVertical: 12, 
-    borderRadius: RADIUS.full, 
-    backgroundColor: 'transparent', 
+  searchInput: {
+    flex: 1,
+    fontSize: 13,
+    color: '#FFFFFF',
+    paddingVertical: 0,
   },
-  tabActive: { 
-    backgroundColor: 'rgba(16,185,129,0.18)', 
+
+  // Category Filter Chips
+  categorySection: {
+    marginBottom: 16,
   },
-  tabText: { 
-    fontSize: 11, 
-    color: COLORS.textMuted, 
-    fontWeight: FONT_WEIGHT.medium 
+  categoryList: {
+    gap: 8,
+    paddingRight: 16,
   },
-  tabTextActive: { 
-    color: COLORS.primary, 
-    fontWeight: FONT_WEIGHT.semibold 
-  },
-  tabBadge: { 
-    backgroundColor: COLORS.primary, 
-    borderRadius: 10, 
-    minWidth: 20, 
-    height: 20, 
-    alignItems: 'center', 
-    justifyContent: 'center', 
-    paddingHorizontal: 5 
-  },
-  tabBadgeText: { 
-    fontSize: 10, 
-    color: '#fff', 
-    fontWeight: FONT_WEIGHT.bold 
-  },
-  statusBanner: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    alignItems: 'center', 
-    padding: SPACING.md, 
-    marginBottom: SPACING.md 
-  },
-  statusRow: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    gap: SPACING.sm, 
-    flex: 1 
-  },
-  statusDot: { 
-    width: 8, 
-    height: 8, 
-    borderRadius: 4 
-  },
-  statusText: { 
-    fontSize: FONT_SIZE.xs, 
-    color: COLORS.textSecondary, 
-    flex: 1 
-  },
-  statusTime: { 
-    fontSize: FONT_SIZE.xs, 
-    color: COLORS.textMuted 
-  },
-  dynamicCard: { 
-    marginBottom: SPACING.sm 
-  },
-  dynamicHeader: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    gap: SPACING.md, 
-    marginBottom: SPACING.sm 
-  },
-  dynamicIcon: { 
-    width: 40, 
-    height: 40, 
-    borderRadius: 12, 
-    alignItems: 'center', 
-    justifyContent: 'center' 
-  },
-  dynamicMeta: { 
-    flex: 1, 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    justifyContent: 'space-between' 
-  },
-  dynamicCat: { 
-    fontSize: FONT_SIZE.xs, 
-    color: COLORS.textMuted, 
-    fontWeight: FONT_WEIGHT.semibold, 
-    textTransform: 'uppercase', 
-    letterSpacing: 1 
-  },
-  priorityBadge: { 
-    paddingHorizontal: SPACING.sm, 
-    paddingVertical: 2, 
-    borderRadius: RADIUS.full 
-  },
-  priorityText: { 
-    fontSize: 9, 
-    fontWeight: FONT_WEIGHT.bold, 
-    letterSpacing: 0.5 
-  },
-  dynamicTip: { 
-    fontSize: FONT_SIZE.sm, 
-    color: COLORS.textSecondary, 
-    lineHeight: 20 
-  },
-  emptyState: { 
-    alignItems: 'center', 
-    paddingVertical: SPACING.xxl, 
-    gap: SPACING.sm 
-  },
-  emptyState2: { 
-    alignItems: 'center', 
-    paddingVertical: SPACING.xxl, 
-    gap: SPACING.md 
-  },
-  emptyTitle: { 
-    fontSize: FONT_SIZE.md, 
-    color: COLORS.textPrimary, 
-    fontWeight: FONT_WEIGHT.semibold 
-  },
-  emptyDesc: { 
-    fontSize: FONT_SIZE.sm, 
-    color: COLORS.textMuted 
-  },
-  howCard: { 
-    marginTop: SPACING.md, 
-    marginBottom: SPACING.xxl 
-  },
-  howHeader: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    gap: SPACING.sm, 
-    marginBottom: SPACING.sm 
-  },
-  howTitle: { 
-    fontSize: FONT_SIZE.sm, 
-    color: COLORS.info, 
-    fontWeight: FONT_WEIGHT.semibold 
-  },
-  howText: { 
-    fontSize: FONT_SIZE.xs, 
-    color: COLORS.textMuted, 
-    lineHeight: 18 
-  },
-  catScroll: { 
-    marginBottom: SPACING.md 
-  },
-  catContainer: { 
-    gap: SPACING.sm 
-  },
-  catBtn: { 
-    paddingHorizontal: SPACING.md, 
-    paddingVertical: SPACING.sm, 
-    borderRadius: RADIUS.full, 
-    backgroundColor: COLORS.surfaceGlass, 
-    borderWidth: 1, 
-    borderColor: COLORS.border 
-  },
-  catActive: { 
-    backgroundColor: 'rgba(34,197,94,0.12)', 
-    borderColor: COLORS.primary 
-  },
-  catText: { 
-    fontSize: FONT_SIZE.sm, 
-    color: COLORS.textMuted, 
-    fontWeight: FONT_WEIGHT.medium 
-  },
-  catTextActive: { 
-    color: COLORS.primary, 
-    fontWeight: FONT_WEIGHT.semibold 
-  },
-  summaryBar: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    gap: SPACING.sm, 
-    padding: SPACING.md, 
-    marginBottom: SPACING.md 
-  },
-  summaryBarText: { 
-    fontSize: FONT_SIZE.xs, 
-    color: COLORS.textMuted 
-  },
-  tipCard: { 
-    flexDirection: 'row', 
-    alignItems: 'flex-start', 
-    gap: SPACING.md, 
-    marginBottom: SPACING.sm, 
-    padding: SPACING.md 
-  },
-  tipIcon: { 
-    width: 44, 
-    height: 44, 
-    borderRadius: 12, 
-    backgroundColor: 'rgba(34,197,94,0.1)', 
-    alignItems: 'center', 
-    justifyContent: 'center', 
-    marginTop: 2 
-  },
-  tipContent: { 
-    flex: 1 
-  },
-  tipHeaderRow: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    alignItems: 'flex-start', 
-    marginBottom: 4, 
-    gap: SPACING.sm 
-  },
-  tipTitle: { 
-    flex: 1, 
-    fontSize: FONT_SIZE.md, 
-    color: COLORS.textPrimary, 
-    fontWeight: FONT_WEIGHT.bold 
-  },
-  impactBadge: { 
-    paddingHorizontal: 8, 
-    paddingVertical: 3, 
-    borderRadius: RADIUS.sm, 
-    flexShrink: 0, 
-    alignSelf: 'flex-start',
-    marginTop: 2
-  },
-  impactText: { 
-    fontSize: 8, 
-    fontWeight: '800', 
-    textTransform: 'uppercase',
-    letterSpacing: 0.5
-  },
-  tipCategory: { 
-    fontSize: FONT_SIZE.xs, 
-    color: COLORS.primary, 
-    fontWeight: FONT_WEIGHT.semibold, 
-    textTransform: 'uppercase', 
-    letterSpacing: 1 
-  },
-  tipText: { 
-    fontSize: FONT_SIZE.sm, 
-    color: COLORS.textSecondary, 
-    lineHeight: 20 
-  },
-  reasonBox: { 
-    flexDirection: 'row', 
-    alignItems: 'flex-start', 
-    gap: 6, 
-    marginTop: 10, 
-    padding: 8, 
-    backgroundColor: 'rgba(255,255,255,0.03)', 
-    borderRadius: RADIUS.sm, 
-    borderLeftWidth: 2, 
-    borderLeftColor: COLORS.warning 
-  },
-  reasonText: { 
-    flex: 1, 
-    fontSize: 11, 
-    color: COLORS.textMuted, 
-    fontStyle: 'italic', 
-    lineHeight: 16, 
-    flexWrap: 'wrap' 
-  },
-  // --- INTERACTIVE TIPS SYSTEM ---
-  interactiveCard: {
-    padding: SPACING.xxl,
-    borderRadius: RADIUS.xxl,
-    marginBottom: SPACING.lg,
+  categoryChip: {
+    paddingHorizontal: 13,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    alignItems: 'center',
     justifyContent: 'center',
-    position: 'relative',
-    overflow: 'hidden',
-    minHeight: 220
   },
-  tipCatRow: {
+  categoryChipActive: {
+    backgroundColor: 'rgba(16, 185, 129, 0.16)',
+    borderColor: '#10B981',
+  },
+  categoryText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#94A3B8',
+  },
+  categoryTextActive: {
+    color: '#10B981',
+    fontWeight: '700',
+  },
+
+  // Section Headers
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+    marginTop: 10,
+  },
+  sectionTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginBottom: SPACING.sm
+    flex: 1,
   },
-  tipCatLabel: {
+  sectionTitle: {
     fontSize: 12,
-    fontWeight: FONT_WEIGHT.heavy,
-    color: COLORS.primary,
+    fontWeight: '800',
+    color: '#94A3B8',
+    letterSpacing: 0.7,
     textTransform: 'uppercase',
-    letterSpacing: 1.5
   },
-  tipMainTitle: {
-    fontSize: 22,
-    fontWeight: FONT_WEIGHT.heavy,
-    color: COLORS.textPrimary,
-    marginBottom: SPACING.md,
-    lineHeight: 28
+  sectionCountBadge: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#64748B',
+    marginLeft: 6,
   },
-  tipMainMessage: {
-    fontSize: 15,
-    color: COLORS.textSecondary,
-    lineHeight: 22,
-    marginBottom: SPACING.xl
-  },
-  interactiveFooter: {
+  viewModeToggle: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center'
+    alignItems: 'center',
+    backgroundColor: '#0C1322',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    padding: 2,
+    gap: 2,
   },
-  likeBtn: {
+  viewModeBtn: {
+    width: 28,
+    height: 26,
+    borderRadius: 7,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  viewModeBtnActive: {
+    backgroundColor: 'rgba(16, 185, 129, 0.16)',
+  },
+
+  // Smart Insight (Compact Card)
+  smartCard: {
+    backgroundColor: '#0C1322',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.22)',
+    padding: 14,
+    marginBottom: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  smartTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  smartBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  smartBadgeText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#10B981',
+    letterSpacing: 0.5,
+  },
+  smartMetric: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  smartTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 3,
+  },
+  smartMessage: {
+    fontSize: 12.5,
+    color: '#94A3B8',
+    lineHeight: 18,
+  },
+
+  // Tip of the Day (Compact Card)
+  todCard: {
+    backgroundColor: '#0C1322',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.25)',
+    padding: 14,
+    marginBottom: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  todHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  todBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(245, 158, 11, 0.12)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.25)',
+  },
+  todBadgeText: {
+    fontSize: 10.5,
+    fontWeight: '800',
+    color: '#F59E0B',
+    letterSpacing: 0.5,
+  },
+  todCategoryText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#94A3B8',
+  },
+  todTitle: {
+    fontSize: 14.5,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    marginBottom: 4,
+  },
+  todMessage: {
+    fontSize: 12.5,
+    color: '#94A3B8',
+    lineHeight: 18,
+    marginBottom: 10,
+  },
+  todFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  todStatsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  todStatItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  todStatText: {
+    fontSize: 11.5,
+    color: '#64748B',
+  },
+  todLikeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.2)',
+  },
+  todLikeBtnActive: {
+    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+    borderColor: '#EF4444',
+  },
+  todLikeText: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#EF4444',
+  },
+
+  // General Tip Card (Compact vertical list)
+  tipCard: {
+    backgroundColor: '#0C1322',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    padding: 13,
+    marginBottom: 10,
+  },
+  tipCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  tipCardHeaderLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: RADIUS.full,
+    flex: 1,
+  },
+  tipIconBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)'
-  },
-  likeBtnActive: {
-    backgroundColor: 'rgba(239,68,68,0.1)',
-    borderColor: 'rgba(239,68,68,0.2)'
-  },
-  likeCount: {
-    fontSize: 14,
-    fontWeight: FONT_WEIGHT.bold,
-    color: COLORS.textSecondary
-  },
-  refreshBtn: {
-    position: 'absolute',
-    bottom: SPACING.xl,
-    right: SPACING.xl,
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: COLORS.primary,
+    borderColor: 'rgba(16, 185, 129, 0.25)',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 6
   },
-  errorBox: {
-    padding: SPACING.lg,
-    backgroundColor: 'rgba(239,68,68,0.1)',
-    borderRadius: RADIUS.md,
+  tipCategoryLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#10B981',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  savingsBadge: {
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
     borderWidth: 1,
-    borderColor: 'rgba(239,68,68,0.2)',
+    borderColor: 'rgba(16, 185, 129, 0.2)',
+  },
+  savingsText: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: '#10B981',
+  },
+  tipTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 3,
+  },
+  tipDesc: {
+    fontSize: 12.5,
+    color: '#94A3B8',
+    lineHeight: 18,
+    marginBottom: 8,
+  },
+  tipCardFooter: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: SPACING.lg
+    justifyContent: 'space-between',
+    paddingTop: 6,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.04)',
+  },
+  tipLikeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 2,
+  },
+  tipLikeText: {
+    fontSize: 11.5,
+    color: '#64748B',
+  },
+  tipViewsCount: {
+    fontSize: 11,
+    color: '#64748B',
+  },
+
+  // Impact Level Progress Bar (from energy-tips.png)
+  impactRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  impactLabel: {
+    fontSize: 11,
+    color: '#64748B',
+    fontWeight: '600',
+  },
+  impactValue: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  impactTrack: {
+    height: 3.5,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255, 255, 255, 0.07)',
+    overflow: 'hidden',
+    marginBottom: 8,
+  },
+  impactFill: {
+    height: '100%',
+    borderRadius: 2,
+  },
+
+  // Pagination Controls
+  paginationContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#0C1322',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    marginTop: 2,
+    marginBottom: 16,
+  },
+  pageNavBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 9,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  pageNavBtnDisabled: {
+    opacity: 0.3,
+  },
+  pageNavText: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  pageNavTextDisabled: {
+    color: '#475569',
+  },
+  pagePillsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  pagePill: {
+    width: 26,
+    height: 26,
+    borderRadius: 7,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+  },
+  pagePillActive: {
+    backgroundColor: '#10B981',
+  },
+  pagePillText: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#94A3B8',
+  },
+  pagePillTextActive: {
+    color: '#042F2E',
+    fontWeight: '800',
+  },
+
+  // Carousel Styles
+  carouselScroll: {
+    marginHorizontal: -16,
+    paddingHorizontal: 16,
+    marginBottom: 10,
+  },
+  carouselCard: {
+    backgroundColor: '#0C1322',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    padding: 14,
+    marginRight: 12,
+  },
+  carouselIndicators: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    marginBottom: 16,
+    marginTop: 2,
+  },
+  carouselDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+  },
+  carouselDotActive: {
+    width: 16,
+    backgroundColor: '#10B981',
+  },
+
+  // Trending in Dorms
+  trendingCard: {
+    backgroundColor: '#0C1322',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    padding: 12,
+    marginBottom: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  rankSquircle: {
+    width: 30,
+    height: 30,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rankNumber: {
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  trendingContent: {
+    flex: 1,
+  },
+  trendingTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  trendingCat: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  trendingLikesWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  trendingLikesText: {
+    fontSize: 11,
+    color: '#64748B',
+    fontWeight: '600',
+  },
+
+  // Loading & Error States
+  loadingBox: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 36,
+  },
+  loadingText: {
+    fontSize: 13,
+    color: '#94A3B8',
+    marginTop: 10,
+  },
+  errorCard: {
+    backgroundColor: 'rgba(239, 68, 68, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.25)',
+    borderRadius: 16,
+    padding: 16,
+    alignItems: 'center',
+    marginBottom: 16,
   },
   errorText: {
-    color: COLORS.danger,
     fontSize: 13,
+    color: '#EF4444',
     textAlign: 'center',
-    marginTop: 8
+    marginTop: 6,
+    marginBottom: 10,
   },
   retryBtn: {
-    marginTop: 12,
+    backgroundColor: '#EF4444',
     paddingHorizontal: 16,
-    paddingVertical: 6,
-    backgroundColor: COLORS.danger,
-    borderRadius: RADIUS.full
+    paddingVertical: 7,
+    borderRadius: 10,
   },
-  retryText: {
-    color: '#fff',
+  retryBtnText: {
     fontSize: 12,
-    fontWeight: FONT_WEIGHT.bold
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
-  // --- BROWSE TAB ADDITIONS ---
-  browseHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
-    marginBottom: SPACING.md
-  },
-  browseSearchBar: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.surfaceGlass,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: RADIUS.full,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-    gap: SPACING.sm
-  },
-  browseSearchInput: {
-    flex: 1,
-    fontSize: FONT_SIZE.sm,
-    color: COLORS.textPrimary,
-    height: 24,
-    padding: 0
-  },
-  browseSortRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: SPACING.sm,
-    paddingHorizontal: 4,
-    zIndex: 10
-  },
-  browseCountText: {
-    fontSize: FONT_SIZE.xs,
-    color: COLORS.textMuted,
-    fontWeight: FONT_WEIGHT.medium
-  },
-  browseSortBtn: {
-    width: 42,
-    height: 42,
+
+  // Empty State
+  emptyBox: {
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(34,197,94,0.1)',
-    borderRadius: RADIUS.full,
-    borderWidth: 1,
-    borderColor: 'rgba(34,197,94,0.2)'
+    paddingVertical: 32,
+    paddingHorizontal: 20,
   },
-  browseSortLabel: {
-    fontSize: FONT_SIZE.xs,
-    color: COLORS.primary,
-    fontWeight: FONT_WEIGHT.bold,
-    display: 'none' // Hidden for minimalist icon-only look
+  emptyTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#64748B',
+    marginTop: 8,
   },
-  browseSortDropdown: {
-    backgroundColor: COLORS.surface,
-    borderRadius: RADIUS.md,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    overflow: 'hidden',
-    marginBottom: SPACING.md,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 4
+  emptySubtext: {
+    fontSize: 12,
+    color: '#475569',
+    textAlign: 'center',
+    marginTop: 4,
   },
-  browseSortOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: SPACING.md,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border
-  },
-  browseSortOptionActive: {
-    backgroundColor: 'rgba(34,197,94,0.05)'
-  },
-  browseSortOptionText: {
-    fontSize: FONT_SIZE.sm,
-    color: COLORS.textSecondary
-  },
-  browseSortOptionTextActive: {
-    color: COLORS.primary,
-    fontWeight: FONT_WEIGHT.bold
-  }
 });

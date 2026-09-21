@@ -1,159 +1,36 @@
-import React, { useState } from 'react';
-import {
-  View, Text, TextInput, TouchableOpacity,
-  ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator,
-} from 'react-native';
-import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useAuth } from '@/contexts/AuthContext';
-import { useModal } from '@/contexts/ModalContext';
-import { COLORS, GRADIENTS } from '@/styles/theme';
-import Logo from '@/components/ui/Logo';
-import s from '@/styles/auth/login.styles';
-import TermsAgreementModal from '../../components/modals/TermsAgreementModal';
-import { acceptTerms } from '../../services/termsApi';
+import React, { useEffect } from 'react';
+import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 
+/**
+ * Legacy Login Dispatcher
+ * Routes legacy /(auth)/login calls directly to the dedicated Tenant or Landlord login screen.
+ */
 export default function LoginScreen() {
   const router = useRouter();
-  const { login, logout, isLoading } = useAuth();
-  const { showModal } = useModal();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [errors, setErrors] = useState({});
+  const params = useLocalSearchParams();
+  const role = params?.role;
 
-  // Terms Update Handling
-  const [termsModalVisible, setTermsModalVisible] = useState(false);
-  const [pendingRole, setPendingRole] = useState(null);
-
-  const validate = () => {
-    const e = {};
-    if (!email.trim()) e.email = 'Email is required';
-    if (!password.trim()) e.password = 'Password is required';
-    setErrors(e);
-    return Object.keys(e).length === 0;
-  };
-
-  const handleLogin = async () => {
-    if (!validate()) return;
-    const result = await login(email.trim(), password);
-    if (result?.success) {
-      const role = result?.user?.role || 'tenant';
-      
-      if (result.requiresTerms) {
-        setPendingRole(role);
-        setTermsModalVisible(true);
-      } else {
-        router.replace(role === 'landlord' ? '/(landlord)/overview' : '/(tenant)/dashboard');
-      }
+  useEffect(() => {
+    if (role === 'landlord') {
+      router.replace('/(auth)/landlord-login');
     } else {
-      if (result?.message === 'Account not verified') {
-        showModal({
-          type: 'warning',
-          title: 'Account Not Verified',
-          message: 'You have not verified your email address yet.',
-          primaryButtonText: 'Verify Now',
-          onPrimaryPress: () => router.push({ pathname: '/(auth)/verify', params: { email: email.trim() } }),
-          secondaryButtonText: 'Cancel'
-        });
-      } else {
-        showModal({ type: 'error', title: 'Login Failed', message: result?.message || 'Server returned an invalid response.' });
-      }
+      router.replace('/(auth)/tenant-login');
     }
-  };
-
-  const handleTermsAccept = async (versionId, deviceInfo) => {
-    try {
-      const result = await acceptTerms(versionId, null, deviceInfo);
-      if (result.success) {
-        setTermsModalVisible(false);
-        router.replace(pendingRole === 'landlord' ? '/(landlord)/overview' : '/(tenant)/dashboard');
-      } else {
-        showModal({ type: 'error', title: 'Error', message: 'Failed to record terms acceptance. Please try again.' });
-      }
-    } catch (e) {
-      showModal({ type: 'error', title: 'Error', message: 'Network error while accepting terms.' });
-    }
-  };
-
-  const handleTermsDecline = () => {
-    setTermsModalVisible(false);
-    // They declined updated terms, so we force them back to login (they can't proceed)
-    // Actually we should log them out via auth context to clear the session
-    logout(); // Just clear it out
-    showModal({ type: 'warning', title: 'Terms Required', message: 'You cannot access your account without accepting the updated Terms and Conditions.' });
-  };
+  }, [role, router]);
 
   return (
-    <KeyboardAvoidingView style={s.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-      <ScrollView contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-        <View style={s.header}>
-          <Logo size={120} />
-        </View>
-
-        <View style={s.card}>
-          <Text style={s.title}>Welcome Back</Text>
-          <Text style={s.subtitle}>Sign in to your account</Text>
-
-          <View style={s.inputGroup}>
-            <Text style={s.label}>Email</Text>
-            <View style={[s.inputWrap, errors.email && s.inputErr]}>
-              <Ionicons name="mail-outline" size={20} color={COLORS.textMuted} />
-              <TextInput style={s.input} placeholder="Enter your email" placeholderTextColor={COLORS.textMuted}
-                value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
-            </View>
-            {errors.email && <Text style={s.errText}>{errors.email}</Text>}
-          </View>
-
-          <View style={s.inputGroup}>
-            <Text style={s.label}>Password</Text>
-            <View style={[s.inputWrap, errors.password && s.inputErr]}>
-              <Ionicons name="lock-closed-outline" size={20} color={COLORS.textMuted} />
-              <TextInput style={s.input} placeholder="Enter your password" placeholderTextColor={COLORS.textMuted}
-                value={password} onChangeText={setPassword} secureTextEntry={!showPassword} />
-              <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={20} color={COLORS.textMuted} />
-              </TouchableOpacity>
-            </View>
-            {errors.password && <Text style={s.errText}>{errors.password}</Text>}
-            
-            <TouchableOpacity 
-              style={s.forgotBtn} 
-              onPress={() => router.push('/forgot-password')}
-            >
-              <Text style={s.forgotText}>Forgot Password?</Text>
-            </TouchableOpacity>
-          </View>
-
-          <TouchableOpacity onPress={handleLogin} activeOpacity={0.8} disabled={isLoading} style={s.btnWrap}>
-            <LinearGradient colors={GRADIENTS.primary} start={{x:0,y:0}} end={{x:1,y:0}} style={s.btn}>
-              {isLoading ? <ActivityIndicator color="#fff" /> : <Text style={s.btnText}>Sign In</Text>}
-            </LinearGradient>
-          </TouchableOpacity>
-
-          <View style={s.divider}>
-            <View style={s.divLine} /><Text style={s.divText}>or</Text><View style={s.divLine} />
-          </View>
-
-          <TouchableOpacity onPress={() => router.push('/(auth)/register')} style={s.regBtn}>
-            <Text style={s.regText}>Dont have an account? <Text style={s.regLink}>Sign Up</Text></Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={s.footer}>
-          <Ionicons name="leaf" size={14} color={COLORS.primary} />
-          <Text style={s.footerText}>Powered by IoT Technology</Text>
-        </View>
-      </ScrollView>
-
-      <TermsAgreementModal 
-        visible={termsModalVisible} 
-        onAccept={handleTermsAccept} 
-        onDecline={handleTermsDecline} 
-        isLoginMode={true}
-      />
-
-    </KeyboardAvoidingView>
+    <View style={styles.container}>
+      <ActivityIndicator size="large" color="#10B981" />
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#070C15',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});

@@ -1,724 +1,655 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, RefreshControl, Animated, ActivityIndicator, FlatList, TextInput } from 'react-native';
-import { useRouter } from 'expo-router';
+import { View, Text, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator, TextInput, Dimensions } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
-import { useCopilot, CopilotStep, walkthroughable } from 'react-native-copilot';
-import { useTourAutoStart, useTourContext } from '@/contexts/TourContext';
-import { useAuth } from '../../contexts/AuthContext';
-import { fetchRealtimeData } from '../../services/esp32Api';
-import { generateDynamicTips } from '../../services/tipsEngine';
-import { tipsService } from '../../services/tipsService';
-import GlassCard from '../../components/ui/GlassCard';
+import { CopilotStep, walkthroughable } from 'react-native-copilot';
+import { useTourAutoStart } from '@/contexts/TourContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { useConsumption } from '@/contexts/ConsumptionContext';
+import { tipsService } from '@/services/tipsService';
+import { generateDynamicTips } from '@/services/tipsEngine';
 import { COLORS } from '@/styles/theme';
 import s from '@/styles/tenant/tips.styles';
 
-const TABS = [
-  { id: 'community', label: 'General Tips', icon: 'people-outline' },
-  { id: 'smart', label: 'Smart Insights', icon: 'pulse-outline' },
-  { id: 'browse', label: 'All Tips', icon: 'book-outline' }
-];
-
-const SORT_OPTIONS = [
-  { id: 'category', label: 'Category' },
-  { id: 'az', label: 'A-Z' },
-  { id: 'za', label: 'Z-A' },
-  { id: 'newest', label: 'Newest' },
-  { id: 'oldest', label: 'Oldest' },
-];
-
-const CopilotGlassCard = walkthroughable(GlassCard);
 const CopilotView = walkthroughable(View);
+const TIPS_PER_PAGE = 3;
 
 export default function TipsScreen() {
   const { user } = useAuth();
+  const { data: sensorData, deviceOnline } = useConsumption();
   const roomId = user?.room_id || 'Room 1';
-  const { currentTourScreen, isTourActive } = useTourContext();
-  
-  const [activeTab, setActiveTab] = useState('community');
-  const [refreshing, setRefreshing] = useState(false);
+
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
 
-  // Community Tips State
-  const [currentTip, setCurrentTip] = useState(null);
-  const currentTipRef = useRef(null);
-  currentTipRef.current = currentTip;
-  const [liked, setLiked] = useState(false);
+  // Tips Data
   const [tipOfTheDay, setTipOfTheDay] = useState(null);
-  const [trendingTips, setTrendingTips] = useState([]);
-  const fadeAnim = useRef(new Animated.Value(1)).current;
-  const scaleAnim = useRef(new Animated.Value(1)).current;
-
-  // Smart Insights State
-  const [smartTips, setSmartTips] = useState([]);
-  const [lastSmartUpdate, setLastSmartUpdate] = useState(null);
-
-  // All Tips State
+  const [smartInsight, setSmartInsight] = useState(null);
   const [allTips, setAllTips] = useState([]);
+  const [trendingTips, setTrendingTips] = useState([]);
+
+  // Filter, Search, Pagination & View Mode
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState('category');
-  const [showSortMenu, setShowSortMenu] = useState(false);
-  const [browseLoading, setBrowseLoading] = useState(false);
-  const [browseError, setBrowseError] = useState(null);
+  const [likedTipIds, setLikedTipIds] = useState(new Set());
+  const [currentPage, setCurrentPage] = useState(1);
+  const [viewMode, setViewMode] = useState('list'); // 'list' | 'carousel'
+  const [activeCarouselIdx, setActiveCarouselIdx] = useState(0);
 
   const scrollViewRef = useRef(null);
+  useTourAutoStart('tips', !loading, scrollViewRef);
 
-  useEffect(() => {
-    if (isTourActive && currentTourScreen === 'tips') {
-      setActiveTab('community');
-    }
-  }, [isTourActive, currentTourScreen]);
-
-  useTourAutoStart('tips', !loading && !browseLoading, scrollViewRef);
-
-  const dynamicCategories = useMemo(() => {
-    const cats = allTips.reduce((acc, tip) => {
-      if (tip.category) {
-        acc[tip.category] = (acc[tip.category] || 0) + 1;
-      }
-      return acc;
-    }, {});
-    
-    // Create an array with 'All' first, then sort the rest alphabetically
-    const list = ['All', ...Object.keys(cats).sort()];
-    
-    return { list, counts: cats };
+  // Dynamic Categories derived from loaded tips
+  const categories = useMemo(() => {
+    const rawCategories = allTips.map(t => t.category).filter(Boolean);
+    const unique = Array.from(new Set(rawCategories)).sort();
+    return ['All', ...unique];
   }, [allTips]);
 
-  const loadCommunityTip = useCallback(async (currentIdToExclude = null) => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      // 1. Fetch Tip of the Day first
-      const todRes = await tipsService.getTipOfTheDay();
-      const todTip = todRes.success ? todRes.data : null;
-      if (todTip) setTipOfTheDay(todTip);
+  // Reset to page 1 whenever category or search changes
+  useEffect(() => {
+    setCurrentPage(1);
+    setActiveCarouselIdx(0);
+  }, [selectedCategory, searchQuery]);
 
-      // 2. Fetch Smart Hero Recommendation, strictly excluding Tip of the Day & current tip
-      const heroExclude = [
-        todTip?.id,
-        currentIdToExclude || currentTipRef.current?.id
-      ].filter(Boolean);
+  const hasTipsRef = useRef(false);
 
-      const res = await tipsService.getSmartRecommendation({
-        user,
-        excludeIds: heroExclude,
-      });
-
-      let heroTip = null;
-      if (res.success && res.data) {
-        heroTip = res.data;
-        // Animate transition with scale spring
-        Animated.parallel([
-          Animated.sequence([
-            Animated.timing(fadeAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
-            Animated.timing(fadeAnim, { toValue: 1, duration: 400, useNativeDriver: true })
-          ]),
-          Animated.sequence([
-            Animated.timing(scaleAnim, { toValue: 0.96, duration: 150, useNativeDriver: true }),
-            Animated.spring(scaleAnim, { toValue: 1, friction: 5, tension: 40, useNativeDriver: true })
-          ])
-        ]).start();
-        
-        setTimeout(() => {
-          setCurrentTip(heroTip);
-          setLiked(false);
-        }, 200);
+  // Instant Cache Restoration (Stale-While-Revalidate)
+  useEffect(() => {
+    let isMounted = true;
+    const restoreCachedTips = async () => {
+      try {
+        const cached = await AsyncStorage.getItem('@cached_tenant_tips');
+        if (cached && isMounted) {
+          const parsed = JSON.parse(cached);
+          if (parsed) {
+            if (parsed.tipOfTheDay) setTipOfTheDay(parsed.tipOfTheDay);
+            if (Array.isArray(parsed.trendingTips)) setTrendingTips(parsed.trendingTips);
+            if (Array.isArray(parsed.allTips) && parsed.allTips.length > 0) {
+              setAllTips(parsed.allTips);
+              hasTipsRef.current = true;
+              setLoading(false);
+            }
+            if (parsed.smartInsight) setSmartInsight(parsed.smartInsight);
+          }
+        }
+      } catch (err) {
+        console.warn('[TipsScreen] Cache restore error:', err);
       }
-
-      // 3. Fetch Trending in Dorms, strictly excluding Tip of the Day & Hero tip
-      const trendExclude = [
-        todTip?.id,
-        heroTip?.id || currentTipRef.current?.id
-      ].filter(Boolean);
-
-      const trendRes = await tipsService.getTrendingTips(3, trendExclude);
-      if (trendRes.success && trendRes.data) setTrendingTips(trendRes.data);
-
-    } catch (err) {
-      setError('Could not connect to Tips API. Please check your XAMPP connection.');
-    } finally {
-      setLoading(false);
-    }
-  }, [user, fadeAnim, scaleAnim]);
-
-  const loadSmartTips = useCallback(async () => {
-    try {
-      const sensorData = await fetchRealtimeData(roomId);
-      const tips = await generateDynamicTips(roomId, sensorData.power || 0, user);
-      setSmartTips(tips);
-      setLastSmartUpdate(new Date());
-    } catch (err) {
-      console.warn('Smart tips load error:', err);
-    }
-  }, [roomId, user]);
-
-  const loadAllTips = useCallback(async (cat = 'All') => {
-    try {
-      setBrowseLoading(true);
-      setBrowseError(null);
-      const res = await tipsService.getAllTips(cat === 'All' ? null : cat);
-      if (res.success) {
-        // Preserve local like state from previous session
-        setAllTips(prev => {
-          const likedIds = new Set(prev.filter(t => t._hasLikedLocal).map(t => t.id));
-          return (res.data || []).map(t => ({ ...t, _hasLikedLocal: likedIds.has(t.id) }));
-        });
-      } else {
-        setBrowseError('Unable to load tips. Please try again.');
-      }
-    } catch (err) {
-      setBrowseError('Unable to load tips. Please try again.');
-    } finally {
-      setBrowseLoading(false);
-    }
+    };
+    restoreCachedTips();
+    return () => { isMounted = false; };
   }, []);
 
-  // Filtered and sorted tips (memoized for performance)
-  const filteredTips = useMemo(() => {
-    let result = [...allTips];
+  // Load all tip data from real database and dynamic engine
+  const loadData = useCallback(async () => {
+    try {
+      setError(null);
 
-    // Filter by Category
-    if (selectedCategory !== 'All') {
-      result = result.filter(tip => tip.category === selectedCategory);
+      const [todRes, trendingRes, allTipsRes] = await Promise.allSettled([
+        tipsService.getTipOfTheDay(),
+        tipsService.getTrendingTips(3),
+        tipsService.getAllTips()
+      ]);
+
+      let currentTod = null;
+      // 1. Tip of the Day
+      if (todRes.status === 'fulfilled' && todRes.value?.success && todRes.value?.data) {
+        currentTod = todRes.value.data;
+        setTipOfTheDay(currentTod);
+      }
+
+      let currentTrending = [];
+      // 2. Trending Tips
+      if (trendingRes.status === 'fulfilled' && trendingRes.value?.success && Array.isArray(trendingRes.value?.data)) {
+        currentTrending = trendingRes.value.data;
+        setTrendingTips(currentTrending);
+      }
+
+      // 3. All Tips (General repository)
+      let generalTipsList = [];
+      if (allTipsRes.status === 'fulfilled' && allTipsRes.value?.success && Array.isArray(allTipsRes.value?.data)) {
+        generalTipsList = allTipsRes.value.data;
+        setAllTips(generalTipsList);
+        hasTipsRef.current = true;
+      }
+
+      // 4. Smart Insight based on real-time consumption data (no appliance-specific claims)
+      let currentInsight = null;
+      try {
+        const livePower = sensorData?.power ? Number(sensorData.power) : 0;
+        const dynamicTips = await generateDynamicTips(roomId, livePower, user);
+        if (Array.isArray(dynamicTips) && dynamicTips.length > 0) {
+          currentInsight = dynamicTips[0];
+          setSmartInsight(currentInsight);
+        } else {
+          // Fallback to behavior recommendation
+          const recRes = await tipsService.getSmartRecommendation({ user });
+          if (recRes.success && recRes.data) {
+            currentInsight = recRes.data;
+            setSmartInsight(currentInsight);
+          }
+        }
+      } catch (err) {
+        console.warn('[TipsScreen] Smart insight generation fallback:', err);
+      }
+
+      // Save to cache
+      AsyncStorage.setItem('@cached_tenant_tips', JSON.stringify({
+        tipOfTheDay: currentTod,
+        trendingTips: currentTrending,
+        allTips: generalTipsList,
+        smartInsight: currentInsight
+      })).catch(() => {});
+
+    } catch (err) {
+      console.error('[TipsScreen] Load data error:', err);
+      if (!hasTipsRef.current) {
+        setError('Unable to load tips right now. Please check your connection.');
+      }
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
-
-    // Filter by Search
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      result = result.filter(tip => 
-        tip.title?.toLowerCase().includes(query) || 
-        tip.message?.toLowerCase().includes(query) ||
-        tip.category?.toLowerCase().includes(query)
-      );
-    }
-
-    // Sort
-    switch (sortBy) {
-      case 'az':
-        result.sort((a, b) => a.title.localeCompare(b.title));
-        break;
-      case 'za':
-        result.sort((a, b) => b.title.localeCompare(a.title));
-        break;
-      case 'newest':
-        result.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
-        break;
-      case 'oldest':
-        result.sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0));
-        break;
-      case 'category':
-      default:
-        result.sort((a, b) => {
-          const catComp = (a.category || '').localeCompare(b.category || '');
-          if (catComp !== 0) return catComp;
-          return a.title.localeCompare(b.title);
-        });
-        break;
-    }
-
-    return result;
-  }, [allTips, searchQuery, sortBy]);
+  }, [roomId, user?.id, sensorData?.power]);
 
   useEffect(() => {
-    if (activeTab === 'community' && !currentTipRef.current) {
-      loadCommunityTip();
-    } else if (activeTab === 'smart') {
-      loadSmartTips();
-    } else if (activeTab === 'browse') {
-      loadAllTips(selectedCategory);
-    }
-  }, [activeTab, selectedCategory, loadCommunityTip, loadSmartTips, loadAllTips]);
+    loadData();
+  }, [loadData]);
 
-  const handleRefresh = async () => {
+  const onRefresh = async () => {
     setRefreshing(true);
-    if (activeTab === 'community') await loadCommunityTip(currentTip?.id);
-    else if (activeTab === 'smart') await loadSmartTips();
-    else if (activeTab === 'browse') await loadAllTips(selectedCategory);
-    setRefreshing(false);
+    await loadData();
   };
 
-  const handleLike = async () => {
-    if (liked || !currentTip) return;
-    
-    // Optimistic Update
-    setLiked(true);
-    setCurrentTip(prev => ({ ...prev, likesCount: parseInt(prev.likesCount) + 1 }));
+  // Like interaction with optimistic update
+  const handleLikeTip = async (tipId) => {
+    if (likedTipIds.has(tipId)) return;
 
-    try {
-      const res = await tipsService.likeTip(currentTip.id);
-      if (res.success && res.data?.likes_count) {
-        // Sync with absolute server truth
-        setCurrentTip(prev => ({ ...prev, likesCount: res.data.likes_count }));
-      }
-    } catch (err) {
-      // Rollback on failure
-      setLiked(false);
-      setCurrentTip(prev => ({ ...prev, likesCount: parseInt(prev.likesCount) - 1 }));
-    }
-  };
+    // Optimistically mark as liked
+    setLikedTipIds(prev => new Set(prev).add(tipId));
 
-  const handleLikeAllTip = async (tipId) => {
-    // Optimistic Update
+    // Update in allTips list
     setAllTips(prev => prev.map(t => 
-      t.id === tipId ? { ...t, likesCount: parseInt(t.likesCount) + 1, _hasLikedLocal: true } : t
+      t.id === tipId ? { ...t, likesCount: (parseInt(t.likesCount, 10) || 0) + 1 } : t
     ));
 
+    // Update in tipOfTheDay if it matches
+    if (tipOfTheDay?.id === tipId) {
+      setTipOfTheDay(prev => prev ? { ...prev, likesCount: (parseInt(prev.likesCount, 10) || 0) + 1 } : prev);
+    }
+
     try {
-      const res = await tipsService.likeTip(tipId);
-      if (res.success && res.data?.likes_count) {
-        setAllTips(prev => prev.map(t => 
-          t.id === tipId ? { ...t, likesCount: res.data.likes_count } : t
-        ));
-      } else if (!res.success) {
-        // Rollback
-        setAllTips(prev => prev.map(t => 
-          t.id === tipId ? { ...t, likesCount: parseInt(t.likesCount) - 1, _hasLikedLocal: false } : t
-        ));
-      }
+      await tipsService.likeTip(tipId);
     } catch (err) {
-      // Rollback
+      // Rollback on failure
+      setLikedTipIds(prev => {
+        const next = new Set(prev);
+        next.delete(tipId);
+        return next;
+      });
       setAllTips(prev => prev.map(t => 
-        t.id === tipId ? { ...t, likesCount: parseInt(t.likesCount) - 1, _hasLikedLocal: false } : t
+        t.id === tipId ? { ...t, likesCount: Math.max(0, (parseInt(t.likesCount, 10) || 1) - 1) } : t
       ));
     }
   };
 
-  const getPriorityColor = (priority) => {
-    if (priority === 0) return COLORS.danger;
-    if (priority === 1) return COLORS.warning;
-    return COLORS.primary;
+  // Filtered tips based on category and search query
+  const filteredTips = useMemo(() => {
+    let result = [...allTips];
+
+    if (selectedCategory !== 'All') {
+      result = result.filter(tip => tip.category === selectedCategory);
+    }
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(tip => 
+        tip.title?.toLowerCase().includes(q) ||
+        tip.message?.toLowerCase().includes(q) ||
+        tip.category?.toLowerCase().includes(q)
+      );
+    }
+
+    return result;
+  }, [allTips, selectedCategory, searchQuery]);
+
+  // Paginated tips (3 tips per page to prevent long vertical clutter)
+  const totalPages = Math.ceil(filteredTips.length / TIPS_PER_PAGE) || 1;
+  const paginatedTips = useMemo(() => {
+    const start = (currentPage - 1) * TIPS_PER_PAGE;
+    return filteredTips.slice(start, start + TIPS_PER_PAGE);
+  }, [filteredTips, currentPage]);
+
+  const getVisiblePageNumbers = (current, total) => {
+    if (total <= 5) {
+      return Array.from({ length: total }, (_, i) => i + 1);
+    }
+    if (current <= 3) {
+      return [1, 2, 3, 4, 5];
+    }
+    if (current >= total - 2) {
+      return [total - 4, total - 3, total - 2, total - 1, total];
+    }
+    return [current - 2, current - 1, current, current + 1, current + 2];
   };
 
-  const getSavingsColor = (level) => {
-    if (level === 'High') return COLORS.success || '#22c55e';
-    if (level === 'Moderate') return COLORS.warning || '#f59e0b';
-    return COLORS.info || '#3b82f6';
+  const getImpactConfig = (level) => {
+    switch (level) {
+      case 'High':
+        return { pct: '85%', color: '#10B981', label: 'High' };
+      case 'Moderate':
+        return { pct: '55%', color: '#06B6D4', label: 'Medium' };
+      case 'Low':
+      default:
+        return { pct: '30%', color: '#F59E0B', label: 'Low' };
+    }
   };
 
-  // FlatList render item for Browse tab
-  const renderTipItem = useCallback(({ item: tip }) => (
-    <GlassCard style={[s.tipCard, { borderLeftWidth: 4, borderLeftColor: getSavingsColor(tip.savings_level) }]}>
-      <View style={[s.tipIcon, { backgroundColor: `${getSavingsColor(tip.savings_level)}15` }]}>
-        <Ionicons name={tip.icon || 'bulb'} size={22} color={getSavingsColor(tip.savings_level)} />
-      </View>
-      <View style={s.tipContent}>
-        <View style={s.tipHeaderRow}>
-          <Text style={s.tipTitle}>{tip.title}</Text>
-          {tip.savings_level && (
-            <View style={[s.impactBadge, { backgroundColor: `${getSavingsColor(tip.savings_level)}15` }]}>
-              <Text style={[s.impactText, { color: getSavingsColor(tip.savings_level) }]}>
-                {tip.savings_level === 'High' ? '⚡ HIGH SAVINGS' : tip.savings_level === 'Moderate' ? '💡 MODERATE' : '✨ LOW'}
+  const renderTipCard = (tip, isCarousel = false) => {
+    const isLiked = likedTipIds.has(tip.id);
+    const impact = getImpactConfig(tip.savings_level || 'Low');
+    const screenWidth = Dimensions.get('window').width;
+    const cardStyle = isCarousel 
+      ? [s.carouselCard, { width: screenWidth - 64 }]
+      : s.tipCard;
+
+    return (
+      <View key={tip.id} style={cardStyle}>
+        <View style={s.tipCardHeader}>
+          <View style={s.tipCardHeaderLeft}>
+            <View style={s.tipIconBadge}>
+              <Ionicons name={tip.icon || 'leaf'} size={16} color="#10B981" />
+            </View>
+            <Text style={s.tipCategoryLabel} numberOfLines={1}>{tip.category}</Text>
+          </View>
+
+          {tip.savings_amount ? (
+            <View style={s.savingsBadge}>
+              <Text style={s.savingsText}>~₱{tip.savings_amount}/mo</Text>
+            </View>
+          ) : tip.savings_level ? (
+            <View style={s.savingsBadge}>
+              <Text style={s.savingsText}>
+                {tip.savings_level === 'High' ? '⚡ High Impact' : (tip.savings_level === 'Moderate' ? '💡 Moderate' : '✨ Daily Tip')}
               </Text>
             </View>
-          )}
+          ) : null}
         </View>
-        <Text style={s.tipCategory}>{tip.category}</Text>
-        <Text style={s.tipText}>{tip.message}</Text>
-        <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
+
+        <Text style={s.tipTitle}>{tip.title}</Text>
+        <Text style={s.tipDesc} numberOfLines={3}>{tip.message}</Text>
+
+        {/* Impact Level Progress Bar (matches energy-tips.png) */}
+        <View style={s.impactRow}>
+          <Text style={s.impactLabel}>Impact Level</Text>
+          <Text style={[s.impactValue, { color: impact.color }]}>{impact.label}</Text>
+        </View>
+        <View style={s.impactTrack}>
+          <View style={[s.impactFill, { width: impact.pct, backgroundColor: impact.color }]} />
+        </View>
+
+        <View style={s.tipCardFooter}>
           <TouchableOpacity 
-            style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
-            onPress={() => handleLikeAllTip(tip.id)}
-            disabled={tip._hasLikedLocal}
+            style={s.tipLikeBtn} 
+            onPress={() => handleLikeTip(tip.id)}
             activeOpacity={0.7}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Ionicons name={tip._hasLikedLocal ? "heart" : "heart-outline"} size={14} color={tip._hasLikedLocal ? COLORS.danger : COLORS.textMuted} />
-            <Text style={{ fontSize: 12, color: tip._hasLikedLocal ? COLORS.danger : COLORS.textMuted, fontWeight: tip._hasLikedLocal ? 'bold' : 'normal' }}>{tip.likesCount}</Text>
+            <Ionicons 
+              name={isLiked ? "heart" : "heart-outline"} 
+              size={15} 
+              color={isLiked ? "#EF4444" : "#64748B"} 
+            />
+            <Text style={[s.tipLikeText, isLiked && { color: "#EF4444", fontWeight: '700' }]}>
+              {tip.likesCount || 0}
+            </Text>
           </TouchableOpacity>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-            <Ionicons name="eye" size={14} color={COLORS.info} />
-            <Text style={{ fontSize: 12, color: COLORS.textMuted }}>{tip.viewsCount}</Text>
-          </View>
+
+          <Text style={s.tipViewsCount}>
+            {tip.viewsCount ? `${tip.viewsCount} views` : '1 min read'}
+          </Text>
         </View>
       </View>
-    </GlassCard>
-  ), []);
+    );
+  };
 
-  const renderBrowseHeader = () => (
-    <>
-      {/* Consolidated Search & Sort Row */}
-      <View style={s.browseHeaderRow}>
-        <View style={s.browseSearchBar}>
-          <Ionicons name="search" size={18} color={COLORS.textMuted} />
+  return (
+    <View style={s.container}>
+      <ScrollView 
+        ref={scrollViewRef}
+        contentContainerStyle={s.scroll}
+        showsVerticalScrollIndicator={false}
+        scrollEventThrottle={16}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
+      >
+        {/* ================= 1. COMPACT HEADER (NO LARGE HERO) ================= */}
+        <View style={s.compactHeader}>
+          <Text style={s.pageTitle}>Energy Tips</Text>
+          <Text style={s.pageSubtitle}>Simple ways to understand and reduce your electricity use.</Text>
+        </View>
+
+        {/* ================= 2. SEARCH BAR & CATEGORY FILTER ================= */}
+        <View style={s.searchBar}>
+          <Ionicons name="search" size={17} color="#64748B" />
           <TextInput
-            style={s.browseSearchInput}
-            placeholder="Search tips..."
-            placeholderTextColor={COLORS.textMuted}
+            style={s.searchInput}
+            placeholder="Search tips or habits..."
+            placeholderTextColor="#64748B"
             value={searchQuery}
             onChangeText={setSearchQuery}
             returnKeyType="search"
           />
           {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery('')}>
-              <Ionicons name="close-circle" size={18} color={COLORS.textMuted} />
+            <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Ionicons name="close-circle" size={16} color="#64748B" />
             </TouchableOpacity>
           )}
         </View>
 
-        <TouchableOpacity
-          style={s.browseSortBtn}
-          onPress={() => setShowSortMenu(!showSortMenu)}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="swap-vertical-outline" size={20} color={COLORS.primary} />
-        </TouchableOpacity>
-      </View>
-
-      {/* Category Scroll */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.catScroll} contentContainerStyle={s.catContainer}>
-        {dynamicCategories.list.map(cat => {
-          const count = cat === 'All' ? allTips.length : dynamicCategories.counts[cat];
-          return (
-            <TouchableOpacity 
-              key={cat} 
-              onPress={() => setSelectedCategory(cat)}
-              style={[s.catBtn, selectedCategory === cat && s.catActive]}
-            >
-              <Text style={[s.catText, selectedCategory === cat && s.catTextActive]}>
-                {cat}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
-
-      {/* Count Row */}
-      <View style={s.browseSortRow}>
-        <Text style={s.browseCountText}>
-          {filteredTips.length} {filteredTips.length === 1 ? 'tip' : 'tips'} found
-        </Text>
-      </View>
-
-      {/* Sort Dropdown */}
-      {showSortMenu && (
-        <View style={s.browseSortDropdown}>
-          {SORT_OPTIONS.map(option => (
-            <TouchableOpacity
-              key={option.id}
-              style={[s.browseSortOption, sortBy === option.id && s.browseSortOptionActive]}
-              onPress={() => { setSortBy(option.id); setShowSortMenu(false); }}
-            >
-              <Text style={[s.browseSortOptionText, sortBy === option.id && s.browseSortOptionTextActive]}>
-                {option.label}
-              </Text>
-              {sortBy === option.id && (
-                <Ionicons name="checkmark" size={16} color={COLORS.primary} />
-              )}
-            </TouchableOpacity>
-          ))}
-        </View>
-      )}
-    </>
-  );
-
-  const renderBrowseEmpty = () => (
-    <GlassCard style={s.emptyState}>
-      <Ionicons name="search-outline" size={48} color={COLORS.textMuted} />
-      <Text style={s.emptyTitle}>
-        {searchQuery ? 'No matching tips found' : 'No electricity-saving tips are available.'}
-      </Text>
-      <Text style={s.emptyDesc}>
-        {searchQuery ? 'Try a different search term or category.' : 'Check back later for new energy-saving tips.'}
-      </Text>
-    </GlassCard>
-  );
-
-  return (
-    <View style={s.container}>
-      {activeTab === 'browse' ? (
-        /* ================= BROWSE TAB (FlatList) ================= */
-        <View style={{ flex: 1 }}>
-          {/* Fixed Header Section */}
-          <View style={{ paddingHorizontal: 20, paddingTop: 60 }}>
-            {/* Tab Selector */}
-            <View style={s.tabRow}>
-              {TABS.map(tab => (
-                <TouchableOpacity 
-                  key={tab.id} 
-                  onPress={() => setActiveTab(tab.id)}
-                  style={[s.tabBtn, activeTab === tab.id && s.tabActive]}
-                >
-                  <Ionicons 
-                    name={tab.icon} 
-                    size={18} 
-                    color={activeTab === tab.id ? COLORS.primary : COLORS.textMuted} 
-                  />
-                  <Text style={[s.tabText, activeTab === tab.id && s.tabTextActive]}>{tab.label}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-
-          {browseLoading && allTips.length === 0 ? (
-            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-              <ActivityIndicator color={COLORS.primary} size="large" />
-              <Text style={{ color: COLORS.textMuted, marginTop: 12, fontSize: 13 }}>Loading tips...</Text>
-            </View>
-          ) : browseError && allTips.length === 0 ? (
-            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40 }}>
-              <Ionicons name="cloud-offline-outline" size={48} color={COLORS.danger} />
-              <Text style={{ color: COLORS.danger, marginTop: 12, fontSize: 14, textAlign: 'center' }}>{browseError}</Text>
-              <TouchableOpacity style={s.retryBtn} onPress={() => loadAllTips(selectedCategory)}>
-                <Text style={s.retryText}>Retry</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <View style={{ flex: 1 }}>
-              <View style={{ paddingHorizontal: 20 }}>
-                {renderBrowseHeader()}
-              </View>
-              <FlatList
-                data={filteredTips}
-                renderItem={renderTipItem}
-                keyExtractor={(item) => String(item.id)}
-                ListEmptyComponent={renderBrowseEmpty}
-                contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 100 }}
-                showsVerticalScrollIndicator={false}
-                initialNumToRender={10}
-                maxToRenderPerBatch={10}
-                windowSize={5}
-                removeClippedSubviews={true}
-                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={COLORS.primary} />}
-              />
-            </View>
-          )}
-        </View>
-      ) : (
-        /* ================= COMMUNITY & SMART TABS (ScrollView) ================= */
-        <ScrollView 
-          ref={scrollViewRef} 
-          contentContainerStyle={s.scroll} 
-          showsVerticalScrollIndicator={false}
-          scrollEventThrottle={16}
-          onScroll={(e) => {
-            if (scrollViewRef.current) {
-              scrollViewRef.current._scrollY = e.nativeEvent.contentOffset.y;
-            }
-          }}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={COLORS.primary} />}
-        >
-          {/* Step 1 of 3: General Tips */}
-          <CopilotStep
-            text="This section provides electricity-saving recommendations designed to help you understand and improve your electricity consumption behavior."
-            order={9}
-            name="tips_general"
+        {/* Category Chips */}
+        <View style={s.categorySection}>
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false} 
+            contentContainerStyle={s.categoryList}
           >
-            <CopilotView style={s.tabRow}>
-              {TABS.map(tab => (
-                <TouchableOpacity 
-                  key={tab.id} 
-                  onPress={() => setActiveTab(tab.id)}
-                  style={[s.tabBtn, activeTab === tab.id && s.tabActive]}
+            {categories.map(cat => {
+              const isActive = selectedCategory === cat;
+              return (
+                <TouchableOpacity
+                  key={cat}
+                  onPress={() => setSelectedCategory(cat)}
+                  style={[s.categoryChip, isActive && s.categoryChipActive]}
+                  activeOpacity={0.75}
                 >
-                  <Ionicons 
-                    name={tab.icon} 
-                    size={18} 
-                    color={activeTab === tab.id ? COLORS.primary : COLORS.textMuted} 
-                  />
-                  <Text style={[s.tabText, activeTab === tab.id && s.tabTextActive]}>{tab.label}</Text>
+                  <Text style={[s.categoryText, isActive && s.categoryTextActive]}>
+                    {cat}
+                  </Text>
                 </TouchableOpacity>
-              ))}
-            </CopilotView>
-          </CopilotStep>
+              );
+            })}
+          </ScrollView>
+        </View>
 
-          {/* ================= COMMUNITY TAB ================= */}
-          {activeTab === 'community' && (
-            <View>
-              {error && (
-                <View style={s.errorBox}>
-                  <Ionicons name="cloud-offline-outline" size={32} color={COLORS.danger} />
-                  <Text style={s.errorText}>{error}</Text>
-                  <TouchableOpacity style={s.retryBtn} onPress={() => loadCommunityTip()}>
-                    <Text style={s.retryText}>Retry Connection</Text>
-                  </TouchableOpacity>
+        {/* ================= ERROR STATE ================= */}
+        {error && allTips.length === 0 && (
+          <View style={s.errorCard}>
+            <Ionicons name="cloud-offline-outline" size={32} color="#EF4444" />
+            <Text style={s.errorText}>{error}</Text>
+            <TouchableOpacity style={s.retryBtn} onPress={loadData} activeOpacity={0.8}>
+              <Text style={s.retryBtnText}>Retry</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* ================= LOADING STATE ================= */}
+        {loading && !refreshing && allTips.length === 0 && (
+          <View style={s.loadingBox}>
+            <ActivityIndicator color={COLORS.primary} size="large" />
+            <Text style={s.loadingText}>Loading energy recommendations...</Text>
+          </View>
+        )}
+
+        {(!loading || allTips.length > 0) && (!error || allTips.length > 0) && (
+          <>
+            {/* ================= 3. SMART INSIGHT (COMPACT CARD) ================= */}
+            {selectedCategory === 'All' && !searchQuery && smartInsight && (
+              <View style={s.smartCard}>
+                <View style={s.smartTopRow}>
+                  <View style={s.smartBadge}>
+                    <Ionicons name="pulse" size={15} color="#10B981" />
+                    <Text style={s.smartBadgeText}>SMART INSIGHT</Text>
+                  </View>
+                  {sensorData?.power > 0 && deviceOnline ? (
+                    <Text style={s.smartMetric}>Live: {Math.round(sensorData.power)}W</Text>
+                  ) : null}
                 </View>
-              )}
 
-              {!error && (
-                <>
-                  {/* ---- Recommended For You / Community Tip ---- */}
-                  <Animated.View style={{ opacity: fadeAnim, transform: [{ scale: scaleAnim }] }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10, gap: 6 }}>
-                      <Ionicons name="sparkles" size={16} color={COLORS.primary} />
-                      <Text style={{ color: COLORS.primary, fontSize: 13, fontWeight: '700', letterSpacing: 0.5 }}>RECOMMENDED FOR YOU</Text>
+                <Text style={s.smartTitle}>
+                  {smartInsight.title || 'Consumption Observation'}
+                </Text>
+                <Text style={s.smartMessage}>
+                  {smartInsight.message || smartInsight.tip || 'Monitoring your real-time electricity usage to help you maintain efficient daily habits.'}
+                </Text>
+              </View>
+            )}
+
+            {/* ================= 4. TIP OF THE DAY (COMPACT HIGHLIGHTED CARD) ================= */}
+            {selectedCategory === 'All' && !searchQuery && tipOfTheDay && (
+              <CopilotStep
+                text="Tip of the Day provides a daily electricity-saving recommendation to help you develop better energy-saving habits."
+                order={10}
+                name="tips_of_the_day"
+              >
+                <CopilotView>
+                  <View style={s.todCard}>
+                    <View style={s.todHeaderRow}>
+                      <View style={s.todBadge}>
+                        <Ionicons name="sparkles" size={13} color="#F59E0B" />
+                        <Text style={s.todBadgeText}>TIP OF THE DAY</Text>
+                      </View>
+                      <Text style={s.todCategoryText}>
+                        {tipOfTheDay.category || 'Daily Habit'}
+                      </Text>
                     </View>
-                    <GlassCard gradient style={[s.interactiveCard, { borderLeftWidth: 3, borderLeftColor: COLORS.primary }]}>
-                      {loading ? (
-                        <ActivityIndicator color={COLORS.primary} size="large" />
-                      ) : currentTip ? (
-                        <>
-                          <View style={s.tipCatRow}>
-                            <Ionicons name={currentTip.icon || 'bulb'} size={16} color={COLORS.primary} />
-                            <Text style={s.tipCatLabel}>{currentTip.category}</Text>
-                          </View>
-                          
-                          <Text style={s.tipMainTitle}>{currentTip.title}</Text>
-                          <Text style={s.tipMainMessage}>{currentTip.message}</Text>
 
-                          <View style={s.interactiveFooter}>
-                            <TouchableOpacity 
-                              style={[s.likeBtn, liked && s.likeBtnActive]} 
-                              onPress={handleLike}
+                    <Text style={s.todTitle}>{tipOfTheDay.title}</Text>
+                    <Text style={s.todMessage}>{tipOfTheDay.message}</Text>
+
+                    <View style={s.todFooter}>
+                      <View style={s.todStatsRow}>
+                        <View style={s.todStatItem}>
+                          <Ionicons name="eye-outline" size={14} color="#64748B" />
+                          <Text style={s.todStatText}>{tipOfTheDay.viewsCount || 0} views</Text>
+                        </View>
+                      </View>
+
+                      <TouchableOpacity 
+                        style={[s.todLikeBtn, likedTipIds.has(tipOfTheDay.id) && s.todLikeBtnActive]}
+                        onPress={() => handleLikeTip(tipOfTheDay.id)}
+                        activeOpacity={0.75}
+                      >
+                        <Ionicons 
+                          name={likedTipIds.has(tipOfTheDay.id) ? "heart" : "heart-outline"} 
+                          size={14} 
+                          color="#EF4444" 
+                        />
+                        <Text style={s.todLikeText}>
+                          {tipOfTheDay.likesCount || 0}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </CopilotView>
+              </CopilotStep>
+            )}
+
+            {/* ================= 5. GENERAL TIPS (REORGANIZED COMPACT SECTION) ================= */}
+            <CopilotStep
+              text="This section provides electricity-saving recommendations designed to help you understand and improve your electricity consumption behavior."
+              order={9}
+              name="tips_general"
+            >
+              <CopilotView>
+                <View style={s.sectionHeaderRow}>
+                  <View style={s.sectionTitleRow}>
+                    <Ionicons name="bulb-outline" size={15} color="#10B981" />
+                    <Text style={s.sectionTitle}>
+                      {selectedCategory === 'All' ? 'ENERGY-SAVING TIPS' : selectedCategory.toUpperCase()}
+                    </Text>
+                    <Text style={s.sectionCountBadge}>
+                      {viewMode === 'list' && filteredTips.length > TIPS_PER_PAGE
+                        ? `Page ${currentPage}/${totalPages} (${filteredTips.length})`
+                        : `${filteredTips.length} tips`}
+                    </Text>
+                  </View>
+
+                  {/* View Mode Toggle */}
+                  {filteredTips.length > 1 && (
+                    <View style={s.viewModeToggle}>
+                      <TouchableOpacity 
+                        style={[s.viewModeBtn, viewMode === 'list' && s.viewModeBtnActive]}
+                        onPress={() => setViewMode('list')}
+                        activeOpacity={0.75}
+                        accessibilityLabel="List View"
+                      >
+                        <Ionicons name="list" size={14} color={viewMode === 'list' ? '#10B981' : '#64748B'} />
+                      </TouchableOpacity>
+                      <TouchableOpacity 
+                        style={[s.viewModeBtn, viewMode === 'carousel' && s.viewModeBtnActive]}
+                        onPress={() => setViewMode('carousel')}
+                        activeOpacity={0.75}
+                        accessibilityLabel="Horizontal Swipe View"
+                      >
+                        <Ionicons name="albums-outline" size={14} color={viewMode === 'carousel' ? '#10B981' : '#64748B'} />
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </View>
+
+                {filteredTips.length === 0 ? (
+                  <View style={s.emptyBox}>
+                    <Ionicons name="search-outline" size={36} color="#64748B" />
+                    <Text style={s.emptyTitle}>No tips found</Text>
+                    <Text style={s.emptySubtext}>
+                      {searchQuery 
+                        ? 'Try searching with a different term or select "All".' 
+                        : 'No tips available in this category right now.'}
+                    </Text>
+                  </View>
+                ) : viewMode === 'carousel' ? (
+                  /* Horizontal Carousel Mode (Zero vertical clutter, easy horizontal swipe) */
+                  <View>
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      snapToInterval={Dimensions.get('window').width - 64 + 12}
+                      decelerationRate="fast"
+                      contentContainerStyle={{ paddingRight: 16 }}
+                      style={s.carouselScroll}
+                      onScroll={(e) => {
+                        const cardWidth = Dimensions.get('window').width - 64 + 12;
+                        const idx = Math.round(e.nativeEvent.contentOffset.x / cardWidth);
+                        setActiveCarouselIdx(Math.min(filteredTips.length - 1, Math.max(0, idx)));
+                      }}
+                      scrollEventThrottle={32}
+                    >
+                      {filteredTips.map((tip) => renderTipCard(tip, true))}
+                    </ScrollView>
+
+                    {/* Carousel Dot Indicators */}
+                    {filteredTips.length > 1 && (
+                      <View style={s.carouselIndicators}>
+                        {filteredTips.slice(0, 10).map((_, dotIdx) => (
+                          <View 
+                            key={dotIdx}
+                            style={[s.carouselDot, activeCarouselIdx === dotIdx && s.carouselDotActive]}
+                          />
+                        ))}
+                      </View>
+                    )}
+                  </View>
+                ) : (
+                  /* Compact Paginated List Mode (3 tips per page) */
+                  <View>
+                    {paginatedTips.map((tip) => renderTipCard(tip, false))}
+
+                    {/* Pagination Controls */}
+                    {totalPages > 1 && (
+                      <View style={s.paginationContainer}>
+                        {/* Prev Button */}
+                        <TouchableOpacity
+                          style={[s.pageNavBtn, currentPage === 1 && s.pageNavBtnDisabled]}
+                          onPress={() => setCurrentPage(p => Math.max(1, p - 1))}
+                          disabled={currentPage === 1}
+                          activeOpacity={0.7}
+                        >
+                          <Ionicons name="chevron-back" size={15} color={currentPage === 1 ? '#475569' : '#FFFFFF'} />
+                          <Text style={[s.pageNavText, currentPage === 1 && s.pageNavTextDisabled]}>Prev</Text>
+                        </TouchableOpacity>
+
+                        {/* Page Pills */}
+                        <View style={s.pagePillsRow}>
+                          {getVisiblePageNumbers(currentPage, totalPages).map((pageNum) => (
+                            <TouchableOpacity
+                              key={pageNum}
+                              style={[s.pagePill, currentPage === pageNum && s.pagePillActive]}
+                              onPress={() => setCurrentPage(pageNum)}
                               activeOpacity={0.7}
                             >
-                              <Ionicons 
-                                name={liked ? "heart" : "heart-outline"} 
-                                size={20} 
-                                color={liked ? COLORS.danger : COLORS.textSecondary} 
-                              />
-                              <Text style={s.likeCount}>{currentTip.likesCount}</Text>
+                              <Text style={[s.pagePillText, currentPage === pageNum && s.pagePillTextActive]}>
+                                {pageNum}
+                              </Text>
                             </TouchableOpacity>
-                          </View>
-                          
-                          {/* Floating Shuffle/Next Button */}
-                          <TouchableOpacity 
-                            style={s.refreshBtn} 
-                            onPress={() => loadCommunityTip(currentTip?.id)}
-                            activeOpacity={0.8}
-                          >
-                            <Ionicons name="shuffle" size={24} color="#fff" />
-                          </TouchableOpacity>
-                        </>
-                      ) : (
-                        <Text style={{ color: COLORS.textMuted }}>No recommendations available right now.</Text>
-                      )}
-                    </GlassCard>
-                  </Animated.View>
-
-                  {/* ---- Step 2 of 3: Tip of the Day ---- */}
-                  <CopilotStep
-                    text="Tip of the Day provides a daily electricity-saving recommendation to help you develop better energy-saving habits."
-                    order={10}
-                    name="tips_of_the_day"
-                  >
-                    <CopilotView style={{ marginTop: 20 }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10, gap: 6 }}>
-                        <Ionicons name="today" size={16} color={COLORS.warning} />
-                        <Text style={{ color: COLORS.warning, fontSize: 13, fontWeight: '700', letterSpacing: 0.5 }}>TIP OF THE DAY</Text>
-                      </View>
-                      <GlassCard style={[s.interactiveCard, { borderLeftWidth: 3, borderLeftColor: COLORS.warning }]}>
-                        <View style={s.tipCatRow}>
-                          <Ionicons name={tipOfTheDay?.icon || 'bulb'} size={16} color={COLORS.warning} />
-                          <Text style={[s.tipCatLabel, { color: COLORS.warning }]}>{tipOfTheDay?.category || 'General Energy Saving'}</Text>
+                          ))}
                         </View>
-                        <Text style={s.tipMainTitle}>{tipOfTheDay?.title || 'Unplug Idle Electronics'}</Text>
-                        <Text style={s.tipMainMessage}>
-                          {tipOfTheDay?.message || 'Phantom power can add up to 10% on your monthly bill. Always unplug chargers and appliances when not in active use.'}
-                        </Text>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 12, gap: 12 }}>
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                            <Ionicons name="heart" size={14} color={COLORS.danger} />
-                            <Text style={{ fontSize: 12, color: COLORS.textMuted }}>{tipOfTheDay?.likesCount || 0}</Text>
-                          </View>
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                            <Ionicons name="eye" size={14} color={COLORS.info} />
-                            <Text style={{ fontSize: 12, color: COLORS.textMuted }}>{tipOfTheDay?.viewsCount || 0}</Text>
-                          </View>
-                        </View>
-                      </GlassCard>
-                    </CopilotView>
-                  </CopilotStep>
 
-                  {/* ---- Step 3 of 3: Trending in Dorms ---- */}
-                  <CopilotStep
-                    text="This section presents useful electricity-saving trends or practices among dorm users."
-                    order={11}
-                    name="tips_trending"
-                  >
-                    <CopilotView style={{ marginTop: 20 }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10, gap: 6 }}>
-                        <Ionicons name="flame" size={16} color={COLORS.danger} />
-                        <Text style={{ color: COLORS.danger, fontSize: 13, fontWeight: '700', letterSpacing: 0.5 }}>TRENDING IN DORMS</Text>
+                        {/* Next Button */}
+                        <TouchableOpacity
+                          style={[s.pageNavBtn, currentPage === totalPages && s.pageNavBtnDisabled]}
+                          onPress={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                          disabled={currentPage === totalPages}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={[s.pageNavText, currentPage === totalPages && s.pageNavTextDisabled]}>Next</Text>
+                          <Ionicons name="chevron-forward" size={15} color={currentPage === totalPages ? '#475569' : '#FFFFFF'} />
+                        </TouchableOpacity>
                       </View>
-                      {(trendingTips.length > 0 ? trendingTips : [
-                        { id: 't1', title: 'Optimal Aircon Temperature at 24°C', category: 'Cooling & Heating', likesCount: 42 },
-                        { id: 't2', title: 'Switch to LED Desk Lamps', category: 'Lighting', likesCount: 38 },
-                        { id: 't3', title: 'Group Ironing on Weekends', category: 'Appliances', likesCount: 29 }
-                      ]).map((tip, idx) => {
-                        const rankColors = [
-                          { bg: 'rgba(250, 204, 21, 0.2)', text: '#eab308' }, // Gold
-                          { bg: 'rgba(148, 163, 184, 0.2)', text: '#94a3b8' }, // Silver
-                          { bg: 'rgba(217, 119, 6, 0.2)', text: '#d97706' },  // Bronze
-                        ];
-                        const style = rankColors[idx] || { bg: `${COLORS.info}15`, text: COLORS.info };
-                        return (
-                          <GlassCard key={tip.id} style={{ marginBottom: 10, padding: 14, borderRadius: 16, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                            <View style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: style.bg, alignItems: 'center', justifyContent: 'center' }}>
-                              <Text style={{ color: style.text, fontWeight: '900', fontSize: 14 }}>#{idx + 1}</Text>
-                            </View>
-                            <View style={{ flex: 1 }}>
-                              <Text style={{ color: COLORS.textPrimary, fontWeight: '600', fontSize: 14 }} numberOfLines={1}>{tip.title}</Text>
-                              <Text style={{ color: COLORS.textMuted, fontSize: 12, marginTop: 2 }} numberOfLines={1}>{tip.category}</Text>
-                            </View>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                              <Ionicons name="heart" size={12} color={COLORS.danger} />
-                              <Text style={{ fontSize: 11, color: COLORS.textMuted }}>{tip.likesCount}</Text>
-                            </View>
-                          </GlassCard>
-                        );
-                      })}
-                    </CopilotView>
-                  </CopilotStep>
-                </>
-              )}
-            </View>
-          )}
-
-          {/* ================= SMART INSIGHTS TAB ================= */}
-          {activeTab === 'smart' && (
-            <View>
-              <GlassCard style={s.statusBanner}>
-                <View style={s.statusRow}>
-                  <View style={[s.statusDot, { backgroundColor: smartTips.length > 0 ? COLORS.primary : COLORS.textMuted }]} />
-                  <Text style={s.statusText}>
-                    {smartTips.length > 0 
-                      ? `${smartTips.length} insights based on real-time data` 
-                      : 'Monitoring your consumption...'}
-                  </Text>
-                </View>
-                {lastSmartUpdate && (
-                  <Text style={s.statusTime}>{lastSmartUpdate.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</Text>
+                    )}
+                  </View>
                 )}
-              </GlassCard>
+              </CopilotView>
+            </CopilotStep>
 
-              {smartTips.length > 0 ? (
-                smartTips.map((tip, i) => {
-                  const pColor = getPriorityColor(tip.priority);
-                  return (
-                    <GlassCard key={i} style={[s.dynamicCard, { borderLeftWidth: 3, borderLeftColor: pColor }]}>
-                      <View style={s.dynamicHeader}>
-                        <View style={[s.dynamicIcon, { backgroundColor: `${pColor}15` }]}>
-                          <Ionicons name={tip.icon || 'analytics'} size={20} color={pColor} />
+            {/* ================= 6. TRENDING IN DORMS (COMPACT RANKED LIST) ================= */}
+            {selectedCategory === 'All' && !searchQuery && trendingTips.length > 0 && (
+              <CopilotStep
+                text="This section presents useful electricity-saving trends or practices among dorm users."
+                order={11}
+                name="tips_trending"
+              >
+                <CopilotView style={{ marginTop: 12 }}>
+                  <View style={s.sectionHeaderRow}>
+                    <View style={s.sectionTitleRow}>
+                      <Ionicons name="flame" size={15} color="#EF4444" />
+                      <Text style={s.sectionTitle}>TRENDING IN DORMS</Text>
+                    </View>
+                  </View>
+
+                  {trendingTips.map((tip, idx) => {
+                    const rankStyles = [
+                      { bg: 'rgba(250, 204, 21, 0.16)', text: '#FACC15', border: 'rgba(250, 204, 21, 0.3)' }, // #1 Gold
+                      { bg: 'rgba(148, 163, 184, 0.16)', text: '#CBD5E1', border: 'rgba(148, 163, 184, 0.3)' }, // #2 Silver
+                      { bg: 'rgba(217, 119, 6, 0.16)', text: '#F59E0B', border: 'rgba(217, 119, 6, 0.3)' },  // #3 Bronze
+                    ];
+                    const rank = rankStyles[idx] || rankStyles[2];
+
+                    return (
+                      <View key={tip.id} style={s.trendingCard}>
+                        <View style={[s.rankSquircle, { backgroundColor: rank.bg, borderWidth: 1, borderColor: rank.border }]}>
+                          <Text style={[s.rankNumber, { color: rank.text }]}>#{idx + 1}</Text>
                         </View>
-                        <View style={s.dynamicMeta}>
-                          <Text style={s.dynamicCat}>{tip.category}</Text>
-                          <View style={[s.priorityBadge, { backgroundColor: `${pColor}20` }]}>
-                            <Text style={[s.priorityText, { color: pColor }]}>
-                              {tip.priority === 0 ? 'URGENT' : tip.priority === 1 ? 'IMPORTANT' : 'STABLE'}
-                            </Text>
-                          </View>
+
+                        <View style={s.trendingContent}>
+                          <Text style={s.trendingTitle} numberOfLines={1}>{tip.title}</Text>
+                          <Text style={s.trendingCat} numberOfLines={1}>{tip.category}</Text>
+                        </View>
+
+                        <View style={s.trendingLikesWrap}>
+                          <Ionicons name="heart" size={13} color="#EF4444" />
+                          <Text style={s.trendingLikesText}>{tip.likesCount || 0}</Text>
                         </View>
                       </View>
-                      {tip.title && (
-                        <Text style={[s.tipMainTitle, { fontSize: 15, marginBottom: 4 }]}>{tip.title}</Text>
-                      )}
-                      <Text style={s.dynamicTip}>{tip.message || tip.tip || ''}</Text>
-                    </GlassCard>
-                  )
-                })
-              ) : (
-                <GlassCard style={s.emptyState}>
-                  <Ionicons name="checkmark-circle" size={48} color={COLORS.primary} />
-                  <Text style={s.emptyTitle}>Everything looks great!</Text>
-                  <Text style={s.emptyDesc}>No high consumption patterns detected right now.</Text>
-                </GlassCard>
-              )}
-            </View>
-          )}
-        </ScrollView>
-      )}
+                    );
+                  })}
+                </CopilotView>
+              </CopilotStep>
+            )}
+          </>
+        )}
+      </ScrollView>
     </View>
   );
 }

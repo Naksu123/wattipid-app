@@ -24,6 +24,7 @@ import { CustomTooltip } from '@/components/ui/TourTooltip';
 import { TourProvider, useTourContext } from '@/contexts/TourContext';
 import WelcomeTourModal from '@/components/ui/WelcomeTourModal';
 import TourCompletionModal from '@/components/ui/TourCompletionModal';
+import SplashScreen from '@/components/ui/SplashScreen';
 
 // Custom dark theme to match Wattipid brand
 const WattipidTheme = {
@@ -54,11 +55,11 @@ function RootLayoutContent() {
     console.log(`[Navigation] Path: /${segments.join('/')} | Auth: ${isAuthenticated}`);
 
     if (!isAuthenticated) {
-      // If not authenticated and NOT in auth group, go to login
+      // If not authenticated and NOT in auth group, go to welcome screen
       if (!inAuthGroup) {
-        const target = '/(auth)/login';
-        if (segments.join('/') !== '(auth)/login') {
-            console.log(`[Navigation] Redirecting to Login...`);
+        const target = '/(auth)/welcome';
+        if (segments.join('/') !== '(auth)/welcome') {
+            console.log(`[Navigation] Redirecting to Welcome...`);
             router.replace(target);
         }
       }
@@ -85,12 +86,7 @@ function RootLayoutContent() {
   }, [router]);
 
   if (isLoading) {
-    return (
-      <View style={globalStyles.loading}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={globalStyles.loadingText}>Loading Wattipid...</Text>
-      </View>
-    );
+    return <SplashScreen />;
   }
 
   return (

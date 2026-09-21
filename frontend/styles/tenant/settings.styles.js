@@ -1,5 +1,5 @@
-import { StyleSheet } from 'react-native';
-import { COLORS, FONT_SIZE, FONT_WEIGHT, RADIUS, SPACING, SHADOWS } from '../theme';
+import { StyleSheet, Platform, StatusBar } from 'react-native';
+import { COLORS } from '../theme';
 
 export default StyleSheet.create({
   container: { 
@@ -7,377 +7,395 @@ export default StyleSheet.create({
     backgroundColor: COLORS.background 
   },
   scroll: { 
-    paddingHorizontal: SPACING.lg, 
-    paddingTop: SPACING.xl + 20, 
-    paddingBottom: SPACING.xxl * 2 
+    paddingHorizontal: 16, 
+    paddingTop: Platform.OS === 'ios' ? 56 : (StatusBar.currentHeight || 20) + 16, 
+    paddingBottom: 40,
   },
-  title: { 
-    fontSize: FONT_SIZE.xxl, 
-    fontWeight: FONT_WEIGHT.bold, 
-    color: COLORS.textPrimary, 
-    marginBottom: SPACING.xl,
-    letterSpacing: -0.5
+
+  // Compact Header
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    gap: 12,
   },
-  sectionLabel: { 
-    fontSize: 13, 
-    color: COLORS.textSecondary, 
-    fontWeight: '600', 
-    textTransform: 'uppercase', 
-    letterSpacing: 1, 
-    marginBottom: SPACING.xs, 
-    marginTop: SPACING.xl, 
-    marginLeft: SPACING.sm 
+  backBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 11,
+    backgroundColor: '#0C1322',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
+  headerTitleWrap: {
+    flex: 1,
+  },
+  headerTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.4,
+  },
+  headerSubtitle: {
+    fontSize: 12,
+    color: '#94A3B8',
+    marginTop: 1,
+  },
+
+  // Profile Card (Matches profile-settings.png)
   profileCard: { 
-    alignItems: 'center', 
-    marginBottom: SPACING.md, 
-    paddingVertical: SPACING.xl 
+    backgroundColor: '#0C1322',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    padding: 16,
+    marginBottom: 8,
+  },
+  profileMainRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
   },
   avatar: { 
-    width: 72, 
-    height: 72, 
-    borderRadius: 36, 
-    backgroundColor: 'rgba(34,197,94,0.15)', 
+    width: 52, 
+    height: 52, 
+    borderRadius: 26, 
+    backgroundColor: 'rgba(16, 185, 129, 0.12)', 
+    borderWidth: 2,
+    borderColor: '#10B981',
     alignItems: 'center', 
     justifyContent: 'center', 
-    marginBottom: SPACING.md 
+  },
+  avatarInitials: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#10B981',
   },
   profileInfo: { 
-    alignItems: 'center' 
+    flex: 1,
+  },
+  profileNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 2,
   },
   profileName: { 
-    fontSize: FONT_SIZE.xl, 
-    fontWeight: FONT_WEIGHT.bold, 
-    color: COLORS.textPrimary 
+    fontSize: 17, 
+    fontWeight: '800', 
+    color: '#FFFFFF',
+    letterSpacing: -0.3,
+  },
+  roomBadge: {
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.25)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  roomBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#10B981',
   },
   profileEmail: { 
-    fontSize: FONT_SIZE.sm, 
-    color: COLORS.textSecondary, 
-    marginTop: 2 
+    fontSize: 12.5, 
+    color: '#94A3B8', 
+    marginTop: 1,
   },
-  profileRole: { 
-    fontSize: FONT_SIZE.xs, 
-    color: COLORS.textMuted, 
-    marginTop: SPACING.xs 
+  profileSub: { 
+    fontSize: 11.5, 
+    color: '#64748B', 
+    marginTop: 2,
   },
-  editBtn: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    gap: SPACING.xs, 
-    marginTop: SPACING.md, 
-    paddingHorizontal: SPACING.md, 
-    paddingVertical: SPACING.xs, 
-    borderRadius: RADIUS.full, 
-    borderWidth: 1, 
-    borderColor: COLORS.primary 
+  editProfileRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.05)',
   },
-  editBtnText: { 
-    fontSize: FONT_SIZE.sm, 
-    color: COLORS.primary, 
-    fontWeight: FONT_WEIGHT.medium 
+  editProfileText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#10B981',
   },
-  editFields: { 
-    width: '100%', 
-    gap: SPACING.sm 
+
+  // Section Labels
+  sectionLabel: { 
+    fontSize: 11, 
+    color: '#94A3B8', 
+    fontWeight: '800', 
+    textTransform: 'uppercase', 
+    letterSpacing: 0.8, 
+    marginBottom: 6, 
+    marginTop: 14, 
+    marginLeft: 4,
   },
-  inputLabel: { 
-    fontSize: FONT_SIZE.sm, 
-    color: COLORS.textSecondary, 
-    fontWeight: FONT_WEIGHT.medium, 
-    marginTop: SPACING.sm 
-  },
-  editInputModal: { 
-    height: 48, 
-    backgroundColor: COLORS.backgroundLight, 
-    borderRadius: RADIUS.md, 
-    paddingHorizontal: SPACING.md, 
-    color: COLORS.textPrimary, 
-    borderWidth: 1, 
-    borderColor: COLORS.border, 
-    fontSize: FONT_SIZE.md 
-  },
+
+  // Section Card Container
   sectionCard: { 
-    marginBottom: SPACING.md, 
-    padding: 0, 
-    borderRadius: RADIUS.xl,
-    overflow: 'hidden' 
+    backgroundColor: '#0C1322',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    paddingHorizontal: 14,
+    paddingVertical: 4,
+    marginBottom: 4,
   },
-  divider: { 
-    height: 1, 
-    backgroundColor: 'rgba(255,255,255,0.05)' 
+
+  // Lease Information Grid (Matches profile-settings.png)
+  leaseCard: {
+    backgroundColor: '#0C1322',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    padding: 16,
+    marginBottom: 4,
   },
-  toggleItem: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    padding: SPACING.md,
-    paddingVertical: SPACING.lg
+  leaseGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    rowGap: 14,
   },
-  toggleIcon: { 
-    width: 36, 
-    height: 36, 
-    borderRadius: 10, 
-    alignItems: 'center', 
-    justifyContent: 'center' 
+  leaseCol: {
+    width: '50%',
   },
-  toggleContent: { 
-    flex: 1, 
-    marginLeft: SPACING.md 
+  leaseColLabel: {
+    fontSize: 11,
+    color: '#64748B',
+    fontWeight: '600',
+    marginBottom: 3,
   },
-  toggleLabel: { 
-    fontSize: 16, 
-    color: COLORS.textPrimary, 
-    fontWeight: '500' 
+  leaseColValue: {
+    fontSize: 13.5,
+    color: '#FFFFFF',
+    fontWeight: '700',
   },
-  toggleDesc: { 
-    fontSize: FONT_SIZE.xs, 
-    color: COLORS.textSecondary, 
-    marginTop: 2 
+  statusPillActive: {
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.3)',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
   },
-  menuCard: { 
-    marginBottom: SPACING.md, 
-    padding: 0, 
-    borderRadius: RADIUS.xl,
-    overflow: 'hidden' 
+  statusPillText: {
+    color: '#10B981',
+    fontSize: 11,
+    fontWeight: '800',
   },
+
+  // Menu Rows (SettingsRow)
   menuItem: { 
     flexDirection: 'row', 
     alignItems: 'center', 
-    padding: SPACING.md, 
-    paddingVertical: SPACING.lg,
-    borderBottomWidth: 1, 
-    borderBottomColor: 'rgba(255,255,255,0.05)' 
+    paddingVertical: 11,
   },
-  menuIcon: { 
-    width: 36, 
-    height: 36, 
-    borderRadius: 10, 
+  menuIconBadge: { 
+    width: 32, 
+    height: 32, 
+    borderRadius: 9, 
     alignItems: 'center', 
-    justifyContent: 'center' 
+    justifyContent: 'center', 
+    marginRight: 12,
   },
   menuContent: { 
     flex: 1, 
-    marginLeft: SPACING.md 
   },
   menuLabel: { 
-    fontSize: 16, 
-    color: COLORS.textPrimary, 
-    fontWeight: '500' 
+    fontSize: 13.5, 
+    fontWeight: '600', 
+    color: '#FFFFFF',
+  },
+  menuDesc: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 1,
   },
   menuValue: { 
-    fontSize: FONT_SIZE.xs, 
-    color: COLORS.textSecondary, 
-    marginTop: 2 
+    fontSize: 12, 
+    color: '#64748B', 
+    fontWeight: '600',
+    marginRight: 6,
   },
-  version: { 
+
+  // Toggle Rows
+  toggleItem: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    paddingVertical: 10,
+  },
+  toggleIconBadge: { 
+    width: 32, 
+    height: 32, 
+    borderRadius: 9, 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    marginRight: 12,
+  },
+  toggleContent: { 
+    flex: 1, 
+  },
+  toggleLabel: { 
+    fontSize: 13.5, 
+    fontWeight: '600', 
+    color: '#FFFFFF',
+  },
+  toggleDesc: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 1,
+  },
+
+  // Dividers
+  divider: { 
+    height: 1, 
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+  },
+
+  // Data Management Card Rows
+  dataActionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 11,
+  },
+  dataActionContent: {
+    flex: 1,
+    marginRight: 12,
+  },
+  dataActionTitle: {
+    fontSize: 13.5,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  dataActionDesc: {
+    fontSize: 11,
+    color: '#EF4444',
+    marginTop: 2,
+  },
+  destructiveBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 9,
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.25)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  // Sign Out Button (Matches profile-settings.png)
+  logoutBtn: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    gap: 8, 
+    backgroundColor: 'rgba(239, 68, 68, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.3)',
+    borderRadius: 14,
+    paddingVertical: 13,
+    marginTop: 20,
+    marginBottom: 8,
+  },
+  logoutBtnText: { 
+    fontSize: 13.5, 
+    fontWeight: '700', 
+    color: '#EF4444', 
+  },
+
+  // Version Footer
+  versionText: { 
     textAlign: 'center', 
-    fontSize: FONT_SIZE.xs, 
-    color: COLORS.textMuted, 
-    marginTop: SPACING.lg 
+    fontSize: 11, 
+    color: '#475569', 
+    marginTop: 8,
+    marginBottom: 20,
   },
+
+  // Modals
   modalOverlay: { 
     flex: 1, 
-    backgroundColor: COLORS.overlay, 
+    backgroundColor: 'rgba(0,0,0,0.7)', 
     justifyContent: 'center', 
     alignItems: 'center', 
-    padding: SPACING.lg 
+    padding: 24,
   },
   modalBox: { 
-    backgroundColor: COLORS.surface, 
-    borderRadius: RADIUS.xl, 
-    padding: SPACING.xl, 
     width: '100%', 
-    maxWidth: 380, 
-    alignItems: 'center', 
+    backgroundColor: '#0C1322', 
+    borderRadius: 20, 
     borderWidth: 1, 
-    borderColor: COLORS.border, 
-    ...SHADOWS.lg 
+    borderColor: 'rgba(255, 255, 255, 0.08)', 
+    padding: 20, 
+    alignItems: 'center',
   },
   aboutIcon: { 
-    width: 72, 
-    height: 72, 
-    borderRadius: 20, 
-    backgroundColor: 'rgba(34,197,94,0.12)', 
+    width: 56, 
+    height: 56, 
+    borderRadius: 18, 
+    backgroundColor: 'rgba(16,185,129,0.12)', 
     alignItems: 'center', 
     justifyContent: 'center', 
-    marginBottom: SPACING.md 
+    marginBottom: 12,
   },
   modalTitle: { 
-    fontSize: FONT_SIZE.xl, 
-    fontWeight: FONT_WEIGHT.bold, 
-    color: COLORS.textPrimary 
-  },
-  modalVer: { 
-    fontSize: FONT_SIZE.sm, 
-    color: COLORS.textMuted, 
-    marginTop: 2, 
-    marginBottom: SPACING.md 
+    fontSize: 17, 
+    fontWeight: '800', 
+    color: '#FFFFFF', 
+    marginBottom: 4,
   },
   modalDesc: { 
-    fontSize: FONT_SIZE.sm, 
-    color: COLORS.textSecondary, 
+    fontSize: 12.5, 
+    color: '#94A3B8', 
     textAlign: 'center', 
-    lineHeight: 20, 
-    marginBottom: SPACING.lg 
-  },
-  modalMessage: { 
-    fontSize: FONT_SIZE.md, 
-    color: COLORS.textSecondary, 
-    lineHeight: 22 
-  },
-  aboutDetails: { 
-    width: '100%', 
-    gap: SPACING.sm, 
-    marginBottom: SPACING.lg 
-  },
-  aboutRow: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    paddingVertical: SPACING.xs, 
-    borderBottomWidth: 1, 
-    borderBottomColor: COLORS.border 
-  },
-  aboutRowLabel: { 
-    fontSize: FONT_SIZE.sm, 
-    color: COLORS.textMuted 
-  },
-  aboutRowValue: { 
-    fontSize: FONT_SIZE.sm, 
-    color: COLORS.textPrimary, 
-    fontWeight: FONT_WEIGHT.medium 
+    lineHeight: 18,
   },
   modalCloseBtn: { 
-    paddingVertical: SPACING.md, 
-    paddingHorizontal: SPACING.xxl, 
-    borderRadius: RADIUS.md, 
-    backgroundColor: COLORS.primary 
+    marginTop: 20, 
+    paddingVertical: 10, 
+    paddingHorizontal: 24, 
+    backgroundColor: 'rgba(255,255,255,0.08)', 
+    borderRadius: 10,
   },
   modalCloseBtnText: { 
-    fontSize: FONT_SIZE.md, 
-    color: '#fff', 
-    fontWeight: FONT_WEIGHT.semibold 
+    color: '#FFFFFF', 
+    fontSize: 13, 
+    fontWeight: '700',
   },
-  helpList: { 
-    width: '100%', 
-    gap: SPACING.md, 
-    marginBottom: SPACING.lg, 
-    marginTop: SPACING.sm 
-  },
-  helpItem: { 
-    flexDirection: 'row', 
-    gap: SPACING.sm 
-  },
-  helpContent: { 
-    flex: 1 
-  },
-  helpQ: { 
-    fontSize: FONT_SIZE.sm, 
-    color: COLORS.textPrimary, 
-    fontWeight: FONT_WEIGHT.semibold, 
-    marginBottom: 2 
-  },
-  helpA: { 
-    fontSize: FONT_SIZE.xs, 
-    color: COLORS.textSecondary, 
-    lineHeight: 17 
+  modalMessage: { 
+    fontSize: 13.5, 
+    color: '#94A3B8', 
+    lineHeight: 20, 
   },
   envSubtitle: { 
-    fontSize: FONT_SIZE.sm, 
-    color: COLORS.textSecondary, 
-    lineHeight: 20, 
-    marginBottom: SPACING.lg 
-  },
-  envList: { 
-    gap: SPACING.md, 
-    marginBottom: SPACING.lg 
+    fontSize: 13, 
+    color: '#94A3B8', 
+    marginBottom: 14,
   },
   envCard: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    padding: SPACING.md, 
-    borderRadius: RADIUS.lg, 
-    backgroundColor: COLORS.backgroundLight, 
+    padding: 14, 
+    borderRadius: 12, 
+    backgroundColor: 'rgba(255,255,255,0.04)', 
     borderWidth: 1, 
-    borderColor: COLORS.border,
-    gap: SPACING.md
+    borderColor: 'rgba(255,255,255,0.08)', 
+    marginBottom: 10,
   },
   envCardActive: { 
-    borderColor: COLORS.primary, 
-    backgroundColor: 'rgba(34,197,94,0.05)' 
-  },
-  envCardIcon: { 
-    width: 48, 
-    height: 48, 
-    borderRadius: 14, 
-    alignItems: 'center', 
-    justifyContent: 'center' 
-  },
-  envCardContent: { 
-    flex: 1 
+    borderColor: '#10B981', 
+    backgroundColor: 'rgba(16,185,129,0.12)',
   },
   envCardTitle: { 
-    fontSize: FONT_SIZE.md, 
-    fontWeight: FONT_WEIGHT.bold, 
-    color: COLORS.textPrimary 
+    fontSize: 13.5, 
+    fontWeight: '700', 
+    color: '#FFFFFF',
   },
-  envCardUrl: { 
-    fontSize: 10, 
-    color: COLORS.textMuted, 
-    marginTop: 2 
-  },
-  radio: { 
-    width: 20, 
-    height: 20, 
-    borderRadius: 10, 
-    borderWidth: 2, 
-    borderColor: COLORS.border, 
-    alignItems: 'center', 
-    justifyContent: 'center' 
-  },
-  radioActive: { 
-    borderColor: COLORS.primary 
-  },
-  radioInner: { 
-    width: 10, 
-    height: 10, 
-    borderRadius: 5, 
-    backgroundColor: COLORS.primary 
-  },
-  envWarning: { 
-    flexDirection: 'row', 
-    gap: SPACING.xs, 
-    padding: SPACING.md, 
-    backgroundColor: 'rgba(245,158,11,0.08)', 
-    borderRadius: RADIUS.md,
-    marginBottom: SPACING.sm
-  },
-  envWarningText: { 
-    flex: 1, 
-    fontSize: FONT_SIZE.xs, 
-    color: COLORS.warning, 
-    lineHeight: 18 
-  },
-  accountCard: {
-    padding: SPACING.md,
-    borderRadius: RADIUS.xl,
-    backgroundColor: COLORS.surface,
-    marginBottom: SPACING.md
-  },
-  accountRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: SPACING.md,
-    paddingHorizontal: SPACING.sm,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(255,255,255,0.1)'
-  },
-  soaLabel: {
-    fontSize: FONT_SIZE.sm,
-    color: COLORS.textMuted
-  },
-  soaValue: {
-    fontSize: FONT_SIZE.sm,
-    color: COLORS.textPrimary,
-    fontWeight: FONT_WEIGHT.medium
-  }
 });

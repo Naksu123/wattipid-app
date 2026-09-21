@@ -1,6 +1,7 @@
 import { SafeAreaView } from 'react-native-safe-area-context';
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { View, Text, TouchableOpacity, RefreshControl, ActivityIndicator, Platform, FlatList, Alert } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect , router } from 'expo-router';
 import { COLORS, FONT_WEIGHT } from '../../styles/theme';
@@ -52,20 +53,34 @@ export default function TenantNotificationCenter() {
   const [refreshing, setRefreshing] = useState(false);
   const [activeFilter, setActiveFilter] = useState('all');
 
-  // Auto-refresh when screen is focused
-  useFocusEffect(
-    useCallback(() => {
-      fetchNotifications();
-      const interval = setInterval(fetchNotifications, 30000);
-      return () => clearInterval(interval);
-    }, [])
-  );
+  // Instant Cache Restoration (Stale-While-Revalidate)
+  useEffect(() => {
+    let isMounted = true;
+    const restoreCachedNotifs = async () => {
+      try {
+        const cached = await AsyncStorage.getItem('@cached_tenant_notifications');
+        if (cached && isMounted) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setNotifications(parsed);
+            setLoading(false);
+          }
+        }
+      } catch (err) {
+        console.warn('[TenantNotifications] Cache restore error:', err);
+      }
+    };
+    restoreCachedNotifs();
+    return () => { isMounted = false; };
+  }, []);
 
   const fetchNotifications = useCallback(async () => {
     try {
       const response = await apiClient.post('/api.php', { action: 'getNotifications', limit: 100 });
       if (response.data.success) {
-        setNotifications(response.data.data || []);
+        const notifList = response.data.data || [];
+        setNotifications(notifList);
+        AsyncStorage.setItem('@cached_tenant_notifications', JSON.stringify(notifList)).catch(() => {});
       }
     } catch (err) {
       console.warn('Fetch error:', err);
@@ -75,6 +90,15 @@ export default function TenantNotificationCenter() {
     }
   }, []);
 
+  // Auto-refresh when screen is focused
+  useFocusEffect(
+    useCallback(() => {
+      fetchNotifications();
+      const interval = setInterval(fetchNotifications, 30000);
+      return () => clearInterval(interval);
+    }, [fetchNotifications])
+  );
+
   const handleRefresh = () => {
     setRefreshing(true);
     fetchNotifications();
@@ -83,7 +107,11 @@ export default function TenantNotificationCenter() {
   const handleMarkAllRead = async () => {
     try {
       await apiClient.post('/api.php', { action: 'markAllNotificationsRead' });
-      setNotifications(prev => prev.map(n => ({ ...n, is_read: 1 })));
+      setNotifications(prev => {
+        const updated = prev.map(n => ({ ...n, is_read: 1 }));
+        AsyncStorage.setItem('@cached_tenant_notifications', JSON.stringify(updated)).catch(() => {});
+        return updated;
+      });
       refreshUnreadCount();
     } catch (err) {
       console.error('Failed to mark all as read:', err.message);
@@ -103,6 +131,7 @@ export default function TenantNotificationCenter() {
             try {
               await apiClient.post('/api.php', { action: 'deleteAllNotifications' });
               setNotifications([]);
+              AsyncStorage.removeItem('@cached_tenant_notifications').catch(() => {});
               refreshUnreadCount();
             } catch (err) {
               console.error('Failed to delete all notifications:', err.message);
@@ -190,7 +219,7 @@ export default function TenantNotificationCenter() {
     );
   };
 
-  if (loading) {
+  if (loading && (!notifications || notifications.length === 0)) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.center}>

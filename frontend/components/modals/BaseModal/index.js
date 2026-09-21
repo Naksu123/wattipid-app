@@ -122,3 +122,5 @@ export function ModalFooter({
     </View>
   );
 }
+
+export { default as SignOutModal } from '../SignOutModal';

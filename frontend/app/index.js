@@ -1,24 +1,10 @@
 import React from 'react';
-import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import SplashScreen from '@/components/ui/SplashScreen';
 
 /**
- * Root Entry Point (Visual Only)
- * All navigation logic is now handled exclusively by _layout.js 
- * to prevent redirection loops.
+ * Root Entry Point (Visual Splash Screen)
+ * Displays the redesigned Wattipid splash while auth and route resolution complete.
  */
 export default function Index() {
-  return (
-    <View style={styles.container}>
-      <ActivityIndicator size="large" color="#22C55E" />
-    </View>
-  );
+  return <SplashScreen />;
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0F172A',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});

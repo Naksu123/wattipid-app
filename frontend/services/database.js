@@ -76,6 +76,7 @@ export async function updateUserProfile(id, name, email) {
 export async function getAllRooms() {
   return await apiCall('getAllRooms') || [];
 }
+export const getRooms = getAllRooms;
 
 export async function getRoomByTenantCode(code) {
   return await apiCall('getRoomByTenantCode', { code });
@@ -334,8 +335,22 @@ export async function getHourlyBreakdown(roomId, tenantName = null, dateStr = nu
 
 // ============ BUDGET OPERATIONS ============
 export async function setBudget(roomId, monthlyBudget) {
-  const data = await apiCall('setBudget', { roomId, monthlyBudget });
-  return data || { monthly_budget: monthlyBudget, daily_allowance: 0, weekly_allowance: 0, remaining_days: 0, days_in_month: 30 };
+  const numericBudget = Number(monthlyBudget) || 0;
+  const data = await apiCall('setBudget', { roomId, monthlyBudget: numericBudget });
+  const daysInMonth = Number(data?.daysInMonth || data?.days_in_month || 30);
+  const daily = Number(data?.dailyAllowance || data?.daily_allowance || (numericBudget / daysInMonth));
+  const weekly = Number(data?.weeklyAllowance || data?.weekly_allowance || (numericBudget / (daysInMonth / 7)));
+  const today = new Date().getDate();
+  const remaining = Math.max(0, daysInMonth - today + 1);
+
+  return {
+    monthly_budget: numericBudget,
+    daily_allowance: daily,
+    weekly_allowance: weekly,
+    days_in_month: daysInMonth,
+    remaining_days: remaining,
+    ...(data || {})
+  };
 }
 
 export async function getBudget(roomId) {
@@ -381,12 +396,13 @@ export async function getBillingDetails(invoiceNumber, id = null, roomId = null)
   return await apiCall('getBillingDetails', { invoiceNumber, id, roomId });
 }
 
-export async function getTenantBillingOverview(roomId = null) {
-  return await apiCall('getTenantBillingOverview', { roomId });
+export async function getTenantBillingOverview(roomId = null, tenantName = null) {
+  return await apiCall('getTenantBillingOverview', { roomId, tenantName });
 }
 
 export async function getPaymentInsights(roomId) {
-  return await apiCall('getPaymentInsights', { roomId });
+  const data = await apiCall('getPaymentInsights', { roomId });
+  return data ? { success: true, data: data.data || data } : { success: false, data: null };
 }
 
 export async function verifyAccessCodeAPI(email, accessCode) {

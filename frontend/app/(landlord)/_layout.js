@@ -16,7 +16,7 @@ export default function LandlordLayout() {
       <Tabs.Screen name="rooms" options={{ title: 'Rooms' }} />
       <Tabs.Screen name="payments" options={{ title: 'Payments' }} />
       <Tabs.Screen name="penalties" options={{ title: 'Penalties' }} />
-      <Tabs.Screen name="settings" options={{ title: 'Settings' }} />
+      <Tabs.Screen name="settings" options={{ href: null, tabBarStyle: { display: 'none' } }} />
       
       {/* Hidden Screens */}
       <Tabs.Screen name="manage-tips" options={{ href: null, tabBarStyle: { display: 'none' } }} />

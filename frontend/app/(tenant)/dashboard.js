@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useCallback , useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, ScrollView, RefreshControl, TouchableOpacity, Animated, Easing } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useIsFocused } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -7,21 +8,20 @@ import { useCopilot, CopilotStep, walkthroughable } from 'react-native-copilot';
 import { useTourAutoStart, useTourContext } from '@/contexts/TourContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSync } from '@/contexts/SyncContext';
-import { fetchRealtimeData } from '../../services/esp32Api';
 import PowerGauge from '../../components/ui/PowerGauge';
 import AnimatedNumber from '../../components/ui/AnimatedNumber';
-import GlassCard from '../../components/ui/GlassCard';
-import StatusBadge from '../../components/ui/StatusBadge';
 import { COLORS, SPACING } from '@/styles/theme';
 import ms from '@/styles/tenant/dashboard.styles';
-import { getDashboardSummary } from '../../services/consumptionService';
 import apiClient from '../../services/apiClient';
-import { getBillingCycle, getPaymentInsights } from '../../services/database';
+import { getBillingCycle, getPaymentInsights, getHourlyBreakdown } from '../../services/database';
 import { getNotificationHistory, createFrontendAlert } from '../../services/notificationApi';
 import { tipsService } from '../../services/tipsService';
 import { detectHighConsumptionSync } from '../../services/tipsEngine';
 import { useNotification } from '@/contexts/NotificationContext';
 import { useConsumption } from '@/contexts/ConsumptionContext';
+import Svg, { Path, Line, Circle as SvgCircle } from 'react-native-svg';
+
+const getTenantDashboardCacheKey = (rId) => `@cached_tenant_dashboard_${rId}`;
 
 let globalLastAlertKey = null;
 let globalLastTipKey = null;
@@ -59,6 +59,8 @@ export default function DashboardScreen() {
   const [unreadCount, setUnreadCount] = useState(0); 
   const [paymentInsights, setPaymentInsights] = useState(null);
   const [activities, setActivities] = useState([]);
+  const [hourlyData, setHourlyData] = useState([]);
+  const [breakdownExpanded, setBreakdownExpanded] = useState(false);
 
   // Copilot Tour & First-Time Onboarding
   const scrollViewRef = useRef(null);
@@ -83,73 +85,148 @@ export default function DashboardScreen() {
     ).start();
   }, [pulseAnim]);
 
-  // Sync Global Refresh
+  const lastFetchTimeRef = useRef(0);
+  const isFetchingRef = useRef(false);
+
+  // Stale-While-Revalidate: Load cached dashboard state immediately on mount
+  useEffect(() => {
+    let isMounted = true;
+    const loadCachedDashboard = async () => {
+      if (!roomId) return;
+      try {
+        const cachedStr = await AsyncStorage.getItem(getTenantDashboardCacheKey(roomId));
+        if (cachedStr && isMounted) {
+          const cached = JSON.parse(cachedStr);
+          if (cached) {
+            if (cached.billingCycle) setBillingCycle(cached.billingCycle);
+            if (cached.budget) setBudgetData(cached.budget);
+            if (cached.paymentInsights) setPaymentInsights(cached.paymentInsights);
+            if (cached.activities) setActivities(cached.activities);
+            if (cached.randomTip) setRandomTip(cached.randomTip);
+            if (cached.hourlyData) setHourlyData(cached.hourlyData);
+            setLoading(false); // Render immediately from cache!
+          }
+        }
+      } catch (cacheErr) {
+        console.warn('[Dashboard] Cache read failed:', cacheErr);
+      }
+    };
+
+    loadCachedDashboard();
+    return () => {
+      isMounted = false;
+    };
+  }, [roomId]);
+
+  const fetchStaticData = useCallback(async (isManualRefresh = false) => {
+    if (!roomId) return null;
+    const now = Date.now();
+    if (!isManualRefresh && (isFetchingRef.current || now - lastFetchTimeRef.current < 2500)) {
+      return null;
+    }
+
+    try {
+      isFetchingRef.current = true;
+      lastFetchTimeRef.current = now;
+
+      // Parallelize all independent read requests to avoid sequential 8-roundtrip latency
+      const [
+        ,
+        cycleRes,
+        cyclesRes,
+        insightsRes,
+        notifsRes,
+        tipRes,
+        hourlyRes
+      ] = await Promise.allSettled([
+        fetchStaticConsumption(),
+        getBillingCycle(roomId),
+        apiClient.post('/api.php', { action: 'getAvailableBillingCycles', roomId }),
+        getPaymentInsights(roomId),
+        getNotificationHistory(null, 10),
+        tipsService.getSmartRecommendation(),
+        getHourlyBreakdown(roomId)
+      ]);
+
+      let cycleData = null;
+      if (cycleRes.status === 'fulfilled' && cycleRes.value) {
+        cycleData = cycleRes.value;
+        if (cycleData.budget) {
+          setBudgetData(cycleData.budget);
+        }
+      }
+
+      let latestInvoice = null;
+      if (cyclesRes.status === 'fulfilled' && cyclesRes.value?.data?.success) {
+        const cycles = cyclesRes.value.data.data;
+        if (Array.isArray(cycles) && cycles.length > 0) {
+          const unpaidInvoices = cycles.filter(c => c.status === 'completed' && ['unpaid', 'pending_verification', 'overdue', 'partially_paid'].includes(c.payment_status));
+          latestInvoice = unpaidInvoices.length > 0 ? unpaidInvoices[unpaidInvoices.length - 1] : null;
+          if (!latestInvoice) {
+            latestInvoice = cycles.find(c => c.status === 'completed') || cycles[0];
+          }
+          setBillingCycle(latestInvoice);
+          if (cycleData?.budget) {
+            setBudgetData(cycleData.budget);
+          }
+        }
+      }
+
+      let freshInsights = null;
+      if (insightsRes.status === 'fulfilled' && insightsRes.value?.success) {
+        freshInsights = insightsRes.value.data;
+        setPaymentInsights(freshInsights);
+      }
+
+      let freshActivities = null;
+      if (notifsRes.status === 'fulfilled' && notifsRes.value) {
+        freshActivities = notifsRes.value.slice(0, 3);
+        setActivities(freshActivities);
+      }
+
+      let freshTip = null;
+      if (tipRes.status === 'fulfilled' && tipRes.value?.success && tipRes.value.data) {
+        freshTip = tipRes.value.data;
+        setRandomTip(freshTip);
+      }
+
+      let freshHourly = null;
+      if (hourlyRes.status === 'fulfilled' && Array.isArray(hourlyRes.value)) {
+        freshHourly = hourlyRes.value;
+        setHourlyData(freshHourly);
+      }
+
+      // Persist fresh data into cache for next instant launch
+      const cachePayload = {
+        billingCycle: latestInvoice || undefined,
+        budget: cycleData?.budget || undefined,
+        paymentInsights: freshInsights || undefined,
+        activities: freshActivities || undefined,
+        randomTip: freshTip || undefined,
+        hourlyData: freshHourly || undefined,
+      };
+      AsyncStorage.setItem(getTenantDashboardCacheKey(roomId), JSON.stringify(cachePayload)).catch(() => {});
+
+      return true;
+    } catch (err) {
+      console.warn('[Dashboard] fetchStaticData error:', err);
+      return null;
+    } finally {
+      isFetchingRef.current = false;
+      setLoading(false);
+    }
+  }, [roomId, fetchStaticConsumption]);
+
+  // Sync Global Refresh (debounced by fetchStaticData)
   useEffect(() => {
     if (globalRefreshTick > 0) {
       fetchStaticData();
     }
-  }, [globalRefreshTick]);
+  }, [globalRefreshTick, fetchStaticData]);
 
   useEffect(() => {
     setUnreadCount(globalUnreadCount);
   }, [globalUnreadCount]);
-
-  const fetchStaticData = useCallback(async () => {
-    if (!roomId) return;
-    try {
-      setLoading(true);
-      await fetchStaticConsumption(); // Seed the shared real-time baseline first
-      
-      const cycle = await getBillingCycle(roomId);
-
-      // Fetch actual billing cycles to get the latest invoice data
-      const cyclesRes = await apiClient.post('/api.php', { action: 'getAvailableBillingCycles', roomId });
-      if (cyclesRes.data && cyclesRes.data.success && cyclesRes.data.data.length > 0) {
-        const cycles = cyclesRes.data.data;
-        // Find the OLDEST unpaid invoice to force chronological payments
-        let unpaidInvoices = cycles.filter(c => c.status === 'completed' && ['unpaid', 'pending_verification', 'overdue', 'partially_paid'].includes(c.payment_status));
-        let latestInvoice = unpaidInvoices.length > 0 ? unpaidInvoices[unpaidInvoices.length - 1] : null;
-        if (!latestInvoice) {
-            latestInvoice = cycles.find(c => c.status === 'completed') || cycles[0];
-        }
-        setBillingCycle(latestInvoice);
-        setBudgetData(cycle?.budget || null); // Note: Budget still comes from getBillingCycle user data if needed, but we can also fetch it directly. Let's just keep cycle for budget.
-      }
-      
-      if (cycle && cycle.budget) {
-        setBudgetData(cycle.budget);
-      }
-
-      const insights = await getPaymentInsights(roomId);
-      if (insights && insights.success) {
-        setPaymentInsights(insights.data);
-      }
-
-      const notifs = await getNotificationHistory(null, 10);
-      if (notifs) {
-        setActivities(notifs.slice(0, 3)); // Get top 3 recent activities
-      }
-
-      const tipResult = await tipsService.getSmartRecommendation();
-      if (tipResult && tipResult.success && tipResult.data) {
-        setRandomTip(tipResult.data);
-      }
-
-      // Fetch unread notifications
-      const unreadRes = await apiClient.post('/api.php', { action: 'getUnreadNotificationCount', userId: user?.id });
-      if (unreadRes.data.success) {
-        setUnreadCount(unreadRes.data.data);
-      }
-
-      // Return true to indicate success
-      return true;
-    } catch (err) {
-      console.warn('Dashboard fetch error:', err);
-      return null;
-    } finally {
-      setLoading(false);
-    }
-  }, [roomId, user?.id]);
 
   const budgetRef = useRef(budget);
   const lastAlertKeyRef = useRef(lastAlertKey);
@@ -214,7 +291,7 @@ export default function DashboardScreen() {
   const onRefresh = async () => {
     setRefreshing(true);
     setTipDismissed(false);
-    await fetchStaticData();
+    await fetchStaticData(true);
     setRefreshing(false);
   };
 
@@ -283,41 +360,120 @@ export default function DashboardScreen() {
     daysUntilDue = Math.round((dueDate - now) / 86400000);
   }
 
-  const formatLastSeen = () => {
-    if (!lastSeen) return 'Never seen';
-    const last = new Date(lastSeen);
-    return last.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  // Tenant Avatar Initials & Clean Room label (no icons, no duplicate room name, no floor/property)
+  const getInitials = (fullName) => {
+    if (!fullName) return 'AC';
+    const parts = fullName.trim().split(/\s+/);
+    if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
   };
+  const tenantInitials = getInitials(user?.name || user?.username || 'Alex Cruz');
+  const firstName = (user?.name || user?.username || 'Alex').trim().split(/\s+/)[0];
 
-  const MetricCard = ({ icon, label, value, unit, color, prefix = '', formatter }) => (
-  <GlassCard style={ms.metricCard}>
-    <View style={[ms.metricIconWrap, { backgroundColor: `${color}15` }]}>
-      <Ionicons name={icon} size={20} color={color} />
-    </View>
-    <View style={ms.metricValueRow}>
-      {prefix ? <Text style={ms.metricValue}>{prefix}</Text> : null}
-      {typeof value === 'number' ? (
-        <AnimatedNumber value={value} formatter={formatter || ((val) => val.toFixed(2))} style={ms.metricValue} />
-      ) : (
-        <Text style={ms.metricValue} numberOfLines={1} adjustsFontSizeToFit>{value}</Text>
-      )}
-      {unit ? <Text style={ms.metricUnit}> {unit}</Text> : null}
-    </View>
-    <Text style={ms.metricLabel}>{label}</Text>
-  </GlassCard>
-);
+  const formatRoomOnly = (raw) => {
+    if (!raw) return 'Room 1';
+    let str = String(raw).trim();
+    // Remove floor or property suffixes if present (e.g. "Room 3B - Floor 2" -> "Room 3B")
+    str = str.replace(/\s*[-–—|•].*$/, '');
+    // Ensure "Room " is prefixed once and not duplicated
+    if (/^room\b/i.test(str)) {
+      return str;
+    }
+    return `Room ${str}`;
+  };
+  const roomLabel = formatRoomOnly(user?.room_name || user?.room_id || roomId);
+
+  // Actual IoT readings only for Today's Wattage Trend (strictly no simulated/fake/interpolated data)
+  const validHourlyPoints = Array.isArray(hourlyData)
+    ? hourlyData.filter(d => (Number(d.entries) > 0 && (Number(d.avgPower) > 0 || Number(d.peakPower) > 0)))
+    : [];
+
+  const chartWidth = 320;
+  const chartHeight = 85;
+  const padX = 14;
+  const padY = 12;
+  const plotWidth = chartWidth - padX * 2;
+  const plotHeight = chartHeight - padY * 2;
+
+  // Build actual coordinates strictly from confirmed IoT readings
+  let coords = validHourlyPoints.map(p => {
+    const hour = Math.min(Math.max(parseInt(p.hour, 10) || 0, 0), 23);
+    const power = Number(p.avgPower || p.peakPower || 0);
+    return { hour, power };
+  });
+
+  // Include current live reading only if device is actively online and reporting wattage
+  if (!offline && deviceOnline && data.power > 0) {
+    const currentHour = new Date().getHours();
+    const existingIdx = coords.findIndex(c => c.hour === currentHour);
+    if (existingIdx >= 0) {
+      coords[existingIdx] = { hour: currentHour, power: Number(data.power) };
+    } else {
+      coords.push({ hour: currentHour, power: Number(data.power) });
+    }
+  }
+
+  // Sort by hour ascending
+  coords.sort((a, b) => a.hour - b.hour);
+
+  const hasActualSensorData = coords.length > 0;
+  let segmentPaths = [];
+
+  if (hasActualSensorData) {
+    const maxActualWattage = Math.max(...coords.map(c => c.power), 100);
+
+    // Compute pixel coordinates
+    coords = coords.map(c => {
+      const x = padX + (c.hour / 23) * plotWidth;
+      const y = padY + plotHeight - (c.power / maxActualWattage) * plotHeight;
+      return { ...c, x, y };
+    });
+
+    // Group into contiguous consecutive hour segments so we NEVER interpolate over missing periods
+    const segments = [];
+    let currentSegment = [];
+
+    for (let i = 0; i < coords.length; i++) {
+      if (currentSegment.length === 0) {
+        currentSegment.push(coords[i]);
+      } else {
+        const prev = currentSegment[currentSegment.length - 1];
+        if (coords[i].hour === prev.hour + 1) {
+          currentSegment.push(coords[i]);
+        } else {
+          segments.push(currentSegment);
+          currentSegment = [coords[i]];
+        }
+      }
+    }
+    if (currentSegment.length > 0) {
+      segments.push(currentSegment);
+    }
+
+    // Create spline for each consecutive segment only (leaving gaps empty)
+    segmentPaths = segments.filter(seg => seg.length > 1).map(seg => {
+      let path = `M ${seg[0].x} ${seg[0].y}`;
+      for (let i = 1; i < seg.length; i++) {
+        const prev = seg[i - 1];
+        const curr = seg[i];
+        const midX = (prev.x + curr.x) / 2;
+        path += ` C ${midX} ${prev.y}, ${midX} ${curr.y}, ${curr.x} ${curr.y}`;
+      }
+      return path;
+    });
+  }
 
   return (
     <View style={ms.container}>
       {/* GLOBAL SYNC STATUS BANNER */}
       {!isOnline && (
         <View style={{ backgroundColor: COLORS.danger, padding: 8, alignItems: 'center' }}>
-          <Text style={{ color: COLORS.white, fontSize: 12, fontWeight: 'bold' }}>⚠️ Offline Mode - Waiting for network...</Text>
+          <Text style={{ color: COLORS.white, fontSize: 12, fontWeight: 'bold' }}>Offline Mode - Waiting for network...</Text>
         </View>
       )}
       {isOnline && globalRefreshTick > 0 && !billingCycle && (
         <View style={{ backgroundColor: COLORS.success, padding: 8, alignItems: 'center' }}>
-          <Text style={{ color: COLORS.white, fontSize: 12, fontWeight: 'bold' }}>🔄 Connection Restored. Synchronizing Data...</Text>
+          <Text style={{ color: COLORS.white, fontSize: 12, fontWeight: 'bold' }}>Connection Restored. Synchronizing Data...</Text>
         </View>
       )}
 
@@ -333,287 +489,370 @@ export default function DashboardScreen() {
         }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
       >
+        {/* Redesigned Header matching tenant-dashboard.png */}
+        <View style={ms.redesignHeader}>
+          <View style={ms.headerLeft}>
+            {/* Avatar Circle with Initials - Tappable to open settings/profile */}
+            <TouchableOpacity 
+              style={ms.avatarCircle}
+              onPress={() => router.push('/(tenant)/settings')}
+              activeOpacity={0.85}
+              accessibilityLabel="Profile and Settings"
+              accessibilityRole="button"
+            >
+              <Text style={ms.avatarText}>{tenantInitials}</Text>
+            </TouchableOpacity>
 
-        {/* Header */}
-        <View style={ms.header}>
-          <View>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Ionicons name="home" size={24} color={COLORS.primary} style={{ marginRight: 8 }} />
-              <Text style={ms.greeting}>{roomId}</Text>
-            </View>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
-              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: offline ? COLORS.danger : COLORS.success }} />
-              <Text style={[ms.lastSeenText, { color: offline ? COLORS.danger : COLORS.success }]}>
-                {offline ? 'Submeter Offline' : `Live Data: ${formatLastSeen()}`}
-              </Text>
+            {/* Name and Room (Clean text only, no icons, no duplicate room name) */}
+            <View style={ms.headerInfo}>
+              <Text style={ms.greetingText} numberOfLines={1}>Hi, {firstName}</Text>
+              <View style={ms.roomPill}>
+                <Text style={ms.roomPillText}>{roomLabel}</Text>
+              </View>
             </View>
           </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            <StatusBadge status={offline ? 'offline' : (relayOn ? 'active' : 'idle')} />
-            <TouchableOpacity style={{ position: 'relative', padding: 4 }} onPress={() => router.push('/(tenant)/notifications')}>
-              <Ionicons name="notifications-outline" size={24} color={COLORS.textPrimary} />
+
+          {/* Right Actions: Live Online badge, Notification Bell, and Settings Button */}
+          <View style={ms.headerRight}>
+            <View style={[ms.liveOnlineBadge, offline && ms.liveOnlineBadgeOffline]}>
+              <View style={[ms.liveOnlineDot, offline && ms.liveOnlineDotOffline]} />
+              <Text style={[ms.liveOnlineText, offline && ms.liveOnlineTextOffline]}>
+                {offline ? 'Offline' : 'Live Online'}
+              </Text>
+            </View>
+
+            <TouchableOpacity 
+              style={ms.headerActionBtn} 
+              onPress={() => router.push('/(tenant)/notifications')}
+              activeOpacity={0.8}
+              accessibilityLabel="Notifications"
+              accessibilityRole="button"
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="notifications-outline" size={19} color="#FFFFFF" />
               {unreadCount > 0 && (
-                <View style={{ position: 'absolute', top: 0, right: 0, backgroundColor: COLORS.danger, borderRadius: 10, minWidth: 16, height: 16, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 4 }}>
-                  <Text style={{ color: '#fff', fontSize: 9, fontWeight: 'bold' }}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
-                </View>
+                <View style={ms.notifBadgeDot} />
               )}
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={ms.headerActionBtn} 
+              onPress={() => router.push('/(tenant)/settings')}
+              activeOpacity={0.8}
+              accessibilityLabel="Settings"
+              accessibilityRole="button"
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="settings-outline" size={19} color="#FFFFFF" />
             </TouchableOpacity>
           </View>
         </View>
 
-
-
-        {/* Comparison Chip — only show if device has real data */}
-        {!offline && comparison && comparison.costPctChange !== 0 && (
-          <GlassCard style={ms.compChip}>
-            <Ionicons
-              name={(comparison.costPctChange || 0) > 0 ? 'trending-up' : 'trending-down'}
-              size={16}
-              color={(comparison.costPctChange || 0) >= 0 ? COLORS.success : COLORS.danger}
-            />
-            <Text style={[ms.compText, { color: (comparison.costPctChange || 0) >= 0 ? COLORS.success : COLORS.danger }]}>
-              {(comparison.costPctChange || 0) > 0 ? '+' : ''}
-              {Number(comparison.costPctChange || 0).toFixed(0)}%
-              {(comparison.costPctChange || 0) >= 0 ? ' higher' : ' lower'} than yesterday
-            </Text>
-          </GlassCard>
-        )}
-
-        {/* Step 1: Live Sensor */}
+        {/* Step 1: Real-Time Power Hero Card */}
         <CopilotStep
           text="This section displays your latest electricity monitoring data, including real-time power, voltage, current, and power factor."
           order={1}
           name="dashboard_live_sensor"
         >
           <CopilotView>
-            <Text style={ms.sectionTitle}>Live Sensor</Text>
-            {/* Live Sensor Widget */}
-            <GlassCard gradient style={[ms.gaugeCard, offline && { opacity: 0.8 }]}>
-              <View style={ms.liveIndicatorWrap}>
-                <Animated.View style={[ms.liveDot, { backgroundColor: offline ? COLORS.danger : '#10B981', opacity: offline ? 1 : pulseAnim }]} />
-                <Text style={ms.liveText}>{offline ? 'Offline' : 'Live Data'}</Text>
-              </View>
-              
-              {offline ? (
-                <View style={{ paddingVertical: SPACING.sm, justifyContent: 'center', alignItems: 'center' }}>
-                  <View style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', padding: 12, borderRadius: 100, marginBottom: 8 }}>
-                    <Ionicons name="cloud-offline-outline" size={32} color={COLORS.danger} />
-                  </View>
-                  <Text style={{ color: COLORS.textPrimary, fontSize: 16, fontWeight: '600' }}>Submeter is Offline</Text>
-                  <Text style={{ color: COLORS.textMuted, fontSize: 12, textAlign: 'center', marginTop: 4, paddingHorizontal: 20 }}>
-                    Real-time monitoring is currently unavailable. Check your WiFi or submeter power.
+            <View style={ms.redesignCard}>
+              {/* Arch Power Gauge with text-only sub-badge (NO icons) */}
+              <PowerGauge 
+                value={data.power} 
+                maxValue={2000} 
+                unit="W" 
+                size={270} 
+                isOffline={offline} 
+              />
+
+              {/* Card Divider */}
+              <View style={ms.cardDivider} />
+
+              {/* 3-Column Sub-Metrics (Voltage, Current, Power Factor - NO icons) */}
+              <View style={ms.subMetricsRow}>
+                <View style={ms.subMetricCol}>
+                  <Text style={ms.subMetricLabel}>Voltage</Text>
+                  <Text style={ms.subMetricValue}>
+                    {offline ? '--' : `${Math.round(data.voltage || 0)}V`}
                   </Text>
-                  <TouchableOpacity
-                    style={{ marginTop: 12, paddingVertical: 8, paddingHorizontal: 20, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}
-                    onPress={() => {
-                      showBanner(
-                        'Troubleshooting Offline Device',
-                        "1. Ensure your WiFi router is on.\n2. Check if the submeter LED is blinking.\n3. Try unplugging and re-plugging the submeter.\n4. If the issue persists, contact your landlord.",
-                        'info',
-                        { route: '/(tenant)/dashboard' }
-                      );
-                    }}
-                  >
-                    <Text style={{ color: COLORS.primary, fontWeight: '500' }}>How to fix this?</Text>
-                  </TouchableOpacity>
                 </View>
-              ) : (
-                <>
-                  <PowerGauge value={data.power} maxValue={2000} unit="W" label="Real-Time Power" size={180} />
-                  
-                  <View style={ms.sensorStatsRow}>
-                    <View style={ms.sensorStat}>
-                      <Text style={ms.sensorStatLabel}>Voltage</Text>
-                      <View style={ms.sensorStatValueRow}>
-                        <AnimatedNumber value={Number(data.voltage || 0)} formatter={(v) => v.toFixed(1)} style={ms.sensorStatValue} />
-                        <Text style={ms.sensorStatUnit}>V</Text>
-                      </View>
-                    </View>
-                    
-                    <View style={ms.sensorStat}>
-                      <Text style={ms.sensorStatLabel}>Current</Text>
-                      <View style={ms.sensorStatValueRow}>
-                        <AnimatedNumber value={Number(data.current || 0)} formatter={(v) => v.toFixed(2)} style={ms.sensorStatValue} />
-                        <Text style={ms.sensorStatUnit}>A</Text>
-                      </View>
-                    </View>
-                    
-                    <View style={ms.sensorStat}>
-                      <Text style={ms.sensorStatLabel}>Power Factor</Text>
-                      <View style={ms.sensorStatValueRow}>
-                        <AnimatedNumber value={Number(data.powerFactor || 1)} formatter={(v) => v.toFixed(2)} style={ms.sensorStatValue} />
-                      </View>
-                    </View>
-                  </View>
-                </>
-              )}
-            </GlassCard>
+
+                <View style={ms.subMetricCol}>
+                  <Text style={ms.subMetricLabel}>Current</Text>
+                  <Text style={ms.subMetricValue}>
+                    {offline ? '--' : `${Number(data.current || 0).toFixed(1)}A`}
+                  </Text>
+                </View>
+
+                <View style={ms.subMetricCol}>
+                  <Text style={ms.subMetricLabel}>Power Factor</Text>
+                  <Text style={ms.subMetricValue}>
+                    {offline ? '--' : Number(data.powerFactor || 1).toFixed(2)}
+                  </Text>
+                </View>
+              </View>
+            </View>
           </CopilotView>
         </CopilotStep>
 
-        {/* Step 2: Live Cost */}
+        {/* Step 2: Billing Cycle Summary Card (Live Cost Preserved) */}
         <CopilotStep
           text="This section shows your current electricity-related cost and today's energy consumption based on the latest available monitoring data."
           order={2}
           name="dashboard_live_cost"
         >
           <CopilotView>
-            {/* Financial Overview */}
-            <Text style={[ms.sectionTitle, { marginTop: 18 }]}>Live Cost</Text>
-            <TouchableOpacity onLongPress={() => setDebugVisible(!debugVisible)} delayLongPress={800} activeOpacity={0.9}>
-              <GlassCard style={ms.financialCard}>
-                <View style={ms.financialRow}>
-                  <View style={ms.financialBlock}>
-                    <Text style={ms.financialLabel}>{isShowingPreviousInvoice ? 'Outstanding Balance' : 'Current Cycle Cost'}</Text>
-                    <View style={ms.financialValueRow}>
-                      <Text style={ms.financialPrefix}>₱</Text>
-                      <AnimatedNumber value={Number(invoiceAmountDue || 0)} style={ms.financialValue} />
-                    </View>
-                    {!isShowingPreviousInvoice && monthUsage?.cycle_end && (
-                       <Text style={{fontSize: 10, color: COLORS.textMuted, marginTop: 4}}>Live projection until {new Date(monthUsage.cycle_end).toLocaleDateString(undefined, {month: 'short', day: 'numeric'})}</Text>
-                    )}
-                  </View>
-                  
-                  <View style={[ms.financialBlock, { alignItems: 'flex-end' }]}>
-                    <Text style={ms.financialLabel}>Energy Today</Text>
-                    <View style={ms.financialValueRow}>
-                      <AnimatedNumber value={Number(todayUsage.totalEnergy || 0)} style={ms.financialValue} />
-                      <Text style={ms.financialUnit}>kWh</Text>
-                    </View>
-                  </View>
+            <View style={ms.redesignCard}>
+              {/* Card Header Row */}
+              <View style={ms.cardHeaderRow}>
+                <Text style={ms.cardHeaderTitle}>BILLING CYCLE SUMMARY</Text>
+                {comparison && comparison.costPctChange !== 0 ? (
+                  <Text style={[ms.cardHeaderSub, { color: (comparison.costPctChange || 0) <= 0 ? '#10B981' : '#EF4444' }]}>
+                    {(comparison.costPctChange || 0) <= 0 ? '▼' : '▲'} {Math.abs(Number(comparison.costPctChange || 0)).toFixed(1)}% vs yesterday
+                  </Text>
+                ) : (
+                  <Text style={ms.cardHeaderSub}>Active Cycle</Text>
+                )}
+              </View>
+
+              {/* Today's Usage vs Current Cycle Boxes */}
+              <View style={ms.billingBoxesRow}>
+                {/* Box 1: Today's Usage */}
+                <View style={ms.billingBox}>
+                  <Text style={ms.billingBoxLabel}>{"Today's Usage"}</Text>
+                  <Text style={ms.billingBoxKwh}>
+                    {Number(todayUsage.totalEnergy || 0).toFixed(1)} kWh
+                  </Text>
+                  <Text style={ms.billingBoxCostToday}>
+                    ₱{Number(todayUsage.totalCost || 0).toFixed(2)}
+                  </Text>
                 </View>
 
-                {debugVisible && (
-                  <View style={{ marginTop: 12, padding: 12, backgroundColor: 'rgba(0,0,0,0.8)', borderRadius: 8 }}>
-                    <Text style={{ color: '#0f0', fontWeight: 'bold', marginBottom: 4 }}>--- DEBUG BILLING ---</Text>
-                    <Text style={{ color: '#fff', fontSize: 10 }}>isShowingPreviousInvoice: {String(isShowingPreviousInvoice)}</Text>
-                    <Text style={{ color: '#fff', fontSize: 10 }}>billingCycle.status: {billingCycle?.status}</Text>
-                    <Text style={{ color: '#fff', fontSize: 10 }}>billingCycle.grand_total: ₱{billingCycle?.grand_total}</Text>
-                    <Text style={{ color: '#fff', fontSize: 10 }}>billingCycle.amount_paid: ₱{billingCycle?.amount_paid}</Text>
-                    <Text style={{ color: '#fff', fontSize: 10 }}>monthUsage.totalEnergy: {monthUsage?.totalEnergy} kWh</Text>
-                    <Text style={{ color: '#fff', fontSize: 10 }}>monthUsage.totalCost: ₱{monthUsage?.totalCost}</Text>
-                    <Text style={{ color: '#fff', fontSize: 10 }}>rate: ₱{rate}</Text>
-                    <Text style={{ color: '#fff', fontSize: 10 }}>electricityCharge: ₱{electricityCharge}</Text>
-                    <Text style={{ color: '#fff', fontSize: 10 }}>currentCycleTotal: ₱{currentCycleTotal}</Text>
-                    <Text style={{ color: '#fff', fontSize: 10 }}>final invoiceAmountDue: ₱{invoiceAmountDue}</Text>
-                    <TouchableOpacity onPress={() => setDebugVisible(false)} style={{ marginTop: 8 }}>
-                      <Text style={{ color: '#f00' }}>Close Debug</Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
-                  
-                {/* Breakdown Section — strictly current billing cycle charges */}
-                {(!offline && (electricityCharge > 0 || totalEnergyKwh > 0 || monthlyRent > 0 || additionalCharges > 0)) && (
-                  <View style={{ marginTop: 15, paddingTop: 15, borderTopWidth: 1, borderTopColor: COLORS.border, gap: 8 }}>
-                    <Text style={{ fontFamily: 'Inter-SemiBold', fontSize: 13, color: COLORS.textMuted, marginBottom: 5 }}>TOTAL BREAKDOWN</Text>
-                    
-                    {/* Electricity Consumption */}
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                        <Ionicons name="flash-outline" size={15} color={COLORS.warning || '#F59E0B'} />
-                        <Text style={{ fontFamily: 'Inter-Medium', fontSize: 14, color: COLORS.textSecondary }}>
-                          Electricity
-                        </Text>
+                {/* Box 2: Current Cycle */}
+                <View style={ms.billingBox}>
+                  <Text style={ms.billingBoxLabel}>Current Cycle</Text>
+                  <Text style={ms.billingBoxKwh}>
+                    {totalEnergyKwh.toFixed(1)} kWh
+                  </Text>
+                  <Text style={ms.billingBoxCostCycle}>
+                    ₱{Number(currentCycleTotal || 0).toFixed(2)}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Itemized Breakdown Toggle for Live Cost */}
+              {(!offline && (electricityCharge > 0 || totalEnergyKwh > 0 || monthlyRent > 0 || additionalCharges > 0)) && (
+                <View>
+                  <TouchableOpacity 
+                    style={ms.breakdownToggle}
+                    onPress={() => setBreakdownExpanded(!breakdownExpanded)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={ms.breakdownToggleText}>
+                      {breakdownExpanded ? 'Hide Itemized Breakdown' : 'View Itemized Breakdown'}
+                    </Text>
+                    <Ionicons 
+                      name={breakdownExpanded ? 'chevron-up' : 'chevron-down'} 
+                      size={15} 
+                      color="#64748B" 
+                    />
+                  </TouchableOpacity>
+
+                  {breakdownExpanded && (
+                    <View style={ms.breakdownList}>
+                      <View style={ms.breakdownItem}>
+                        <Text style={ms.breakdownLabel}>Electricity Charge</Text>
+                        <Text style={ms.breakdownValue}>₱{electricityCharge.toFixed(2)}</Text>
                       </View>
-                      <Text style={{ fontFamily: 'Inter-SemiBold', fontSize: 14, color: COLORS.textPrimary }}>
-                        {totalEnergyKwh.toFixed(2)} kWh
-                      </Text>
-                    </View>
-                    
-                    {/* Monthly Rent */}
-                    {monthlyRent > 0 && (
-                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                          <Ionicons name="home-outline" size={15} color="#3B82F6" />
-                          <Text style={{ fontFamily: 'Inter-Medium', fontSize: 14, color: COLORS.textSecondary }}>Monthly Rent</Text>
+                      {monthlyRent > 0 && (
+                        <View style={ms.breakdownItem}>
+                          <Text style={ms.breakdownLabel}>Monthly Rent</Text>
+                          <Text style={ms.breakdownValue}>₱{monthlyRent.toFixed(2)}</Text>
                         </View>
-                        <Text style={{ fontFamily: 'Inter-SemiBold', fontSize: 14, color: COLORS.textPrimary }}>
-                          ₱{monthlyRent.toFixed(2)}
-                        </Text>
-                      </View>
-                    )}
-                    
-                    {/* Additional Charges */}
-                    {additionalCharges > 0 && (
-                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                          <Ionicons name="add-circle-outline" size={15} color={COLORS.info || '#0EA5E9'} />
-                          <Text style={{ fontFamily: 'Inter-Medium', fontSize: 14, color: COLORS.textSecondary }}>Additional Charges</Text>
+                      )}
+                      {additionalCharges > 0 && (
+                        <View style={ms.breakdownItem}>
+                          <Text style={ms.breakdownLabel}>Additional Charges</Text>
+                          <Text style={ms.breakdownValue}>₱{additionalCharges.toFixed(2)}</Text>
                         </View>
-                        <Text style={{ fontFamily: 'Inter-SemiBold', fontSize: 14, color: COLORS.textPrimary }}>
-                          ₱{additionalCharges.toFixed(2)}
-                        </Text>
-                      </View>
-                    )}
-                    
-                    {/* Discounts */}
-                    {discounts > 0 && (
-                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                          <Ionicons name="pricetag-outline" size={15} color={COLORS.success || '#10B981'} />
-                          <Text style={{ fontFamily: 'Inter-Medium', fontSize: 14, color: COLORS.textSecondary }}>Discounts</Text>
+                      )}
+                      {discounts > 0 && (
+                        <View style={ms.breakdownItem}>
+                          <Text style={ms.breakdownLabel}>Discounts</Text>
+                          <Text style={[ms.breakdownValue, { color: '#10B981' }]}>-₱{discounts.toFixed(2)}</Text>
                         </View>
-                        <Text style={{ fontFamily: 'Inter-SemiBold', fontSize: 14, color: COLORS.success }}>
-                          -₱{discounts.toFixed(2)}
-                        </Text>
-                      </View>
-                    )}
-                  </View>
-                )}
-                
-                {budget && (
-                  <View style={ms.budgetContainer}>
-                    <View style={ms.budgetHeader}>
-                      <Ionicons name="wallet-outline" size={18} color={COLORS.primary} />
-                      <Text style={ms.budgetTitle}>Daily Budget</Text>
-                      <Text style={ms.budgetPct}>{Number(Math.min(budgetPct, 100) || 0).toFixed(0)}%</Text>
+                      )}
                     </View>
-                    <View style={ms.budgetBar}>
-                      <Animated.View style={[ms.budgetFill, {
-                        width: animatedBudgetPct.interpolate({ inputRange: [0, 100], outputRange: ['0%', '100%'], extrapolate: 'clamp' }),
-                        backgroundColor: budgetPct > 90 ? COLORS.danger : budgetPct > 70 ? COLORS.warning : COLORS.primary,
-                      }]} />
-                    </View>
-                    <Text style={ms.budgetText}>₱{Number(todayUsage.totalCost || 0).toFixed(2)} / ₱{Number(budget.daily_allowance || 0).toFixed(2)}</Text>
-                  </View>
-                )}
-              </GlassCard>
-            </TouchableOpacity>
+                  )}
+                </View>
+              )}
+            </View>
           </CopilotView>
         </CopilotStep>
 
-        {/* Step 3: Wattipid Smart Insights */}
+        {/* Daily Budget Tracking Card */}
+        <View style={ms.redesignCard}>
+          {/* Header Row */}
+          <View style={ms.cardHeaderRow}>
+            <Text style={ms.cardHeaderTitle}>DAILY BUDGET TRACKING</Text>
+            {budget && budget.daily_allowance > 0 ? (
+              <View style={[
+                ms.budgetStatusBadge,
+                { backgroundColor: budgetPct > 100 ? 'rgba(239, 68, 68, 0.15)' : (budgetPct > 75 ? 'rgba(245, 158, 11, 0.15)' : 'rgba(16, 185, 129, 0.15)') }
+              ]}>
+                <Text style={[
+                  ms.budgetStatusText,
+                  { color: budgetPct > 100 ? '#EF4444' : (budgetPct > 75 ? '#F59E0B' : '#10B981') }
+                ]}>
+                  {budgetPct > 100 ? 'Budget Exceeded' : (budgetPct > 75 ? 'Near Limit' : 'On Track')}
+                </Text>
+              </View>
+            ) : null}
+          </View>
+
+          {budget && budget.daily_allowance > 0 ? (
+            <View>
+              {/* 3 Metric Columns: Daily Budget, Spent Today, Remaining */}
+              <View style={ms.budgetMetricsRow}>
+                <View style={ms.budgetMetricCol}>
+                  <Text style={ms.budgetMetricLabel}>Daily Budget</Text>
+                  <Text style={ms.budgetMetricValue}>₱{Number(budget.daily_allowance).toFixed(2)}</Text>
+                </View>
+
+                <View style={ms.budgetMetricCol}>
+                  <Text style={ms.budgetMetricLabel}>{"Today's Cost"}</Text>
+                  <Text style={[ms.budgetMetricValue, { color: budgetPct > 90 ? '#EF4444' : '#FFFFFF' }]}>
+                    ₱{Number(todayUsage?.totalCost || 0).toFixed(2)}
+                  </Text>
+                </View>
+
+                <View style={[ms.budgetMetricCol, { alignItems: 'flex-end' }]}>
+                  <Text style={ms.budgetMetricLabel}>Remaining</Text>
+                  <Text style={[
+                    ms.budgetMetricValue, 
+                    { color: (Number(budget.daily_allowance) - Number(todayUsage?.totalCost || 0)) <= 0 ? '#EF4444' : '#10B981' }
+                  ]}>
+                    ₱{Math.max(0, Number(budget.daily_allowance) - Number(todayUsage?.totalCost || 0)).toFixed(2)}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Animated Progress Bar */}
+              <View style={ms.budgetProgressBarBg}>
+                <Animated.View style={[
+                  ms.budgetProgressBarFill,
+                  {
+                    width: animatedBudgetPct.interpolate({ inputRange: [0, 100], outputRange: ['0%', '100%'], extrapolate: 'clamp' }),
+                    backgroundColor: budgetPct > 90 ? '#EF4444' : (budgetPct > 70 ? '#F59E0B' : '#10B981'),
+                  }
+                ]} />
+              </View>
+            </View>
+          ) : (
+            <View style={ms.budgetPromptWrap}>
+              <Text style={ms.budgetPromptText}>No daily budget configured yet.</Text>
+              <TouchableOpacity 
+                style={ms.setBudgetBtn}
+                onPress={() => router.push('/(tenant)/budget')}
+                activeOpacity={0.8}
+              >
+                <Text style={ms.setBudgetBtnText}>Set Daily Budget</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+
+        {/* Today's Wattage Trend Card (Strictly Actual IoT Sensor Data Only) */}
+        <View style={ms.redesignCard}>
+          <View style={ms.cardHeaderRow}>
+            <Text style={ms.cardHeaderTitle}>{"TODAY'S WATTAGE TREND"}</Text>
+            <Text style={ms.cardHeaderSub}>24-Hour Real-Time</Text>
+          </View>
+
+          {hasActualSensorData ? (
+            <View style={{ width: '100%', alignItems: 'center' }}>
+              <Svg width="100%" height={chartHeight} viewBox={`0 0 ${chartWidth} ${chartHeight}`}>
+                {/* Horizontal guide lines */}
+                <Line x1={padX} y1={padY + plotHeight * 0.25} x2={chartWidth - padX} y2={padY + plotHeight * 0.25} stroke="rgba(255, 255, 255, 0.05)" strokeWidth={1} strokeDasharray="4 4" />
+                <Line x1={padX} y1={padY + plotHeight * 0.5} x2={chartWidth - padX} y2={padY + plotHeight * 0.5} stroke="rgba(255, 255, 255, 0.05)" strokeWidth={1} strokeDasharray="4 4" />
+                <Line x1={padX} y1={padY + plotHeight * 0.75} x2={chartWidth - padX} y2={padY + plotHeight * 0.75} stroke="rgba(255, 255, 255, 0.05)" strokeWidth={1} strokeDasharray="4 4" />
+
+                {/* Actual Sensor Readings Splines (only consecutive hours connected, no interpolation across gaps) */}
+                {segmentPaths.map((pathStr, sIdx) => (
+                  <Path
+                    key={sIdx}
+                    d={pathStr}
+                    stroke="#10B981"
+                    strokeWidth={2.5}
+                    fill="none"
+                    strokeLinecap="round"
+                  />
+                ))}
+
+                {/* Actual Recorded Data Points */}
+                {coords.map((pt, idx) => (
+                  <SvgCircle
+                    key={idx}
+                    cx={pt.x}
+                    cy={pt.y}
+                    r={3}
+                    fill="#10B981"
+                  />
+                ))}
+              </Svg>
+
+              {/* 24-Hour Time Axis Labels */}
+              <View style={ms.trendTimeAxisRow}>
+                <Text style={ms.trendTimeLabel}>00:00</Text>
+                <Text style={ms.trendTimeLabel}>06:00</Text>
+                <Text style={ms.trendTimeLabel}>12:00</Text>
+                <Text style={ms.trendTimeLabel}>18:00</Text>
+                <Text style={ms.trendTimeLabel}>23:00</Text>
+              </View>
+            </View>
+          ) : (
+            <View style={ms.noTrendDataBox}>
+              <Text style={ms.noTrendDataText}>No Data</Text>
+              <Text style={ms.noTrendDataSubtext}>
+                {offline 
+                  ? 'Submeter is offline. Real-time readings are unavailable.' 
+                  : 'No sensor readings recorded for today yet.'}
+              </Text>
+            </View>
+          )}
+        </View>
+
+        {/* Step 3: Energy Tip Banner matching tenant-dashboard.png */}
         <CopilotStep
           text="Wattipid Smart Insights provides useful information and recommendations based on your electricity consumption patterns and behavior."
           order={3}
           name="dashboard_smart_insights"
         >
-          <CopilotView style={{ marginTop: 16 }}>
-            <GlassCard style={ms.tipCard}>
-              {!tipDismissed && (
-                <TouchableOpacity style={ms.tipDismiss} onPress={() => setTipDismissed(true)}>
-                  <Ionicons name="close" size={16} color={COLORS.textMuted} />
+          <CopilotView>
+            {!tipDismissed && (
+              <View style={ms.tipBannerCard}>
+                <View style={ms.tipIconBadge}>
+                  <Ionicons name="leaf" size={17} color="#10B981" />
+                </View>
+                <Text style={ms.tipMessageText} numberOfLines={2}>
+                  {smartTip
+                    ? (smartTip.message || smartTip.tip)
+                    : (randomTip?.message || 'Tip: Ironing clothes in bulk during off-peak hours (10PM-6AM) saves up to ₱120/month.')}
+                </Text>
+                <TouchableOpacity 
+                  style={ms.tipDismissBtn}
+                  onPress={() => setTipDismissed(true)}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Ionicons name="close" size={16} color="#64748B" />
                 </TouchableOpacity>
-              )}
-              <View style={ms.tipRow}>
-                <View style={[ms.tipIconWrap, { backgroundColor: `${smartTip ? (smartTip.color || COLORS.primary) : COLORS.primary}15` }]}>
-                  <Ionicons name={smartTip ? (smartTip.icon || 'leaf') : (randomTip?.icon || 'bulb')} size={22} color={smartTip ? (smartTip.color || COLORS.primary) : COLORS.primary} />
-                </View>
-                <View style={ms.tipContent}>
-                  <Text style={ms.tipTitle}>{smartTip ? (smartTip.title || 'Wattipid Smart Insights') : (randomTip?.title || 'Wattipid Smart Insights')}</Text>
-                  <Text style={ms.tipMessage}>
-                    {smartTip
-                      ? (smartTip.message || smartTip.tip)
-                      : (randomTip?.message || 'Smart Insights analyzes your electricity usage patterns to help optimize consumption and avoid unexpected charges.')}
-                  </Text>
-                </View>
               </View>
-            </GlassCard>
+            )}
           </CopilotView>
         </CopilotStep>
 
+        <View style={{ height: 30 }} />
       </ScrollView>
-
     </View>
   );
 }

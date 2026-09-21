@@ -12,32 +12,39 @@ export const submitPayment = async (billingCycleId, roomId, amount, proofUrl, re
             paymentMethod,
             paymentDate
         });
-        if (!response.data.success) throw new Error(response.data.message || "Backend returned an unsuccessful response");
-        return response.data;
+        const resData = response.data;
+        if (!resData || !resData.success) {
+            const serverMsg = resData?.message || (typeof resData === 'string' ? resData : null);
+            const err = new Error(serverMsg || "Backend returned an unsuccessful response");
+            err.responseData = resData;
+            err.statusCode = response.status;
+            throw err;
+        }
+        return resData;
     } catch (error) {
-        // 1. Detailed error logging as requested
-        console.error('submitPayment error details:', {
-            status: error.response?.status,
+        const errorInfo = {
+            status: error.statusCode || error.response?.status,
             statusText: error.response?.statusText,
             endpoint: '/api.php?action=submitPayment',
             message: error.message,
-            responseData: error.response?.data,
+            responseData: error.responseData || error.response?.data,
             billingCycleId,
             roomId,
             amount
-        });
+        };
+        console.error('submitPayment error details:', errorInfo);
 
-        // 2. Handle Network Errors Gracefully
+        // Handle Network Errors Gracefully
         if (!error.response && error.request) {
             throw new Error("Unable to connect to the server. Please check your internet connection and try again.");
         }
 
-        // 3. Fallback to API error message or generic server error
-        if (error.response?.status >= 500) {
-            throw new Error("The payment could not be processed right now. Please try again later.");
+        // Fallback to API error message or user-friendly message
+        if (error.statusCode >= 500 || error.response?.status >= 500) {
+            throw new Error(error.responseData?.message || error.response?.data?.message || "The payment could not be processed right now. Please try again later.");
         }
 
-        throw error.response?.data?.message || error.message || "An unexpected error occurred while processing your payment.";
+        throw error.responseData?.message || error.response?.data?.message || error.message || "Unable to submit payment. Please check your payment details and try again.";
     }
 };
 

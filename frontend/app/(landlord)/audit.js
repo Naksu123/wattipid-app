@@ -1,6 +1,7 @@
 import { SafeAreaView } from 'react-native-safe-area-context';
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, ActivityIndicator, TouchableOpacity, RefreshControl, Modal  } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../styles/theme';
 import styles from '../../styles/landlord/audit.styles';
@@ -13,6 +14,27 @@ export default function AuditLogsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [selectedLog, setSelectedLog] = useState(null);
 
+  // Instant Cache Restoration (Stale-While-Revalidate)
+  useEffect(() => {
+    let isMounted = true;
+    const restoreCached = async () => {
+      try {
+        const cached = await AsyncStorage.getItem('@cached_landlord_audit_logs');
+        if (cached && isMounted) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setLogs(parsed);
+            setLoading(false);
+          }
+        }
+      } catch (err) {
+        console.warn('[AuditLogsScreen] Cache restore error:', err);
+      }
+    };
+    restoreCached();
+    return () => { isMounted = false; };
+  }, []);
+
   useEffect(() => {
     fetchLogs();
   }, []);
@@ -20,8 +42,9 @@ export default function AuditLogsScreen() {
   const fetchLogs = async () => {
     try {
       const response = await apiClient.post('/api.php', { action: 'getSystemAuditLogs' });
-      if (response.data.success) {
+      if (response.data.success && Array.isArray(response.data.data)) {
         setLogs(response.data.data);
+        AsyncStorage.setItem('@cached_landlord_audit_logs', JSON.stringify(response.data.data)).catch(() => {});
       }
     } catch (err) {
       console.error('Failed to fetch audit logs:', err);
@@ -73,7 +96,7 @@ export default function AuditLogsScreen() {
     );
   };
 
-  if (loading) {
+  if (loading && (!logs || logs.length === 0)) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.center}>

@@ -1,6 +1,7 @@
 import { SafeAreaView } from 'react-native-safe-area-context';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator, Animated, Pressable } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../styles/theme';
 import styles from '../../styles/landlord/notifications.styles';
@@ -12,7 +13,11 @@ import { useNotification } from '../../contexts/NotificationContext';
 
 const renderIcon = (type) => {
   switch (type) {
-    case 'payment': return { name: 'cash-outline', color: COLORS.success };
+    case 'payment':
+    case 'payment_submitted':
+    case 'payment_verified':
+    case 'payment_rejected':
+      return { name: 'cash-outline', color: COLORS.success };
     case 'penalty': return { name: 'warning-outline', color: COLORS.danger };
     case 'room': return { name: 'home-outline', color: COLORS.primary };
     case 'system': return { name: 'server-outline', color: COLORS.secondary };
@@ -22,7 +27,7 @@ const renderIcon = (type) => {
 
 const NotificationItem = ({ notif, onPress, onDelete }) => {
   const isUnread = parseInt(notif.is_read) === 0;
-  const { name, color } = renderIcon(notif.category || 'system');
+  const { name, color } = renderIcon(notif.category || notif.type || 'system');
   const dateStr = new Date(notif.created_at).toLocaleString();
 
   // Strip common emoticons and emojis
@@ -74,15 +79,33 @@ export default function NotificationCenter() {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState(null);
 
+  // Instant Cache Restoration (Stale-While-Revalidate)
   useEffect(() => {
-    if (user?.id) {
-      fetchNotifications();
-    }
-  }, [user?.id]);
+    let isMounted = true;
+    const restoreCached = async () => {
+      try {
+        const cached = await AsyncStorage.getItem('@cached_landlord_notifications');
+        if (cached && isMounted) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setNotifications(parsed);
+            setLoading(false);
+          }
+        }
+      } catch (err) {
+        console.warn('[LandlordNotifications] Cache restore error:', err);
+      }
+    };
+    restoreCached();
+    return () => { isMounted = false; };
+  }, []);
 
-  const fetchNotifications = async () => {
+  const fetchNotifications = useCallback(async () => {
+    if (!user?.id) return;
     try {
+      setError(null);
       const response = await apiClient.post('/api.php', { 
         action: 'getNotifications', 
         limit: 50,
@@ -90,15 +113,30 @@ export default function NotificationCenter() {
         role: user?.role
       });
       if (response.data.success) {
-        setNotifications(response.data.data);
+        const list = response.data.data || [];
+        setNotifications(list);
+        AsyncStorage.setItem('@cached_landlord_notifications', JSON.stringify(list)).catch(() => {});
+      } else {
+        setNotifications(prev => {
+          if (prev.length === 0) setError(response.data.message || 'Unable to load notifications.');
+          return prev;
+        });
       }
     } catch (err) {
       console.error('Failed to fetch notifications:', err);
+      setNotifications(prev => {
+        if (prev.length === 0) setError('Unable to load notifications. Please check your connection.');
+        return prev;
+      });
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [user?.id, user?.role]);
+
+  useEffect(() => {
+    fetchNotifications();
+  }, [fetchNotifications]);
 
   const handleRefresh = () => {
     setRefreshing(true);
@@ -112,7 +150,11 @@ export default function NotificationCenter() {
         userId: user?.id,
         role: user?.role 
       });
-      setNotifications(prev => prev.map(n => ({ ...n, is_read: 1 })));
+      setNotifications(prev => {
+        const updated = prev.map(n => ({ ...n, is_read: 1 }));
+        AsyncStorage.setItem('@cached_landlord_notifications', JSON.stringify(updated)).catch(() => {});
+        return updated;
+      });
       refreshUnreadCount();
     } catch (err) {
       console.error('Failed to mark all as read:', err);
@@ -141,14 +183,17 @@ export default function NotificationCenter() {
     }
 
     // 2. Deep linking based on type
-    if (notif.type === 'payment_submitted') {
+    if (notif.type === 'payment_submitted' || notif.type === 'payment_verified' || notif.type === 'payment_rejected') {
       try {
-        const data = notif.data_json ? JSON.parse(notif.data_json) : null;
-        if (data && data.paymentId) {
+        const data = typeof notif.data_json === 'string' ? JSON.parse(notif.data_json) : (notif.data_json || {});
+        if (data?.paymentId) {
           router.push(`/(landlord)/payments?paymentId=${data.paymentId}`);
+        } else {
+          router.push(`/(landlord)/payments`);
         }
       } catch (e) {
         console.warn('Failed to parse notification data_json:', e);
+        router.push(`/(landlord)/payments`);
       }
     }
   };
@@ -161,6 +206,7 @@ export default function NotificationCenter() {
         role: user?.role 
       });
       setNotifications([]);
+      AsyncStorage.removeItem('@cached_landlord_notifications').catch(() => {});
       refreshUnreadCount();
     } catch (err) {
       console.error('Failed to clear all notifications:', err);
@@ -175,16 +221,18 @@ export default function NotificationCenter() {
         userId: user?.id,
         role: user?.role
       });
-      setNotifications(prev => prev.filter(n => n.id !== id));
+      setNotifications(prev => {
+        const filtered = prev.filter(n => n.id !== id);
+        AsyncStorage.setItem('@cached_landlord_notifications', JSON.stringify(filtered)).catch(() => {});
+        return filtered;
+      });
       refreshUnreadCount();
     } catch (err) {
       console.error('Failed to delete notification:', err);
     }
   };
 
-
-
-  if (loading) {
+  if (loading && (!notifications || notifications.length === 0)) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.center}>
@@ -215,7 +263,28 @@ export default function NotificationCenter() {
         contentContainerStyle={styles.scroll}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={COLORS.primary} />}
       >
-        {notifications.length === 0 ? (
+        {error ? (
+          <View style={styles.emptyContainer}>
+            <View style={[styles.emptyIconBox, { backgroundColor: 'rgba(239, 68, 68, 0.12)' }]}>
+              <Ionicons name="alert-circle-outline" size={48} color={COLORS.danger} />
+            </View>
+            <Text style={styles.emptyTitle}>Unable to load notifications</Text>
+            <Text style={styles.emptyText}>{error}</Text>
+            <TouchableOpacity 
+              onPress={handleRefresh} 
+              style={{
+                marginTop: 16,
+                paddingHorizontal: 20,
+                paddingVertical: 10,
+                backgroundColor: COLORS.primary,
+                borderRadius: 12
+              }}
+              activeOpacity={0.8}
+            >
+              <Text style={{ color: '#FFF', fontWeight: '600', fontSize: 14 }}>Retry</Text>
+            </TouchableOpacity>
+          </View>
+        ) : notifications.length === 0 ? (
            <View style={styles.emptyContainer}>
              <View style={styles.emptyIconBox}>
                <Ionicons name="notifications-off-outline" size={48} color={COLORS.primary} />

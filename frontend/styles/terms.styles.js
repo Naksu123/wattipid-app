@@ -1,159 +1,185 @@
-import { StyleSheet, Platform } from 'react-native';
-import { COLORS, FONT_SIZE, FONT_WEIGHT, SPACING, RADIUS } from './theme';
+import { StyleSheet, Platform, StatusBar } from 'react-native';
+import { COLORS } from './theme';
 
 export default StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: COLORS.background,
-    },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: SPACING.lg,
-        paddingTop: Platform.OS === 'android' ? 40 : SPACING.lg,
-        paddingBottom: SPACING.md,
-        backgroundColor: 'rgba(15, 23, 42, 0.95)',
-        borderBottomWidth: 1,
-        borderBottomColor: 'rgba(255,255,255,0.05)',
-        zIndex: 10,
-    },
-    backButton: {
-        padding: 8,
-        marginRight: 8,
-    },
-    headerTitleContainer: {
-        flex: 1,
-    },
-    headerTitle: {
-        fontSize: FONT_SIZE.xl,
-        fontWeight: FONT_WEIGHT.heavy,
-        color: COLORS.textPrimary,
-    },
-    lastUpdated: {
-        fontSize: FONT_SIZE.xs,
-        color: COLORS.primary,
-        fontWeight: FONT_WEIGHT.bold,
-        marginTop: 2,
-    },
-    searchContainer: {
-        paddingHorizontal: SPACING.lg,
-        paddingVertical: SPACING.md,
-        backgroundColor: COLORS.background,
-    },
-    searchBox: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: 'rgba(255,255,255,0.05)',
-        borderWidth: 1,
-        borderColor: COLORS.border,
-        borderRadius: RADIUS.md,
-        paddingHorizontal: SPACING.md,
-        height: 48,
-    },
-    searchInput: {
-        flex: 1,
-        height: '100%',
-        color: COLORS.textPrimary,
-        fontSize: FONT_SIZE.md,
-        marginLeft: SPACING.sm,
-    },
-    scrollView: {
-        flex: 1,
-    },
-    scrollContent: {
-        paddingHorizontal: SPACING.lg,
-        paddingBottom: SPACING.xl,
-    },
-    introText: {
-        fontSize: FONT_SIZE.sm,
-        color: COLORS.textMuted,
-        marginBottom: SPACING.lg,
-        lineHeight: 20,
-    },
-    sectionCard: {
-        marginBottom: SPACING.sm,
-        padding: 0,
-        overflow: 'hidden',
-    },
-    sectionHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        padding: SPACING.md,
-    },
-    sectionTitle: {
-        fontSize: FONT_SIZE.md,
-        fontWeight: FONT_WEIGHT.bold,
-        color: COLORS.textPrimary,
-        flex: 1,
-        paddingRight: SPACING.md,
-    },
-    sectionContent: {
-        paddingHorizontal: SPACING.md,
-        paddingBottom: SPACING.md,
-        borderTopWidth: 1,
-        borderTopColor: 'rgba(255,255,255,0.05)',
-        paddingTop: SPACING.sm,
-    },
-    sectionText: {
-        fontSize: FONT_SIZE.sm,
-        color: COLORS.textSecondary,
-        lineHeight: 22,
-    },
-    emptyContainer: {
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: 60,
-    },
-    emptyText: {
-        marginTop: SPACING.md,
-        fontSize: FONT_SIZE.md,
-        color: COLORS.textMuted,
-    },
-    footer: {
-        padding: SPACING.lg,
-        backgroundColor: 'rgba(15, 23, 42, 0.98)',
-        borderTopWidth: 1,
-        borderTopColor: 'rgba(255,255,255,0.1)',
-        paddingBottom: Platform.OS === 'ios' ? 34 : SPACING.lg,
-    },
-    checkboxContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: SPACING.lg,
-    },
-    checkbox: {
-        width: 24,
-        height: 24,
-        borderRadius: 6,
-        borderWidth: 2,
-        borderColor: COLORS.primary,
-        marginRight: SPACING.md,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    checkboxActive: {
-        backgroundColor: COLORS.primary,
-    },
-    checkboxLabel: {
-        flex: 1,
-        fontSize: FONT_SIZE.sm,
-        color: COLORS.textPrimary,
-        fontWeight: FONT_WEIGHT.bold,
-    },
-    acceptButton: {
-        backgroundColor: COLORS.primary,
-        height: 54,
-        borderRadius: RADIUS.md,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    acceptButtonDisabled: {
-        backgroundColor: 'rgba(34,197,94,0.3)',
-    },
-    acceptButtonText: {
-        color: COLORS.white,
-        fontSize: FONT_SIZE.md,
-        fontWeight: FONT_WEIGHT.bold,
-    }
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+  },
+
+  // Header (Matches Screenshot 1)
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: Platform.OS === 'ios' ? 56 : (StatusBar.currentHeight || 20) + 14,
+    paddingBottom: 12,
+    gap: 12,
+  },
+  backButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 11,
+    backgroundColor: '#0C1322',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTitleContainer: {
+    flex: 1,
+  },
+  headerTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.4,
+  },
+  lastUpdated: {
+    fontSize: 12,
+    color: '#10B981',
+    fontWeight: '700',
+    marginTop: 1,
+  },
+
+  // Search Bar
+  searchContainer: {
+    paddingHorizontal: 16,
+    marginBottom: 10,
+  },
+  searchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#0C1322',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 13,
+    paddingHorizontal: 12,
+    height: 42,
+    gap: 8,
+  },
+  searchInput: {
+    flex: 1,
+    color: '#FFFFFF',
+    fontSize: 13.5,
+    paddingVertical: 0,
+  },
+
+  // Content
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 24,
+  },
+  introText: {
+    fontSize: 12.5,
+    color: '#94A3B8',
+    marginBottom: 14,
+    lineHeight: 19,
+  },
+
+  // Accordion Card (Matches Screenshot 1)
+  sectionCard: {
+    backgroundColor: '#0C1322',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    marginBottom: 8,
+    overflow: 'hidden',
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 14,
+  },
+  sectionTitle: {
+    fontSize: 13.5,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    flex: 1,
+    paddingRight: 10,
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+  },
+  sectionContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.04)',
+  },
+  sectionText: {
+    fontSize: 13,
+    color: '#CBD5E1',
+    lineHeight: 21,
+  },
+
+  // Empty / Loading States
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 50,
+  },
+  emptyText: {
+    marginTop: 10,
+    fontSize: 13,
+    color: '#64748B',
+    textAlign: 'center',
+  },
+
+  // Bottom Acceptance Footer (Matches Screenshot 1)
+  footer: {
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
+    backgroundColor: '#070D18',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  checkboxContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: '#10B981',
+    marginRight: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkboxActive: {
+    backgroundColor: '#10B981',
+  },
+  checkboxLabel: {
+    flex: 1,
+    fontSize: 12.5,
+    color: '#FFFFFF',
+    fontWeight: '600',
+    lineHeight: 18,
+  },
+  acceptButton: {
+    backgroundColor: '#10B981',
+    height: 48,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  acceptButtonDisabled: {
+    backgroundColor: 'rgba(16, 185, 129, 0.2)',
+  },
+  acceptButtonText: {
+    color: '#042F2E',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  acceptButtonTextDisabled: {
+    color: 'rgba(255, 255, 255, 0.4)',
+  },
 });
