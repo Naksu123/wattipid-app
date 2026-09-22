@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, TouchableOpacity, Image, ActivityIndicator, ScrollView, TextInput, Pressable, Animated } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { getAvailableBillingCycles, getMultipleSettings } from '../../services/database';
 import { submitPayment } from '../../services/paymentService';
 import { useAuth } from '../../contexts/AuthContext';
@@ -203,15 +203,17 @@ export default function TenantPaymentScreen() {
                 chosen = cycles.find(c => String(c.id) === String(cycleId));
             }
             if (!chosen) {
-                // If no specific cycle targeted, prefer overdue first, else first unpaid, else completed
+                // If no specific cycle targeted, prefer actionable overdue first, else actionable unpaid, else pending, else completed
                 const overdueFirst = unpaid.find(c => c.payment_status === 'overdue');
-                chosen = overdueFirst || unpaid[0] || cycles.find(c => c.status === 'completed') || null;
+                const actionableUnpaid = unpaid.find(c => c.payment_status !== 'pending_verification');
+                chosen = overdueFirst || actionableUnpaid || unpaid[0] || cycles.find(c => c.status === 'completed') || null;
             }
 
             setBillingCycle(chosen);
             let computedBillType = 'current';
             if (chosen) {
-                const isOverdue = type === 'overdue' || chosen.payment_status === 'overdue' || (chosen.days_overdue && chosen.days_overdue > 0);
+                const isCycPending = chosen.payment_status === 'pending_verification';
+                const isOverdue = !isCycPending && (type === 'overdue' || chosen.payment_status === 'overdue' || (chosen.days_overdue && chosen.days_overdue > 0));
                 computedBillType = isOverdue ? 'overdue' : 'current';
                 setBillType(computedBillType);
             }
@@ -262,9 +264,16 @@ export default function TenantPaymentScreen() {
         fetchData();
     }, [fetchData]);
 
+    useFocusEffect(
+        useCallback(() => {
+            fetchData();
+        }, [fetchData])
+    );
+
     const selectCycle = (cycle) => {
         setBillingCycle(cycle);
-        const isOverdue = cycle.payment_status === 'overdue' || (cycle.days_overdue && cycle.days_overdue > 0);
+        const isCycPending = cycle.payment_status === 'pending_verification';
+        const isOverdue = !isCycPending && (cycle.payment_status === 'overdue' || (cycle.days_overdue && cycle.days_overdue > 0));
         setBillType(isOverdue ? 'overdue' : 'current');
         setStep(1);
         setPaymentMethod(null);
@@ -331,12 +340,22 @@ export default function TenantPaymentScreen() {
         }
     };
 
-    // Calculate authoritative targeted amount
-    const targetDue = (cycleId && String(billingCycle?.id) === String(cycleId) && amount && parseFloat(amount) > 0)
-        ? parseFloat(amount)
-        : calculateCycleAmount(billingCycle, billType);
+    // Calculate authoritative targeted amount (Prioritize fresh server data over stale navigation params)
+    const liveCalculatedDue = calculateCycleAmount(billingCycle, billType);
+    const targetDue = liveCalculatedDue > 0
+        ? liveCalculatedDue
+        : (amount && parseFloat(amount) > 0 ? parseFloat(amount) : 0);
 
     const handleSubmit = async () => {
+        if (billingCycle?.payment_status === 'pending_verification') {
+            showModal({
+                type: 'warning',
+                title: 'Payment Under Review',
+                message: `A payment for Invoice ${billingCycle.invoice_number || 'this cycle'} has already been submitted and is currently awaiting landlord verification. You do not need to make another payment.`
+            });
+            return;
+        }
+
         if (!paymentMethod) {
             showModal({ type: 'error', title: 'Error', message: 'Please select a payment method.' });
             return;
@@ -467,7 +486,8 @@ export default function TenantPaymentScreen() {
                         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.switcherScroll}>
                             {allCycles.map((c) => {
                                 const isSel = billingCycle?.id === c.id;
-                                const isCycOverdue = c.payment_status === 'overdue' || (c.days_overdue && c.days_overdue > 0);
+                                const isCycPending = c.payment_status === 'pending_verification';
+                                const isCycOverdue = !isCycPending && (c.payment_status === 'overdue' || (c.days_overdue && c.days_overdue > 0));
                                 const cycDue = calculateCycleAmount(c, isCycOverdue ? 'overdue' : 'current');
                                 return (
                                     <TouchableOpacity
@@ -476,13 +496,13 @@ export default function TenantPaymentScreen() {
                                         onPress={() => selectCycle(c)}
                                     >
                                         <Ionicons 
-                                            name={isCycOverdue ? "alert-circle" : "document-text"} 
+                                            name={isCycPending ? "time-outline" : (isCycOverdue ? "alert-circle" : "document-text")} 
                                             size={14} 
-                                            color={isSel ? '#60A5FA' : (isCycOverdue ? COLORS.danger : COLORS.textMuted)} 
+                                            color={isSel ? '#60A5FA' : (isCycPending ? '#F59E0B' : (isCycOverdue ? COLORS.danger : COLORS.textMuted))} 
                                             style={{ marginRight: 6 }} 
                                         />
-                                        <Text style={[styles.invoiceChipText, isSel && styles.invoiceChipTextActive]}>
-                                            {c.invoice_number || `INV-${c.id}`} (₱{cycDue.toFixed(2)})
+                                        <Text style={[styles.invoiceChipText, isSel && styles.invoiceChipTextActive, isCycPending && !isSel && { color: '#F59E0B' }]}>
+                                            {c.invoice_number || `INV-${c.id}`} {isCycPending ? '(Pending Review)' : `(₱${cycDue.toFixed(2)})`}
                                         </Text>
                                     </TouchableOpacity>
                                 );
@@ -495,18 +515,20 @@ export default function TenantPaymentScreen() {
                 <View style={styles.heroCard}>
                     <View style={[
                         styles.targetBadge, 
-                        billType === 'overdue' ? styles.targetBadgeOverdue : styles.targetBadgeCurrent
+                        isPending 
+                            ? { backgroundColor: 'rgba(245, 158, 11, 0.15)' } 
+                            : (billType === 'overdue' ? styles.targetBadgeOverdue : styles.targetBadgeCurrent)
                     ]}>
                         <Ionicons 
-                            name={billType === 'overdue' ? "warning-outline" : "shield-checkmark-outline"} 
+                            name={isPending ? "time-outline" : (billType === 'overdue' ? "warning-outline" : "shield-checkmark-outline")} 
                             size={13} 
-                            color={billType === 'overdue' ? COLORS.danger : COLORS.success} 
+                            color={isPending ? '#F59E0B' : (billType === 'overdue' ? COLORS.danger : COLORS.success)} 
                         />
                         <Text style={[
                             styles.targetBadgeText, 
-                            { color: billType === 'overdue' ? COLORS.danger : COLORS.success }
+                            { color: isPending ? '#F59E0B' : (billType === 'overdue' ? COLORS.danger : COLORS.success) }
                         ]}>
-                            {billType === 'overdue' ? 'Overdue Invoice' : 'Current Bill'}
+                            {isPending ? 'Pending Verification' : (billType === 'overdue' ? 'Overdue Invoice' : 'Current Bill')}
                         </Text>
                     </View>
 

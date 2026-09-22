@@ -228,7 +228,7 @@ export default function LandlordRegisterScreen() {
                 <Ionicons name="key-outline" size={18} color="#64748B" style={styles.inputIcon} />
                 <TextInput
                   style={styles.input}
-                  placeholder="Enter WATTIPID-ADMIN"
+                  placeholder="Enter authorization passcode"
                   placeholderTextColor="#475569"
                   value={adminCode}
                   onChangeText={(val) => {
@@ -240,7 +240,7 @@ export default function LandlordRegisterScreen() {
               </View>
               {errors.adminCode && <Text style={styles.errorText}>{errors.adminCode}</Text>}
               <Text style={styles.helperText}>
-                Requires landlord master authorization code (default: WATTIPID-ADMIN).
+                Requires landlord master authorization code.
               </Text>
             </View>
 

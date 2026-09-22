@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator, LayoutAnimation, Platform, UIManager } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useCopilot, CopilotStep, walkthroughable } from 'react-native-copilot';
 import { useTourAutoStart, useTourContext } from '@/contexts/TourContext';
@@ -144,6 +144,12 @@ export default function TenantBillingScreen() {
         fetchOverview();
     }, [fetchOverview]);
 
+    useFocusEffect(
+        useCallback(() => {
+            fetchOverview();
+        }, [fetchOverview])
+    );
+
     const onRefresh = () => {
         setRefreshing(true);
         fetchOverview();
@@ -197,7 +203,10 @@ export default function TenantBillingScreen() {
     };
     const hasCurrentBill = currentBillState === 'generated' && !!currentBill;
     const isCycleActive = currentBillState === 'cycle_active' && !!activeCycle;
-    const hasOverdue = !!overviewData?.has_overdue && overdueBills.length > 0;
+    const hasPreviousBills = overdueBills.length > 0;
+    const hasActionableOverdue = overdueBills.some(b => b.payment_status !== 'pending_verification' && !b.is_pending_verification);
+    const hasPendingVerificationBills = overdueBills.some(b => b.payment_status === 'pending_verification' || b.is_pending_verification);
+    const hasOverdue = hasActionableOverdue;
 
     const currentStatusConfig = currentBill ? getStatusConfig(currentBill.payment_status) : null;
     const isCurrentPaid = currentBill?.payment_status === 'paid';
@@ -574,35 +583,65 @@ export default function TenantBillingScreen() {
                    ═══════════════════════════════════════════════════════════ */}
                 <View style={styles.sectionHeaderRow}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                        <Text style={styles.sectionTitleWarning}>OVERDUE BALANCES</Text>
-                        {hasOverdue && (
-                            <View style={styles.countBadge}>
-                                <Text style={styles.countBadgeText}>{overdueBills.length}</Text>
+                        <Text style={hasActionableOverdue ? styles.sectionTitleWarning : styles.sectionTitlePrimary}>
+                            {hasActionableOverdue ? 'OVERDUE BALANCES' : (hasPendingVerificationBills ? 'PREVIOUS BILLS (PENDING APPROVAL)' : 'PREVIOUS BILLS')}
+                        </Text>
+                        {hasPreviousBills && (
+                            <View style={[styles.countBadge, !hasActionableOverdue && { backgroundColor: 'rgba(245, 158, 11, 0.2)' }]}>
+                                <Text style={[styles.countBadgeText, !hasActionableOverdue && { color: '#F59E0B' }]}>{overdueBills.length}</Text>
                             </View>
                         )}
                     </View>
                 </View>
 
-                {hasOverdue ? (
+                {hasPreviousBills ? (
                     <View style={{ gap: 12 }}>
                         {overdueBills.map((item) => {
                             const isExpanded = expandedOverdueId === item.id;
+                            const isPending = item.payment_status === 'pending_verification' || item.is_pending_verification;
                             return (
-                                <GlassCard key={item.id} style={styles.overdueCard}>
+                                <GlassCard 
+                                    key={item.id} 
+                                    style={[
+                                        styles.overdueCard,
+                                        isPending && { 
+                                            borderColor: 'rgba(245, 158, 11, 0.35)', 
+                                            backgroundColor: 'rgba(245, 158, 11, 0.04)' 
+                                        }
+                                    ]}
+                                >
                                     <View style={styles.cardHeaderRow}>
                                         <View style={{ flex: 1, marginRight: 8 }}>
-                                            <Text style={styles.overdueInvoiceLabel}>Previous Billing</Text>
+                                            <Text style={[styles.overdueInvoiceLabel, isPending && { color: '#F59E0B' }]}>
+                                                {isPending ? 'Payment Under Review' : 'Previous Billing'}
+                                            </Text>
                                             <Text style={styles.overdueInvoiceValue} numberOfLines={1}>
                                                 {item.invoice_number || `WT-2026-${item.id}`}
                                             </Text>
                                         </View>
-                                        <View style={styles.daysLateBadge}>
-                                            <Ionicons name="time-outline" size={12} color="#EF4444" />
-                                            <Text style={styles.daysLateText}>
-                                                {item.days_overdue > 0 ? `${item.days_overdue} Days Late` : 'Overdue'}
+                                        {isPending ? (
+                                            <View style={styles.pendingVerifBadge}>
+                                                <Ionicons name="time" size={12} color="#F59E0B" />
+                                                <Text style={styles.pendingVerifText}>Pending Verification</Text>
+                                            </View>
+                                        ) : (
+                                            <View style={styles.daysLateBadge}>
+                                                <Ionicons name="time-outline" size={12} color="#EF4444" />
+                                                <Text style={styles.daysLateText}>
+                                                    {item.days_overdue > 0 ? `${item.days_overdue} Days Late` : 'Overdue'}
+                                                </Text>
+                                            </View>
+                                        )}
+                                    </View>
+
+                                    {isPending && (
+                                        <View style={styles.pendingBannerBox}>
+                                            <Ionicons name="hourglass-outline" size={14} color="#D97706" />
+                                            <Text style={styles.pendingBannerText} numberOfLines={2}>
+                                                Payment submitted {item.pending_payment?.amount ? `(₱${parseFloat(item.pending_payment.amount).toFixed(2)} via ${item.pending_payment?.payment_method || 'GCash'}${item.pending_payment?.reference_number ? ` • Ref: ${item.pending_payment.reference_number}` : ''})` : ''}. Awaiting landlord approval.
                                             </Text>
                                         </View>
-                                    </View>
+                                    )}
 
                                     <Text style={styles.overduePeriodText} numberOfLines={1}>
                                         Billing Period: {formatDate(item.cycle_start)} – {formatDate(item.cycle_end)}
@@ -617,19 +656,19 @@ export default function TenantBillingScreen() {
                                         </View>
                                         <View style={styles.overdueCol}>
                                             <Text style={styles.overdueSubLabel} numberOfLines={1}>Late Penalty</Text>
-                                            <Text style={[styles.overdueSubValue, { color: COLORS.danger }]} numberOfLines={1}>
+                                            <Text style={[styles.overdueSubValue, { color: isPending ? '#F59E0B' : COLORS.danger }]} numberOfLines={1}>
                                                 +₱{parseFloat(item.penalty_amount || 0).toFixed(2)}
                                             </Text>
                                         </View>
                                         <View style={[styles.overdueCol, { alignItems: 'flex-end' }]}>
-                                            <Text style={styles.overdueSubLabel} numberOfLines={1}>Total Overdue</Text>
-                                            <Text style={styles.overdueTotalValue} numberOfLines={1}>
+                                            <Text style={styles.overdueSubLabel} numberOfLines={1}>{isPending ? 'Submitted Total' : 'Total Overdue'}</Text>
+                                            <Text style={[styles.overdueTotalValue, isPending && { color: '#F59E0B' }]} numberOfLines={1}>
                                                 ₱{parseFloat(item.total_overdue || 0).toFixed(2)}
                                             </Text>
                                         </View>
                                     </View>
 
-                                    {/* Action Buttons for Overdue Bill - 100% Overflow Protected */}
+                                    {/* Action Buttons for Overdue / Pending Bill - 100% Overflow Protected */}
                                     <View style={styles.btnRow}>
                                         <TouchableOpacity 
                                             style={styles.secondaryBtn} 
@@ -648,30 +687,53 @@ export default function TenantBillingScreen() {
                                             </Text>
                                         </TouchableOpacity>
 
-                                        <TouchableOpacity 
-                                            style={styles.overduePayBtn}
-                                            onPress={() => router.push({
-                                                pathname: '/(tenant)/payment',
-                                                params: { 
-                                                    cycleId: item.id, 
-                                                    type: 'overdue',
-                                                    amount: item.total_overdue,
-                                                    invoiceNumber: item.invoice_number 
-                                                }
-                                            })}
-                                            activeOpacity={0.85}
-                                        >
-                                            <Ionicons name="warning-outline" size={14} color="#fff" />
-                                            <Text 
-                                                style={styles.overduePayBtnText} 
-                                                numberOfLines={1} 
-                                                ellipsizeMode="tail"
-                                                adjustsFontSizeToFit={true}
-                                                minimumFontScale={0.75}
+                                        {isPending ? (
+                                            <TouchableOpacity 
+                                                style={styles.pendingDisabledBtn}
+                                                onPress={() => showModal({
+                                                    type: 'info',
+                                                    title: 'Payment Under Review',
+                                                    message: `Your payment of ₱${parseFloat(item.pending_payment?.amount || item.total_overdue || 0).toFixed(2)} (${item.pending_payment?.payment_method || 'GCash'}${item.pending_payment?.reference_number ? `, Ref: ${item.pending_payment.reference_number}` : ''}) for Invoice ${item.invoice_number} was received and is awaiting landlord verification. You do not need to make another payment.`
+                                                })}
+                                                activeOpacity={0.8}
                                             >
-                                                Pay Overdue
-                                            </Text>
-                                        </TouchableOpacity>
+                                                <Ionicons name="time-outline" size={14} color="#D97706" />
+                                                <Text 
+                                                    style={styles.pendingDisabledBtnText} 
+                                                    numberOfLines={1} 
+                                                    ellipsizeMode="tail"
+                                                    adjustsFontSizeToFit={true}
+                                                    minimumFontScale={0.75}
+                                                >
+                                                    Awaiting Approval
+                                                </Text>
+                                            </TouchableOpacity>
+                                        ) : (
+                                            <TouchableOpacity 
+                                                style={styles.overduePayBtn}
+                                                onPress={() => router.push({
+                                                    pathname: '/(tenant)/payment',
+                                                    params: { 
+                                                        cycleId: item.id, 
+                                                        type: 'overdue',
+                                                        amount: item.total_overdue,
+                                                        invoiceNumber: item.invoice_number 
+                                                    }
+                                                })}
+                                                activeOpacity={0.85}
+                                            >
+                                                <Ionicons name="warning-outline" size={14} color="#fff" />
+                                                <Text 
+                                                    style={styles.overduePayBtnText} 
+                                                    numberOfLines={1} 
+                                                    ellipsizeMode="tail"
+                                                    adjustsFontSizeToFit={true}
+                                                    minimumFontScale={0.75}
+                                                >
+                                                    Pay Overdue
+                                                </Text>
+                                            </TouchableOpacity>
+                                        )}
                                     </View>
 
                                     {/* Expandable Details for this Overdue Bill - Overflow Protected */}
@@ -687,7 +749,7 @@ export default function TenantBillingScreen() {
                                             </View>
                                             <View style={styles.detailRow}>
                                                 <Text style={styles.detailLabel} numberOfLines={1}>Late Payment Penalty</Text>
-                                                <Text style={[styles.detailValue, { color: COLORS.danger }]} numberOfLines={1}>
+                                                <Text style={[styles.detailValue, { color: isPending ? '#F59E0B' : COLORS.danger }]} numberOfLines={1}>
                                                     ₱{parseFloat(item.penalty_amount || 0).toFixed(2)}
                                                 </Text>
                                             </View>
@@ -699,9 +761,17 @@ export default function TenantBillingScreen() {
                                                     </Text>
                                                 </View>
                                             )}
+                                            {isPending && item.pending_payment && (
+                                                <View style={styles.detailRow}>
+                                                    <Text style={[styles.detailLabel, { color: '#F59E0B' }]} numberOfLines={1}>Payment Under Review</Text>
+                                                    <Text style={[styles.detailValue, { color: '#F59E0B', fontWeight: '700' }]} numberOfLines={1}>
+                                                        ₱{parseFloat(item.pending_payment.amount || 0).toFixed(2)} ({item.pending_payment.payment_method})
+                                                    </Text>
+                                                </View>
+                                            )}
                                             <View style={[styles.detailRow, styles.detailRowTotal]}>
-                                                <Text style={styles.detailTotalLabel} numberOfLines={1}>Total Outstanding</Text>
-                                                <Text style={styles.detailTotalValue} numberOfLines={1}>
+                                                <Text style={styles.detailTotalLabel} numberOfLines={1}>{isPending ? 'Total Submitted' : 'Total Outstanding'}</Text>
+                                                <Text style={[styles.detailTotalValue, isPending && { color: '#F59E0B' }]} numberOfLines={1}>
                                                     ₱{parseFloat(item.total_overdue || 0).toFixed(2)}
                                                 </Text>
                                             </View>
@@ -755,12 +825,28 @@ export default function TenantBillingScreen() {
                         </Text>
                     </View>
 
+                    {parseFloat(totalOutstanding.pending_verification || 0) > 0 && (
+                        <View style={styles.summaryRow}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                                <Ionicons name="time-outline" size={13} color="#F59E0B" />
+                                <Text style={[styles.summaryLabel, { color: '#F59E0B' }]}>Pending Verification</Text>
+                            </View>
+                            <Text style={[styles.summaryValue, { color: '#F59E0B', fontWeight: '700' }]}>
+                                ₱{parseFloat(totalOutstanding.pending_verification).toFixed(2)}
+                            </Text>
+                        </View>
+                    )}
+
                     <View style={styles.summaryDivider} />
 
                     <View style={styles.grandTotalRow}>
                         <View style={{ flex: 1, marginRight: 8 }}>
                             <Text style={styles.grandTotalLabel}>Total Outstanding</Text>
-                            <Text style={styles.summaryCaption} numberOfLines={2}>Summary of all active & prior unsettled charges</Text>
+                            <Text style={styles.summaryCaption} numberOfLines={2}>
+                                {parseFloat(totalOutstanding.pending_verification || 0) > 0
+                                    ? 'Payable balance (excludes pending verification payments)'
+                                    : 'Summary of all active & prior unsettled charges'}
+                            </Text>
                         </View>
                         <Text style={styles.grandTotalValue}>
                             ₱{parseFloat(totalOutstanding.grand_total || 0).toFixed(2)}
@@ -772,14 +858,15 @@ export default function TenantBillingScreen() {
                         <TouchableOpacity
                             style={styles.optionsBtn}
                             onPress={() => {
-                                const target = (hasOverdue && overdueBills[0]) ? overdueBills[0] : currentBill;
+                                const firstActionableOverdue = overdueBills.find(b => b.payment_status !== 'pending_verification' && !b.is_pending_verification);
+                                const target = firstActionableOverdue || (currentBill?.payment_status !== 'pending_verification' ? currentBill : null);
                                 if (target) {
                                     router.push({
                                         pathname: '/(tenant)/payment',
                                         params: { 
                                             cycleId: target.id, 
-                                            type: hasOverdue ? 'overdue' : 'current',
-                                            amount: hasOverdue ? target.total_overdue : target.amount_due,
+                                            type: firstActionableOverdue ? 'overdue' : 'current',
+                                            amount: firstActionableOverdue ? target.total_overdue : target.amount_due,
                                             invoiceNumber: target.invoice_number 
                                         }
                                     });
@@ -1324,6 +1411,33 @@ const styles = StyleSheet.create({
     overdueInvoiceValue: { fontSize: 14, fontWeight: '700', color: COLORS.textPrimary, marginTop: 2 },
     daysLateBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(239, 68, 68, 0.15)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: RADIUS.full, flexShrink: 0 },
     daysLateText: { fontSize: 11, fontWeight: '700', color: '#EF4444' },
+    pendingVerifBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(245, 158, 11, 0.15)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: RADIUS.full, flexShrink: 0 },
+    pendingVerifText: { fontSize: 11, fontWeight: '700', color: '#F59E0B' },
+    pendingBannerBox: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(245, 158, 11, 0.1)', borderWidth: 1, borderColor: 'rgba(245, 158, 11, 0.25)', borderRadius: RADIUS.md, padding: 10, marginBottom: 10 },
+    pendingBannerText: { fontSize: 11.5, color: '#FBBF24', flex: 1, lineHeight: 16 },
+    pendingDisabledBtn: { 
+        flex: 1, 
+        minWidth: 0,
+        flexDirection: 'row', 
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        gap: 6, 
+        paddingVertical: 10, 
+        paddingHorizontal: 6, 
+        borderRadius: RADIUS.md, 
+        backgroundColor: 'rgba(245, 158, 11, 0.15)',
+        borderWidth: 1,
+        borderColor: 'rgba(245, 158, 11, 0.3)',
+        minHeight: 42,
+        overflow: 'hidden',
+    },
+    pendingDisabledBtnText: { 
+        fontSize: 11.5, 
+        fontWeight: '700', 
+        color: '#F59E0B', 
+        flexShrink: 1,
+        textAlign: 'center',
+    },
     overduePeriodText: { fontSize: 12, color: COLORS.textMuted, marginBottom: 12, marginTop: 2 },
     overdueGrid: { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: 'rgba(0,0,0,0.2)', padding: 12, borderRadius: RADIUS.md, marginBottom: 12, width: '100%' },
     overdueCol: { flex: 1, marginRight: 4 },
