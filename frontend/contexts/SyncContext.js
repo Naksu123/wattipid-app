@@ -135,7 +135,7 @@ export const SyncProvider = ({ children }) => {
       performSync(); // Initial sync
       // Create interval ONLY ONCE
       if (!syncInterval.current) {
-        syncInterval.current = setInterval(performSync, 2000); // 2 SECOND POLLING (Slightly relaxed to avoid 429)
+        syncInterval.current = setInterval(performSync, 4000); // 4 SECOND POLLING (Prevents JS thread congestion and battery drain)
       }
     }
 

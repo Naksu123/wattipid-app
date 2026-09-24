@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, StatusBar } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, StatusBar, Switch } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
@@ -7,13 +7,12 @@ import { useModal } from '../../contexts/ModalContext';
 import { getSetting, setSetting } from '../../services/database';
 import { updatePenaltySettings, getPenaltySettings } from '../../services/penaltyService';
 import { BaseModal, ModalHeader, ModalBody, ModalFooter, SignOutModal } from '../../components/modals/BaseModal';
-import { Switch } from 'react-native';
 import { COLORS } from '../../styles/theme';
 import styles from '../../styles/landlord/settings.styles';
 
 export default function LandlordSettings() {
   const router = useRouter();
-  const { user, logout, updateProfile } = useAuth();
+  const { user, logout, updateProfile, changePassword } = useAuth();
   const { showModal } = useModal();
   
   // Rate state
@@ -25,6 +24,17 @@ export default function LandlordSettings() {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(user?.name || '');
   const [email, setEmail] = useState(user?.email || '');
+
+  // Change Password state
+  const [passwordModalVisible, setPasswordModalVisible] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [passwordError, setPasswordError] = useState('');
 
   // Notifications state
   const [notifVisible, setNotifVisible] = useState(false);
@@ -96,6 +106,57 @@ export default function LandlordSettings() {
     const r = await updateProfile(name, email);
     if (r.success) { showModal({ type: 'success', title: 'Success', message: 'Profile updated' }); setEditing(false); }
     else showModal({ type: 'error', title: 'Error', message: r.message || 'Failed to update' });
+  };
+
+  const handleOpenPasswordModal = () => {
+    setCurrentPassword('');
+    setNewPassword('');
+    setConfirmPassword('');
+    setShowCurrentPassword(false);
+    setShowNewPassword(false);
+    setShowConfirmPassword(false);
+    setPasswordError('');
+    setPasswordModalVisible(true);
+  };
+
+  const handleSavePassword = async () => {
+    setPasswordError('');
+
+    if (!currentPassword) {
+      setPasswordError('Please enter your current password.');
+      return;
+    }
+    if (!newPassword) {
+      setPasswordError('Please enter a new password.');
+      return;
+    }
+    if (newPassword.length < 6) {
+      setPasswordError('New password must be at least 6 characters.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordError('New passwords do not match.');
+      return;
+    }
+
+    try {
+      setPasswordLoading(true);
+      const res = await changePassword(currentPassword, newPassword);
+      if (res && res.success) {
+        setPasswordModalVisible(false);
+        showModal({
+          type: 'success',
+          title: 'Password Updated',
+          message: 'Your administrator login password has been changed successfully.',
+        });
+      } else {
+        setPasswordError(res?.message || 'Failed to update password. Please verify your current password.');
+      }
+    } catch (err) {
+      setPasswordError(err?.message || 'An unexpected error occurred while changing your password.');
+    } finally {
+      setPasswordLoading(false);
+    }
   };
 
   const handleLogout = () => setLogoutConfirmVisible(true);
@@ -209,6 +270,18 @@ export default function LandlordSettings() {
             <Ionicons name="create-outline" size={14} color="#10B981" />
             <Text style={styles.editProfileText}>Edit Account Details</Text>
           </TouchableOpacity>
+        </View>
+
+        {/* ================= ACCOUNT & SECURITY ================= */}
+        <Text style={styles.groupTitle}>ACCOUNT & SECURITY</Text>
+        <View style={styles.menuCard}>
+          <MenuItem 
+            icon="key-outline" 
+            label="Change Password" 
+            value="Update administrator login password" 
+            onPress={handleOpenPasswordModal} 
+            iconColor="#10B981"
+          />
         </View>
 
         {/* ================= FACILITY TOOLS ================= */}
@@ -340,6 +413,91 @@ export default function LandlordSettings() {
           </View>
         </ModalBody>
         <ModalFooter primaryLabel="Save Changes" onPrimaryPress={handleSaveProfile} secondaryLabel="Cancel" onSecondaryPress={() => setEditing(false)} />
+      </BaseModal>
+
+      {/* Change Password Modal */}
+      <BaseModal visible={passwordModalVisible} onClose={() => !passwordLoading && setPasswordModalVisible(false)}>
+        <ModalHeader title="Change Password" icon="key" onClose={() => !passwordLoading && setPasswordModalVisible(false)} />
+        <ModalBody>
+          <View style={styles.form}>
+            {passwordError ? (
+              <View style={styles.passwordErrorBox}>
+                <Ionicons name="alert-circle" size={16} color="#EF4444" />
+                <Text style={styles.passwordErrorText}>{passwordError}</Text>
+              </View>
+            ) : null}
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>CURRENT PASSWORD</Text>
+              <View style={styles.passwordWrapper}>
+                <TextInput
+                  style={styles.passwordInput}
+                  value={currentPassword}
+                  onChangeText={(val) => { setCurrentPassword(val); setPasswordError(''); }}
+                  placeholder="Enter current password"
+                  placeholderTextColor={COLORS.textMuted}
+                  secureTextEntry={!showCurrentPassword}
+                  autoCapitalize="none"
+                />
+                <TouchableOpacity
+                  style={styles.passwordEye}
+                  onPress={() => setShowCurrentPassword(!showCurrentPassword)}
+                >
+                  <Ionicons name={showCurrentPassword ? 'eye-off-outline' : 'eye-outline'} size={18} color="#64748B" />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>NEW PASSWORD</Text>
+              <View style={styles.passwordWrapper}>
+                <TextInput
+                  style={styles.passwordInput}
+                  value={newPassword}
+                  onChangeText={(val) => { setNewPassword(val); setPasswordError(''); }}
+                  placeholder="At least 6 characters"
+                  placeholderTextColor={COLORS.textMuted}
+                  secureTextEntry={!showNewPassword}
+                  autoCapitalize="none"
+                />
+                <TouchableOpacity
+                  style={styles.passwordEye}
+                  onPress={() => setShowNewPassword(!showNewPassword)}
+                >
+                  <Ionicons name={showNewPassword ? 'eye-off-outline' : 'eye-outline'} size={18} color="#64748B" />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>CONFIRM NEW PASSWORD</Text>
+              <View style={styles.passwordWrapper}>
+                <TextInput
+                  style={styles.passwordInput}
+                  value={confirmPassword}
+                  onChangeText={(val) => { setConfirmPassword(val); setPasswordError(''); }}
+                  placeholder="Re-type new password"
+                  placeholderTextColor={COLORS.textMuted}
+                  secureTextEntry={!showConfirmPassword}
+                  autoCapitalize="none"
+                />
+                <TouchableOpacity
+                  style={styles.passwordEye}
+                  onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                >
+                  <Ionicons name={showConfirmPassword ? 'eye-off-outline' : 'eye-outline'} size={18} color="#64748B" />
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </ModalBody>
+        <ModalFooter
+          primaryLabel={passwordLoading ? 'Updating...' : 'Update Password'}
+          onPrimaryPress={handleSavePassword}
+          primaryDisabled={passwordLoading}
+          secondaryLabel="Cancel"
+          onSecondaryPress={() => !passwordLoading && setPasswordModalVisible(false)}
+        />
       </BaseModal>
 
       {/* Notifications Modal */}

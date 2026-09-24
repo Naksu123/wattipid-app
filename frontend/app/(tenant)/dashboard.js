@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { View, Text, ScrollView, RefreshControl, TouchableOpacity, Animated, Easing } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useIsFocused } from '@react-navigation/native';
@@ -384,84 +384,99 @@ export default function DashboardScreen() {
   const roomLabel = formatRoomOnly(user?.room_name || user?.room_id || roomId);
 
   // Actual IoT readings only for Today's Wattage Trend (strictly no simulated/fake/interpolated data)
-  const validHourlyPoints = Array.isArray(hourlyData)
-    ? hourlyData.filter(d => (Number(d.entries) > 0 && (Number(d.avgPower) > 0 || Number(d.peakPower) > 0)))
-    : [];
+  const {
+    chartWidth,
+    chartHeight,
+    padX,
+    padY,
+    plotHeight,
+    coords,
+    hasActualSensorData,
+    segmentPaths,
+  } = useMemo(() => {
+    const validHourlyPoints = Array.isArray(hourlyData)
+      ? hourlyData.filter(d => (Number(d.entries) > 0 && (Number(d.avgPower) > 0 || Number(d.peakPower) > 0)))
+      : [];
 
-  const chartWidth = 320;
-  const chartHeight = 85;
-  const padX = 14;
-  const padY = 12;
-  const plotWidth = chartWidth - padX * 2;
-  const plotHeight = chartHeight - padY * 2;
+    const cWidth = 320;
+    const cHeight = 85;
+    const pX = 14;
+    const pY = 12;
+    const pWidth = cWidth - pX * 2;
+    const pHeight = cHeight - pY * 2;
 
-  // Build actual coordinates strictly from confirmed IoT readings
-  let coords = validHourlyPoints.map(p => {
-    const hour = Math.min(Math.max(parseInt(p.hour, 10) || 0, 0), 23);
-    const power = Number(p.avgPower || p.peakPower || 0);
-    return { hour, power };
-  });
-
-  // Include current live reading only if device is actively online and reporting wattage
-  if (!offline && deviceOnline && data.power > 0) {
-    const currentHour = new Date().getHours();
-    const existingIdx = coords.findIndex(c => c.hour === currentHour);
-    if (existingIdx >= 0) {
-      coords[existingIdx] = { hour: currentHour, power: Number(data.power) };
-    } else {
-      coords.push({ hour: currentHour, power: Number(data.power) });
-    }
-  }
-
-  // Sort by hour ascending
-  coords.sort((a, b) => a.hour - b.hour);
-
-  const hasActualSensorData = coords.length > 0;
-  let segmentPaths = [];
-
-  if (hasActualSensorData) {
-    const maxActualWattage = Math.max(...coords.map(c => c.power), 100);
-
-    // Compute pixel coordinates
-    coords = coords.map(c => {
-      const x = padX + (c.hour / 23) * plotWidth;
-      const y = padY + plotHeight - (c.power / maxActualWattage) * plotHeight;
-      return { ...c, x, y };
+    let pts = validHourlyPoints.map(p => {
+      const hour = Math.min(Math.max(parseInt(p.hour, 10) || 0, 0), 23);
+      const power = Number(p.avgPower || p.peakPower || 0);
+      return { hour, power };
     });
 
-    // Group into contiguous consecutive hour segments so we NEVER interpolate over missing periods
-    const segments = [];
-    let currentSegment = [];
-
-    for (let i = 0; i < coords.length; i++) {
-      if (currentSegment.length === 0) {
-        currentSegment.push(coords[i]);
+    if (!offline && deviceOnline && data.power > 0) {
+      const currentHour = new Date().getHours();
+      const existingIdx = pts.findIndex(c => c.hour === currentHour);
+      if (existingIdx >= 0) {
+        pts[existingIdx] = { hour: currentHour, power: Number(data.power) };
       } else {
-        const prev = currentSegment[currentSegment.length - 1];
-        if (coords[i].hour === prev.hour + 1) {
-          currentSegment.push(coords[i]);
+        pts.push({ hour: currentHour, power: Number(data.power) });
+      }
+    }
+
+    pts.sort((a, b) => a.hour - b.hour);
+    const hasData = pts.length > 0;
+    let paths = [];
+
+    if (hasData) {
+      const maxActualWattage = Math.max(...pts.map(c => c.power), 100);
+
+      pts = pts.map(c => {
+        const x = pX + (c.hour / 23) * pWidth;
+        const y = pY + pHeight - (c.power / maxActualWattage) * pHeight;
+        return { ...c, x, y };
+      });
+
+      const segments = [];
+      let currentSegment = [];
+
+      for (let i = 0; i < pts.length; i++) {
+        if (currentSegment.length === 0) {
+          currentSegment.push(pts[i]);
         } else {
-          segments.push(currentSegment);
-          currentSegment = [coords[i]];
+          const prev = currentSegment[currentSegment.length - 1];
+          if (pts[i].hour === prev.hour + 1) {
+            currentSegment.push(pts[i]);
+          } else {
+            segments.push(currentSegment);
+            currentSegment = [pts[i]];
+          }
         }
       }
-    }
-    if (currentSegment.length > 0) {
-      segments.push(currentSegment);
+      if (currentSegment.length > 0) {
+        segments.push(currentSegment);
+      }
+
+      paths = segments.filter(seg => seg.length > 1).map(seg => {
+        let path = `M ${seg[0].x} ${seg[0].y}`;
+        for (let i = 1; i < seg.length; i++) {
+          const prev = seg[i - 1];
+          const curr = seg[i];
+          const midX = (prev.x + curr.x) / 2;
+          path += ` C ${midX} ${prev.y}, ${midX} ${curr.y}, ${curr.x} ${curr.y}`;
+        }
+        return path;
+      });
     }
 
-    // Create spline for each consecutive segment only (leaving gaps empty)
-    segmentPaths = segments.filter(seg => seg.length > 1).map(seg => {
-      let path = `M ${seg[0].x} ${seg[0].y}`;
-      for (let i = 1; i < seg.length; i++) {
-        const prev = seg[i - 1];
-        const curr = seg[i];
-        const midX = (prev.x + curr.x) / 2;
-        path += ` C ${midX} ${prev.y}, ${midX} ${curr.y}, ${curr.x} ${curr.y}`;
-      }
-      return path;
-    });
-  }
+    return {
+      chartWidth: cWidth,
+      chartHeight: cHeight,
+      padX: pX,
+      padY: pY,
+      plotHeight: pHeight,
+      coords: pts,
+      hasActualSensorData: hasData,
+      segmentPaths: paths,
+    };
+  }, [hourlyData, offline, deviceOnline, data.power]);
 
   return (
     <View style={ms.container}>
@@ -831,14 +846,29 @@ export default function DashboardScreen() {
           <CopilotView>
             {!tipDismissed && (
               <View style={ms.tipBannerCard}>
-                <View style={ms.tipIconBadge}>
-                  <Ionicons name="leaf" size={17} color="#10B981" />
+                <View style={[
+                  ms.tipIconBadge,
+                  smartTip?.color ? {
+                    backgroundColor: `${smartTip.color}1F`,
+                    borderColor: `${smartTip.color}40`,
+                  } : null
+                ]}>
+                  <Ionicons 
+                    name={smartTip?.icon || 'leaf'} 
+                    size={17} 
+                    color={smartTip?.color || '#10B981'} 
+                  />
                 </View>
-                <Text style={ms.tipMessageText} numberOfLines={2}>
-                  {smartTip
-                    ? (smartTip.message || smartTip.tip)
-                    : (randomTip?.message || 'Tip: Ironing clothes in bulk during off-peak hours (10PM-6AM) saves up to ₱120/month.')}
-                </Text>
+                <View style={ms.tipTextContainer}>
+                  {smartTip?.title ? (
+                    <Text style={ms.tipTitleText}>{smartTip.title}</Text>
+                  ) : null}
+                  <Text style={ms.tipMessageText}>
+                    {smartTip
+                      ? (smartTip.message || smartTip.tip)
+                      : (randomTip?.message || 'Tip: Ironing clothes in bulk during off-peak hours (10PM-6AM) saves up to ₱120/month.')}
+                  </Text>
+                </View>
                 <TouchableOpacity 
                   style={ms.tipDismissBtn}
                   onPress={() => setTipDismissed(true)}

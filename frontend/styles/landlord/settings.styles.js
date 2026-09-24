@@ -262,4 +262,41 @@ export default StyleSheet.create({
     color: '#64748B', 
     marginTop: 1 
   },
+  passwordWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#070D18',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  passwordInput: {
+    flex: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    color: '#FFFFFF',
+    fontSize: 13.5,
+  },
+  passwordEye: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  passwordErrorBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.25)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginBottom: 4,
+  },
+  passwordErrorText: {
+    flex: 1,
+    fontSize: 12,
+    color: '#EF4444',
+    lineHeight: 16,
+  },
 });

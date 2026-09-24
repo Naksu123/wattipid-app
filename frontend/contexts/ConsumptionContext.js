@@ -167,15 +167,34 @@ export const ConsumptionProvider = ({ children }) => {
             }
 
             if (!sensorData.online) {
-              setData({
-                voltage: 0,
-                current: 0,
-                power: 0,
-                energy: sensorData.energy || 0,
-                powerFactor: 0
+              setData(prev => {
+                if (prev && !prev.online && prev.energy === (sensorData.energy || 0) && prev.power === 0) {
+                  return prev;
+                }
+                return {
+                  voltage: 0,
+                  current: 0,
+                  power: 0,
+                  energy: sensorData.energy || 0,
+                  powerFactor: 0,
+                  online: false
+                };
               });
             } else {
-              setData(sensorData);
+              setData(prev => {
+                if (
+                  prev &&
+                  prev.power === sensorData.power &&
+                  prev.energy === sensorData.energy &&
+                  prev.voltage === sensorData.voltage &&
+                  prev.current === sensorData.current &&
+                  prev.powerFactor === sensorData.powerFactor &&
+                  prev.online === sensorData.online
+                ) {
+                  return prev; // Identical readings — skip triggering re-renders across the app!
+                }
+                return sensorData;
+              });
             }
           }
         }

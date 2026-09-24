@@ -236,9 +236,9 @@ export async function getConsumptionComparison(roomId, period = 'weekly', tenant
     const data = await apiCall('getConsumptionComparison', { roomId, period, tenantName }, options);
     
     const currEnergy = parseFloat(data?.current?.totalEnergy);
-    const currCost = parseFloat(data?.current?.totalCost);
+    const currCost = parseFloat(data?.current?.electricityCharge !== undefined ? data?.current?.electricityCharge : data?.current?.totalCost);
     const prevEnergy = parseFloat(data?.previous?.totalEnergy);
-    const prevCost = parseFloat(data?.previous?.totalCost);
+    const prevCost = parseFloat(data?.previous?.electricityCharge !== undefined ? data?.previous?.electricityCharge : data?.previous?.totalCost);
 
     const current = {
       totalEnergy: Number.isFinite(currEnergy) ? Math.max(0, currEnergy) : 0,

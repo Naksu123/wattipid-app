@@ -928,10 +928,10 @@ export default StyleSheet.create({
     fontWeight: '600',
   },
 
-  // Energy Tip Banner
+  // Energy Tip Banner / Smart Insights Card
   tipBannerCard: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     backgroundColor: '#0C1322',
     borderRadius: 18,
     borderWidth: 1,
@@ -949,16 +949,30 @@ export default StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
+    marginTop: 1,
+    flexShrink: 0,
+  },
+  tipTextContainer: {
+    flex: 1,
+    marginRight: 6,
+  },
+  tipTitleText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#F1F5F9',
+    marginBottom: 3,
+    letterSpacing: 0.1,
   },
   tipMessageText: {
-    flex: 1,
     fontSize: 12.5,
     color: '#94A3B8',
-    lineHeight: 18,
+    lineHeight: 18.5,
   },
   tipDismissBtn: {
     padding: 4,
-    marginLeft: 8,
+    marginLeft: 6,
+    marginTop: 1,
+    flexShrink: 0,
   },
 });
 
