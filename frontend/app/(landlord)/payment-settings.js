@@ -10,13 +10,11 @@ import { getSetting, setSetting } from '../../services/database';
 import { useModal } from '../../contexts/ModalContext';
 import GlassCard from '../../components/ui/GlassCard';
 import { COLORS } from '../../styles/theme';
-import { Switch } from 'react-native';
 
 export default function PaymentSettings() {
   const router = useRouter();
   const { showModal } = useModal();
 
-  const [partialPayments, setPartialPayments] = useState(false);
   const [gcashName, setGcashName] = useState('');
   const [gcashNumber, setGcashNumber] = useState('');
   const [gcashQrBase64, setGcashQrBase64] = useState(null);
@@ -31,8 +29,6 @@ export default function PaymentSettings() {
 
   const loadSettings = async () => {
     try {
-      const pp = await getSetting('partial_payments_enabled');
-      if (pp !== null) setPartialPayments(pp === 'true');
       const gn = await getSetting('gcash_name');
       if (gn) setGcashName(gn);
       const gnum = await getSetting('gcash_number');
@@ -92,7 +88,6 @@ export default function PaymentSettings() {
     setSaving(true);
     try {
       await Promise.all([
-        setSetting('partial_payments_enabled', partialPayments.toString()),
         setSetting('gcash_name', gcashName),
         setSetting('gcash_number', gcashNumber),
         setSetting('maya_name', mayaName),
@@ -121,21 +116,6 @@ export default function PaymentSettings() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <GlassCard style={styles.card}>
-          <View style={styles.toggleRow}>
-            <View style={styles.toggleContent}>
-              <Text style={styles.toggleLabel}>Enable Partial Payments</Text>
-              <Text style={styles.toggleDesc}>Allow tenants to pay their bills partially</Text>
-            </View>
-            <Switch
-              value={partialPayments}
-              onValueChange={setPartialPayments}
-              trackColor={{ false: COLORS.surfaceLight, true: 'rgba(34,197,94,0.35)' }}
-              thumbColor={partialPayments ? COLORS.primary : COLORS.textMuted}
-            />
-          </View>
-        </GlassCard>
-
         <Text style={styles.sectionTitle}>GCASH DETAILS</Text>
         <GlassCard style={styles.card}>
           <View style={styles.inputGroup}>
@@ -192,10 +172,6 @@ const styles = StyleSheet.create({
   scroll: { padding: 20, paddingBottom: 60 },
   sectionTitle: { fontSize: 13, fontWeight: 'bold', color: COLORS.textMuted, marginTop: 24, marginBottom: 12, marginLeft: 4, letterSpacing: 1 },
   card: { padding: 20, borderRadius: 24, marginBottom: 16 },
-  toggleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  toggleContent: { flex: 1, paddingRight: 16 },
-  toggleLabel: { fontSize: 16, fontWeight: '600', color: COLORS.textPrimary },
-  toggleDesc: { fontSize: 13, color: COLORS.textSecondary, marginTop: 4 },
   inputGroup: { marginBottom: 20 },
   label: { fontSize: 12, fontWeight: 'bold', color: COLORS.textMuted, marginBottom: 8, letterSpacing: 0.5 },
   input: { backgroundColor: 'rgba(15, 23, 42, 0.6)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14, color: COLORS.textPrimary, fontSize: 15 },

@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
   ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator, StyleSheet, Image,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
@@ -20,11 +21,28 @@ export default function LandlordLoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   const [errors, setErrors] = useState({});
 
   // Terms Update Handling
   const [termsModalVisible, setTermsModalVisible] = useState(false);
   const [pendingRole, setPendingRole] = useState(null);
+
+  useEffect(() => {
+    const loadRemembered = async () => {
+      try {
+        const savedEmail = await AsyncStorage.getItem('remember_landlord_email');
+        const isRemembered = await AsyncStorage.getItem('remember_landlord_enabled');
+        if (savedEmail && isRemembered === 'true') {
+          setEmail(savedEmail);
+          setRememberMe(true);
+        }
+      } catch (e) {
+        console.warn('Failed to load remembered landlord email:', e);
+      }
+    };
+    loadRemembered();
+  }, []);
 
   const validate = () => {
     const e = {};
@@ -38,6 +56,13 @@ export default function LandlordLoginScreen() {
     if (!validate()) return;
     const result = await login(email.trim(), password);
     if (result?.success) {
+      if (rememberMe) {
+        await AsyncStorage.setItem('remember_landlord_email', email.trim());
+        await AsyncStorage.setItem('remember_landlord_enabled', 'true');
+      } else {
+        await AsyncStorage.removeItem('remember_landlord_email');
+        await AsyncStorage.removeItem('remember_landlord_enabled');
+      }
       const role = result?.user?.role || 'landlord';
       
       if (result.requiresTerms) {
@@ -178,14 +203,29 @@ export default function LandlordLoginScreen() {
               {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
             </View>
 
-            {/* Forgot Password Link */}
-            <TouchableOpacity 
-              style={styles.forgotRow}
-              activeOpacity={0.8}
-              onPress={() => router.push({ pathname: '/(auth)/forgot-password', params: { role: 'landlord' } })}
-            >
-              <Text style={styles.forgotText}>Forgot Password?</Text>
-            </TouchableOpacity>
+            {/* Options Row: Remember Me & Forgot Password */}
+            <View style={styles.optionsRow}>
+              <TouchableOpacity 
+                style={styles.rememberMeWrap}
+                activeOpacity={0.7}
+                onPress={() => setRememberMe((prev) => !prev)}
+              >
+                <Ionicons 
+                  name={rememberMe ? 'checkbox' : 'square-outline'} 
+                  size={19} 
+                  color={rememberMe ? '#60A5FA' : '#64748B'} 
+                />
+                <Text style={styles.rememberMeText}>Remember Me</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={styles.forgotRow}
+                activeOpacity={0.8}
+                onPress={() => router.push({ pathname: '/(auth)/forgot-password', params: { role: 'landlord' } })}
+              >
+                <Text style={styles.forgotText}>Forgot Password?</Text>
+              </TouchableOpacity>
+            </View>
 
             {/* Primary Sign In Button */}
             <TouchableOpacity 
@@ -355,9 +395,25 @@ const styles = StyleSheet.create({
     marginTop: 5,
     marginLeft: 4,
   },
-  forgotRow: {
-    alignSelf: 'flex-end',
+  optionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 20,
+    marginTop: 2,
+  },
+  rememberMeWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+  },
+  rememberMeText: {
+    fontSize: 13,
+    color: '#94A3B8',
+    fontWeight: '500',
+  },
+  forgotRow: {
+    paddingVertical: 2,
   },
   forgotText: {
     fontSize: 13,

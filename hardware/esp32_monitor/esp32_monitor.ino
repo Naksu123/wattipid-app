@@ -8,6 +8,7 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include <HTTPClient.h>
+#include <Preferences.h>
 #include <WiFi.h>
 #include <Wire.h>
 
@@ -31,13 +32,20 @@ const float ZMPT_CALIBRATION = 626.0;
 const float CURRENT_NOISE_GATE = 0.01; // Min Amps to consider real load
 const float VOLTAGE_NOISE_GATE = 50.0; // Min Volts to consider valid AC
 
-// --- SENSORS & DISPLAY ---
+// --- SENSORS, DISPLAY & PERSISTENCE ---
 EnergyMonitor emonCT; // We will use EmonLib ONLY for current
 
 Adafruit_SSD1306 display(128, 64, &Wire, -1);
+Preferences preferences;
+
 float totalKWh = 0;
+float lastSavedKWh = 0;
 unsigned long lastMillis = 0;
 unsigned long lastSendMillis = 0;
+unsigned long lastPrefSaveMillis = 0;
+unsigned long lastWifiRetryMillis = 0;
+const unsigned long WIFI_RETRY_INTERVAL = 10000;      // 10-second non-blocking retry
+const unsigned long TELEMETRY_SEND_INTERVAL = 3000;   // 3-second telemetry interval to prevent DB flooding
 
 // =====================================================
 // MANUAL VOLTAGE READING
@@ -104,10 +112,29 @@ void setup() {
   Serial.println("CT pin: " + String(CT_PIN) +
                  " | ZMPT pin: " + String(ZMPT_PIN));
 
+  // Initialize persistent storage for totalKWh
+  preferences.begin("wattipid", false);
+  totalKWh = preferences.getFloat("totalKWh", 0.0f);
+  lastSavedKWh = totalKWh;
+  Serial.print("Restored cumulative energy from NVS: ");
+  Serial.print(totalKWh, 4);
+  Serial.println(" kWh");
+
   lastMillis = millis();
 }
 
 void loop() {
+  // --- 0) NON-BLOCKING WIFI RECONNECT ---
+  if (WiFi.status() != WL_CONNECTED) {
+    unsigned long currentMillis = millis();
+    if (currentMillis - lastWifiRetryMillis >= WIFI_RETRY_INTERVAL) {
+      lastWifiRetryMillis = currentMillis;
+      Serial.println("[WIFI] Connection lost. Attempting non-blocking reconnect...");
+      WiFi.disconnect();
+      WiFi.reconnect();
+    }
+  }
+
   // --- 1) READ VOLTAGE (manually) ---
   // We do this FIRST so the Capstone Simulator knows if the system is plugged
   // in!
@@ -194,12 +221,23 @@ void loop() {
   totalKWh += (power * (seconds / 3600.0)) / 1000.0;
   lastMillis = now;
 
+  // --- PERSIST CUMULATIVE ENERGY (Prevent Flash Wear: save every 0.01 kWh or 60s) ---
+  if ((totalKWh - lastSavedKWh) >= 0.01f || (now - lastPrefSaveMillis >= 60000 && totalKWh != lastSavedKWh)) {
+    preferences.putFloat("totalKWh", totalKWh);
+    lastSavedKWh = totalKWh;
+    lastPrefSaveMillis = now;
+  }
+
   // --- OLED DISPLAY ---
   display.clearDisplay();
   display.setTextSize(1);
   display.setCursor(0, 0);
   display.print("WATTIPID: ");
-  display.println(roomId);
+  display.print(roomId);
+  if (WiFi.status() != WL_CONNECTED) {
+    display.print(" [!]");
+  }
+  display.println();
   display.drawLine(0, 12, 128, 12, WHITE);
 
   display.setCursor(0, 20);
@@ -208,11 +246,12 @@ void loop() {
   display.printf("E: %.4fkWh", totalKWh);
   display.display();
 
-  // --- SEND TO API (NO DELAY - INSTANT REALTIME) ---
-  sendToApp(voltage, current, power, totalKWh);
+  // --- SEND TO API (Controlled interval to prevent database flooding) ---
+  if (now - lastSendMillis >= TELEMETRY_SEND_INTERVAL) {
+    sendToApp(voltage, current, power, totalKWh);
+    lastSendMillis = now;
+  }
 
-  // Removed the 2-second presentation delay so the dashboard gets data instantly!
-  // (We use a very tiny 50ms delay just to prevent WiFi stack crashes)
   delay(50);
 }
 
