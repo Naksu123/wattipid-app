@@ -1,8 +1,10 @@
 import { SafeAreaView } from 'react-native-safe-area-context';
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator, Animated, Pressable } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
+import { CopilotStep, walkthroughable } from 'react-native-copilot';
+import { useTourAutoStart } from '@/contexts/TourContext';
 import { COLORS } from '../../styles/theme';
 import styles from '../../styles/landlord/notifications.styles';
 import GlassCard from '../../components/ui/GlassCard';
@@ -10,6 +12,8 @@ import apiClient from '../../services/apiClient';
 import { router } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNotification } from '../../contexts/NotificationContext';
+
+const CopilotView = walkthroughable(View);
 
 const renderIcon = (type) => {
   switch (type) {
@@ -80,6 +84,9 @@ export default function NotificationCenter() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
+  const scrollViewRef = useRef(null);
+
+  useTourAutoStart('notifications', !loading, scrollViewRef, 'landlord');
 
   // Instant Cache Restoration (Stale-While-Revalidate)
   useEffect(() => {
@@ -260,9 +267,16 @@ export default function NotificationCenter() {
       </View>
       
       <ScrollView 
+        ref={scrollViewRef}
         contentContainerStyle={styles.scroll}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={COLORS.primary} />}
       >
+        <CopilotStep
+          text="Receive real-time alerts when tenants submit payments, and tap notifications to jump directly to verification."
+          order={12}
+          name="landlord_notifications_center"
+        >
+          <CopilotView style={{ width: '100%' }}>
         {error ? (
           <View style={styles.emptyContainer}>
             <View style={[styles.emptyIconBox, { backgroundColor: 'rgba(239, 68, 68, 0.12)' }]}>
@@ -302,6 +316,8 @@ export default function NotificationCenter() {
             />
           ))
         )}
+          </CopilotView>
+        </CopilotStep>
       </ScrollView>
     </SafeAreaView>
   );

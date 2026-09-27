@@ -71,7 +71,7 @@ export default function TenantLoginScreen() {
       } else {
         showModal({ type: 'error', title: 'Error', message: 'Failed to record terms acceptance. Please try again.' });
       }
-    } catch (e) {
+    } catch (_e) {
       showModal({ type: 'error', title: 'Error', message: 'Network error while accepting terms.' });
     }
   };
@@ -112,8 +112,12 @@ export default function TenantLoginScreen() {
 
           {/* Header Branding */}
           <View style={styles.headerBlock}>
-            <View style={styles.tenantIconAura}>
-              <Ionicons name="flash-outline" size={28} color="#10B981" />
+            <View style={styles.logoWrap}>
+              <Image 
+                source={require('../../assets/images/Wattipid-icon.png')}
+                style={styles.logoImage}
+                resizeMode="contain"
+              />
             </View>
             <Text style={styles.title}>Welcome Back, Tenant</Text>
             <Text style={styles.subtitle}>
@@ -279,16 +283,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 28,
   },
-  tenantIconAura: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+  logoWrap: {
+    width: 100,
+    height: 100,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.25)',
     marginBottom: 16,
+  },
+  logoImage: {
+    width: '100%',
+    height: '100%',
   },
   title: {
     fontSize: 24,

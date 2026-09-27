@@ -395,81 +395,87 @@ export default function TipsScreen() {
         {(!loading || allTips.length > 0) && (!error || allTips.length > 0) && (
           <>
             {/* ================= 3. SMART INSIGHT (COMPACT CARD) ================= */}
-            {selectedCategory === 'All' && !searchQuery && smartInsight && (
-              <View style={s.smartCard}>
-                <View style={s.smartTopRow}>
-                  <View style={s.smartBadge}>
-                    <Ionicons name="pulse" size={15} color="#10B981" />
-                    <Text style={s.smartBadgeText}>SMART INSIGHT</Text>
+            <CopilotStep
+              text="Provides personalized tips generated from your real-time submeter data to help optimize your daily habits."
+              order={11}
+              name="tips_smart_insights"
+            >
+              <CopilotView>
+                <View style={s.smartCard}>
+                  <View style={s.smartTopRow}>
+                    <View style={s.smartBadge}>
+                      <Ionicons name="pulse" size={15} color="#10B981" />
+                      <Text style={s.smartBadgeText}>SMART INSIGHT</Text>
+                    </View>
+                    {sensorData?.power > 0 && deviceOnline ? (
+                      <Text style={s.smartMetric}>Live: {Math.round(sensorData.power)}W</Text>
+                    ) : null}
                   </View>
-                  {sensorData?.power > 0 && deviceOnline ? (
-                    <Text style={s.smartMetric}>Live: {Math.round(sensorData.power)}W</Text>
-                  ) : null}
-                </View>
 
-                <Text style={s.smartTitle}>
-                  {smartInsight.title || 'Consumption Observation'}
-                </Text>
-                <Text style={s.smartMessage}>
-                  {smartInsight.message || smartInsight.tip || 'Monitoring your real-time electricity usage to help you maintain efficient daily habits.'}
-                </Text>
-              </View>
-            )}
+                  <Text style={s.smartTitle}>
+                    {smartInsight?.title || 'Consumption Observation'}
+                  </Text>
+                  <Text style={s.smartMessage}>
+                    {smartInsight?.message || smartInsight?.tip || 'Monitoring your real-time electricity usage to help you maintain efficient daily habits.'}
+                  </Text>
+                </View>
+              </CopilotView>
+            </CopilotStep>
 
             {/* ================= 4. TIP OF THE DAY (COMPACT HIGHLIGHTED CARD) ================= */}
-            {selectedCategory === 'All' && !searchQuery && tipOfTheDay && (
-              <CopilotStep
-                text="Tip of the Day provides a daily electricity-saving recommendation to help you develop better energy-saving habits."
-                order={10}
-                name="tips_of_the_day"
-              >
-                <CopilotView>
-                  <View style={s.todCard}>
-                    <View style={s.todHeaderRow}>
-                      <View style={s.todBadge}>
-                        <Ionicons name="sparkles" size={13} color="#F59E0B" />
-                        <Text style={s.todBadgeText}>TIP OF THE DAY</Text>
-                      </View>
-                      <Text style={s.todCategoryText}>
-                        {tipOfTheDay.category || 'Daily Habit'}
-                      </Text>
+            <CopilotStep
+              text="Features a fresh daily electricity-saving recommendation to help build sustainable energy conservation habits."
+              order={12}
+              name="tips_of_the_day"
+            >
+              <CopilotView>
+                <View style={s.todCard}>
+                  <View style={s.todHeaderRow}>
+                    <View style={s.todBadge}>
+                      <Ionicons name="sparkles" size={13} color="#F59E0B" />
+                      <Text style={s.todBadgeText}>TIP OF THE DAY</Text>
                     </View>
-
-                    <Text style={s.todTitle}>{tipOfTheDay.title}</Text>
-                    <Text style={s.todMessage}>{tipOfTheDay.message}</Text>
-
-                    <View style={s.todFooter}>
-                      <View style={s.todStatsRow}>
-                        <View style={s.todStatItem}>
-                          <Ionicons name="eye-outline" size={14} color="#64748B" />
-                          <Text style={s.todStatText}>{tipOfTheDay.viewsCount || 0} views</Text>
-                        </View>
-                      </View>
-
-                      <TouchableOpacity 
-                        style={[s.todLikeBtn, likedTipIds.has(tipOfTheDay.id) && s.todLikeBtnActive]}
-                        onPress={() => handleLikeTip(tipOfTheDay.id)}
-                        activeOpacity={0.75}
-                      >
-                        <Ionicons 
-                          name={likedTipIds.has(tipOfTheDay.id) ? "heart" : "heart-outline"} 
-                          size={14} 
-                          color="#EF4444" 
-                        />
-                        <Text style={s.todLikeText}>
-                          {tipOfTheDay.likesCount || 0}
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
+                    <Text style={s.todCategoryText}>
+                      {tipOfTheDay?.category || 'Daily Habit'}
+                    </Text>
                   </View>
-                </CopilotView>
-              </CopilotStep>
-            )}
+
+                  <Text style={s.todTitle}>{tipOfTheDay?.title || 'Turn Off When Unused'}</Text>
+                  <Text style={s.todMessage}>
+                    {tipOfTheDay?.message || 'Unplug electronics and chargers when leaving your dorm room to eliminate phantom power drain.'}
+                  </Text>
+
+                  <View style={s.todFooter}>
+                    <View style={s.todStatsRow}>
+                      <View style={s.todStatItem}>
+                        <Ionicons name="eye-outline" size={14} color="#64748B" />
+                        <Text style={s.todStatText}>{tipOfTheDay?.viewsCount || 0} views</Text>
+                      </View>
+                    </View>
+
+                    <TouchableOpacity 
+                      style={[s.todLikeBtn, tipOfTheDay && likedTipIds.has(tipOfTheDay.id) && s.todLikeBtnActive]}
+                      onPress={() => tipOfTheDay && handleLikeTip(tipOfTheDay.id)}
+                      activeOpacity={0.75}
+                    >
+                      <Ionicons 
+                        name={tipOfTheDay && likedTipIds.has(tipOfTheDay.id) ? "heart" : "heart-outline"} 
+                        size={14} 
+                        color="#EF4444" 
+                      />
+                      <Text style={s.todLikeText}>
+                        {tipOfTheDay?.likesCount || 0}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </CopilotView>
+            </CopilotStep>
 
             {/* ================= 5. GENERAL TIPS (REORGANIZED COMPACT SECTION) ================= */}
             <CopilotStep
-              text="This section provides electricity-saving recommendations designed to help you understand and improve your electricity consumption behavior."
-              order={9}
+              text="Explore categorized energy-saving tips across lighting, appliances, cooling, and dorm lifestyle practices."
+              order={13}
               name="tips_general"
             >
               <CopilotView>
@@ -604,21 +610,21 @@ export default function TipsScreen() {
             </CopilotStep>
 
             {/* ================= 6. TRENDING IN DORMS (COMPACT RANKED LIST) ================= */}
-            {selectedCategory === 'All' && !searchQuery && trendingTips.length > 0 && (
-              <CopilotStep
-                text="This section presents useful electricity-saving trends or practices among dorm users."
-                order={11}
-                name="tips_trending"
-              >
-                <CopilotView style={{ marginTop: 12 }}>
-                  <View style={s.sectionHeaderRow}>
-                    <View style={s.sectionTitleRow}>
-                      <Ionicons name="flame" size={15} color="#EF4444" />
-                      <Text style={s.sectionTitle}>TRENDING IN DORMS</Text>
-                    </View>
+            <CopilotStep
+              text="Discover top-voted energy conservation practices popular among other dormitory residents."
+              order={14}
+              name="tips_trending"
+            >
+              <CopilotView style={{ marginTop: 12 }}>
+                <View style={s.sectionHeaderRow}>
+                  <View style={s.sectionTitleRow}>
+                    <Ionicons name="flame" size={15} color="#EF4444" />
+                    <Text style={s.sectionTitle}>TRENDING IN DORMS</Text>
                   </View>
+                </View>
 
-                  {trendingTips.map((tip, idx) => {
+                {trendingTips.length > 0 ? (
+                  trendingTips.map((tip, idx) => {
                     const rankStyles = [
                       { bg: 'rgba(250, 204, 21, 0.16)', text: '#FACC15', border: 'rgba(250, 204, 21, 0.3)' }, // #1 Gold
                       { bg: 'rgba(148, 163, 184, 0.16)', text: '#CBD5E1', border: 'rgba(148, 163, 184, 0.3)' }, // #2 Silver
@@ -643,10 +649,14 @@ export default function TipsScreen() {
                         </View>
                       </View>
                     );
-                  })}
-                </CopilotView>
-              </CopilotStep>
-            )}
+                  })
+                ) : (
+                  <View style={s.emptyBox}>
+                    <Text style={s.emptySubtext}>Trending dormitory tips will appear here based on community votes.</Text>
+                  </View>
+                )}
+              </CopilotView>
+            </CopilotStep>
           </>
         )}
       </ScrollView>

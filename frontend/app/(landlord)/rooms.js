@@ -39,8 +39,12 @@ import RoomActionMenuModal from '../../components/RoomManagement/RoomActionMenuM
 import RoomFormModal from '../../components/RoomManagement/RoomFormModal';
 import RoomHistoryModal from '../../components/landlord/RoomHistoryModal';
 import ArchiveModal from '../../components/RoomManagement/ArchiveModal';
+import { CopilotStep, walkthroughable } from 'react-native-copilot';
+import { useTourAutoStart } from '@/contexts/TourContext';
 import { COLORS, GRADIENTS } from '@/styles/theme';
 import s from '@/styles/landlord/rooms.styles';
+
+const CopilotView = walkthroughable(View);
 
 export default function RoomsScreen() {
   const { showModal } = useModal();
@@ -55,6 +59,9 @@ export default function RoomsScreen() {
   const [filterActive, setFilterActive] = useState('All');
   const [rate, setRate] = useState(12.50);
   const [consumptionData, setConsumptionData] = useState({});
+
+  const flatListRef = useRef(null);
+  useTourAutoStart('rooms', !loading, flatListRef, 'landlord');
 
   // Action Menu Bottom Sheet
   const [actionMenuVisible, setActionMenuVisible] = useState(false);
@@ -620,91 +627,39 @@ export default function RoomsScreen() {
     }
   };
 
-  // 5. Header Component for FlatList (Sleek, Uncluttered, matches room-management.png)
-  const renderListHeader = () => (
-    <View style={s.listHeaderContainer}>
-      {/* ── Screen Title: Room Management ── */}
-      <View style={s.headerTitleWrap}>
-        <Text style={s.headerTitle}>Room Management</Text>
-      </View>
+  // 5. Memoized Key Extractor & Render Item
+  const keyExtractor = useCallback((item) => String(item.room_id || item.id), []);
 
-      {/* ── Inline Search & Add Row ── */}
-      <View style={s.actionRow}>
-        <View style={s.searchBarWrap}>
-          <Ionicons name="search" size={18} color="#64748B" />
-          <TextInput
-            style={s.searchInput}
-            placeholder="Search rooms..."
-            placeholderTextColor="#64748B"
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            autoCapitalize="none"
+  const renderItem = useCallback(({ item, index }) => (
+    index === 0 ? (
+      <CopilotStep
+        text="View room power usage, manage tenants, send invitation access codes, or export monthly room PDF reports."
+        order={6}
+        name="landlord_room_card"
+      >
+        <CopilotView style={s.cardWrapper}>
+          <RoomCard
+            room={item}
+            consumption={consumptionData[item.room_id]}
+            onManage={handleOpenActionMenu}
+            onMore={handleOpenActionMenu}
           />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery('')} style={s.searchClearBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Ionicons name="close-circle" size={18} color="#64748B" />
-            </TouchableOpacity>
-          )}
-        </View>
-
-        <TouchableOpacity
-          style={s.addBtn}
-          onPress={handleOpenAddRoom}
-          activeOpacity={0.8}
-          accessibilityLabel="Add Room"
-          accessibilityRole="button"
-        >
-          <Ionicons name="add" size={20} color="#FFFFFF" />
-          <Text style={s.addBtnText}>Add</Text>
-        </TouchableOpacity>
+        </CopilotView>
+      </CopilotStep>
+    ) : (
+      <View style={s.cardWrapper}>
+        <RoomCard
+          room={item}
+          consumption={consumptionData[item.room_id]}
+          onManage={handleOpenActionMenu}
+          onMore={handleOpenActionMenu}
+        />
       </View>
-
-      {/* ── Filter Tabs (Clean, Sleek, No nested badge clutter) ── */}
-      <View style={s.filtersScroll}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={s.filtersContent}
-        >
-          {[
-            { key: 'All', label: 'All' },
-            { key: 'Occupied', label: 'Occupied' },
-            { key: 'Vacant', label: 'Vacant' },
-            { key: 'Under Maintenance', label: 'Maintenance' },
-            { key: 'Not Available', label: 'Unavailable' },
-            { key: 'Archived', label: 'Archived' },
-          ].map((tab) => {
-            const isActive = filterActive === tab.key;
-            return (
-              <TouchableOpacity
-                key={tab.key}
-                style={[s.filterChipItem, isActive && s.filterChipItemActive]}
-                onPress={() => setFilterActive(tab.key)}
-                activeOpacity={0.75}
-              >
-                <Text style={[s.filterChipItemText, isActive && s.filterChipItemTextActive]}>
-                  {tab.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-      </View>
-
-      {/* Error Banner */}
-      {error && (
-        <View style={s.errorBanner}>
-          <Text style={s.errorText}>{error}</Text>
-          <TouchableOpacity style={s.retryBtn} onPress={loadRooms} activeOpacity={0.8}>
-            <Text style={s.retryBtnText}>Retry</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-    </View>
-  );
+    )
+  ), [consumptionData, handleOpenActionMenu]);
 
   // 6. Empty State
-  const renderEmptyState = () => {
+  const renderEmptyState = useCallback(() => {
     if (loading && (!rooms || rooms.length === 0)) {
       return (
         <View style={s.cardWrapper}>
@@ -744,26 +699,107 @@ export default function RoomsScreen() {
         )}
       </View>
     );
-  };
+  }, [loading, rooms, searchQuery, handleOpenAddRoom]);
 
   return (
     <SafeAreaView style={s.container} edges={['top']}>
       <StatusBar barStyle="light-content" backgroundColor="#070C18" />
 
-      <FlatList
-        data={loading && (!rooms || rooms.length === 0) ? [] : filteredRooms}
-        keyExtractor={(item) => String(item.room_id || item.id)}
-        renderItem={({ item }) => (
-          <View style={s.cardWrapper}>
-            <RoomCard
-              room={item}
-              consumption={consumptionData[item.room_id]}
-              onManage={handleOpenActionMenu}
-              onMore={handleOpenActionMenu}
-            />
+      {/* ── Screen Title & Filter/Action Bar (Stably mounted above list) ── */}
+      <View style={s.listHeaderContainer}>
+        {/* Screen Title: Room Management */}
+        <View style={s.headerTitleWrap}>
+          <Text style={s.headerTitle}>Room Management</Text>
+        </View>
+
+        {/* Inline Search & Add Row and Filter Tabs (Step 5) */}
+        <CopilotStep
+          text="Search units, filter by status (Occupied, Vacant, Maintenance), or tap Add to create a new room."
+          order={5}
+          name="landlord_rooms_header"
+        >
+          <CopilotView style={{ width: '100%' }}>
+            <View style={s.actionRow}>
+              <View style={s.searchBarWrap}>
+                <Ionicons name="search" size={18} color="#64748B" />
+                <TextInput
+                  style={s.searchInput}
+                  placeholder="Search rooms..."
+                  placeholderTextColor="#64748B"
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  autoCapitalize="none"
+                />
+                {searchQuery.length > 0 && (
+                  <TouchableOpacity onPress={() => setSearchQuery('')} style={s.searchClearBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                    <Ionicons name="close-circle" size={18} color="#64748B" />
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              <TouchableOpacity
+                style={s.addBtn}
+                onPress={handleOpenAddRoom}
+                activeOpacity={0.8}
+                accessibilityLabel="Add Room"
+                accessibilityRole="button"
+              >
+                <Ionicons name="add" size={20} color="#FFFFFF" />
+                <Text style={s.addBtnText}>Add</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Filter Tabs */}
+            <View style={s.filtersScroll}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={s.filtersContent}
+              >
+                {[
+                  { key: 'All', label: 'All' },
+                  { key: 'Occupied', label: 'Occupied' },
+                  { key: 'Vacant', label: 'Vacant' },
+                  { key: 'Under Maintenance', label: 'Maintenance' },
+                  { key: 'Not Available', label: 'Unavailable' },
+                  { key: 'Archived', label: 'Archived' },
+                ].map((tab) => {
+                  const isActive = filterActive === tab.key;
+                  return (
+                    <TouchableOpacity
+                      key={tab.key}
+                      style={[s.filterChipItem, isActive && s.filterChipItemActive]}
+                      onPress={() => setFilterActive(tab.key)}
+                      activeOpacity={0.75}
+                    >
+                      <Text style={[s.filterChipItemText, isActive && s.filterChipItemTextActive]}>
+                        {tab.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          </CopilotView>
+        </CopilotStep>
+
+        {/* Error Banner */}
+        {error && (
+          <View style={s.errorBanner}>
+            <Text style={s.errorText}>{error}</Text>
+            <TouchableOpacity style={s.retryBtn} onPress={loadRooms} activeOpacity={0.8}>
+              <Text style={s.retryBtnText}>Retry</Text>
+            </TouchableOpacity>
           </View>
         )}
-        ListHeaderComponent={renderListHeader}
+      </View>
+
+      <FlatList
+        ref={flatListRef}
+        style={{ flex: 1 }}
+        data={loading && (!rooms || rooms.length === 0) ? [] : filteredRooms}
+        keyExtractor={keyExtractor}
+        renderItem={renderItem}
         ListEmptyComponent={renderEmptyState}
         contentContainerStyle={s.scroll}
         showsVerticalScrollIndicator={false}

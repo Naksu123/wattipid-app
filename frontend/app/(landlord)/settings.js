@@ -1,7 +1,9 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, TextInput, StatusBar, Switch } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { CopilotStep, walkthroughable } from 'react-native-copilot';
+import { useTourAutoStart } from '@/contexts/TourContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useModal } from '../../contexts/ModalContext';
 import { getSetting, setSetting } from '../../services/database';
@@ -10,10 +12,15 @@ import { BaseModal, ModalHeader, ModalBody, ModalFooter, SignOutModal } from '..
 import { COLORS } from '../../styles/theme';
 import styles from '../../styles/landlord/settings.styles';
 
+const CopilotView = walkthroughable(View);
+
 export default function LandlordSettings() {
   const router = useRouter();
   const { user, logout, updateProfile, changePassword } = useAuth();
   const { showModal } = useModal();
+  const scrollViewRef = useRef(null);
+
+  useTourAutoStart('settings', true, scrollViewRef, 'landlord');
   
   // Rate state
   const [rateVisible, setRateVisible] = useState(false);
@@ -55,34 +62,43 @@ export default function LandlordSettings() {
   const [logoutConfirmVisible, setLogoutConfirmVisible] = useState(false);
 
   useEffect(() => { 
+    let isMounted = true;
+
+    const loadSettings = async () => {
+      try {
+        const r = await getSetting('rate_per_kwh');
+        if (!isMounted) return;
+        if (r) setRate(r);
+
+        const nb = await getSetting('landlord_notif_budget');
+        if (!isMounted) return;
+        if (nb !== null) setNotifBudget(nb !== 'false');
+        const nhc = await getSetting('landlord_notif_high_cons');
+        if (!isMounted) return;
+        if (nhc !== null) setNotifHighCons(nhc !== 'false');
+        const nnt = await getSetting('landlord_notif_new_tenant');
+        if (!isMounted) return;
+        if (nnt !== null) setNotifNewTenant(nnt !== 'false');
+        const nr = await getSetting('landlord_notif_revoke');
+        if (!isMounted) return;
+        if (nr !== null) setNotifRevoke(nr !== 'false');
+      } catch (err) {
+        if (isMounted) console.warn('[LandlordSettings] Failed to load settings:', err);
+      }
+
+      try {
+        const pen = await getPenaltySettings();
+        if (!isMounted) return;
+        if (pen?.penalty_grace_period_days) setPenaltyGrace(pen.penalty_grace_period_days);
+        if (pen?.penalty_rate) setPenaltyRate(pen.penalty_rate);
+      } catch (e) {
+        if (isMounted) console.warn('[LandlordSettings] Failed to load penalty config:', e);
+      }
+    };
+
     loadSettings(); 
+    return () => { isMounted = false; };
   }, []);
-
-  const loadSettings = async () => {
-    try {
-      const r = await getSetting('rate_per_kwh');
-      if (r) setRate(r);
-
-      const nb = await getSetting('landlord_notif_budget');
-      if (nb !== null) setNotifBudget(nb !== 'false');
-      const nhc = await getSetting('landlord_notif_high_cons');
-      if (nhc !== null) setNotifHighCons(nhc !== 'false');
-      const nnt = await getSetting('landlord_notif_new_tenant');
-      if (nnt !== null) setNotifNewTenant(nnt !== 'false');
-      const nr = await getSetting('landlord_notif_revoke');
-      if (nr !== null) setNotifRevoke(nr !== 'false');
-    } catch (err) {
-      console.warn('[LandlordSettings] Failed to load settings:', err);
-    }
-
-    try {
-      const pen = await getPenaltySettings();
-      if (pen.penalty_grace_period_days) setPenaltyGrace(pen.penalty_grace_period_days);
-      if (pen.penalty_rate) setPenaltyRate(pen.penalty_rate);
-    } catch (e) {
-      console.warn('[LandlordSettings] Failed to load penalty config:', e);
-    }
-  };
 
   const handleOpenRate = () => {
     setNewRate(rate);
@@ -236,7 +252,11 @@ export default function LandlordSettings() {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        ref={scrollViewRef}
+        contentContainerStyle={styles.scroll}
+        showsVerticalScrollIndicator={false}
+      >
         {/* ================= HEADER (Matches landlord-settings.png) ================= */}
         <View style={styles.headerRow}>
           <View>
@@ -248,29 +268,37 @@ export default function LandlordSettings() {
           </View>
         </View>
 
-        {/* ================= PROFILE CARD ================= */}
-        <View style={styles.profileCard}>
-          <View style={styles.profileTop}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarInitials}>{landlordInitials}</Text>
-            </View>
-            <View style={styles.profileInfo}>
-              <Text style={styles.profileName} numberOfLines={1}>{user?.name || 'Landlord Admin'}</Text>
-              <Text style={styles.profileEmail} numberOfLines={1}>{user?.email || 'admin@wattipid.com'}</Text>
-              <View style={styles.roleBadge}>
-                <Text style={styles.roleText}>LANDLORD ADMIN</Text>
+        {/* ================= PROFILE CARD (Step 13) ================= */}
+        <CopilotStep
+          text="Manage landlord administrator credentials, name, and contact information."
+          order={13}
+          name="landlord_settings_profile"
+        >
+          <CopilotView style={{ width: '100%' }}>
+            <View style={styles.profileCard}>
+              <View style={styles.profileTop}>
+                <View style={styles.avatar}>
+                  <Text style={styles.avatarInitials}>{landlordInitials}</Text>
+                </View>
+                <View style={styles.profileInfo}>
+                  <Text style={styles.profileName} numberOfLines={1}>{user?.name || 'Landlord Admin'}</Text>
+                  <Text style={styles.profileEmail} numberOfLines={1}>{user?.email || 'admin@wattipid.com'}</Text>
+                  <View style={styles.roleBadge}>
+                    <Text style={styles.roleText}>LANDLORD ADMIN</Text>
+                  </View>
+                </View>
               </View>
+              <TouchableOpacity 
+                onPress={() => setEditing(true)} 
+                style={styles.editProfileBtn}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="create-outline" size={14} color="#10B981" />
+                <Text style={styles.editProfileText}>Edit Account Details</Text>
+              </TouchableOpacity>
             </View>
-          </View>
-          <TouchableOpacity 
-            onPress={() => setEditing(true)} 
-            style={styles.editProfileBtn}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="create-outline" size={14} color="#10B981" />
-            <Text style={styles.editProfileText}>Edit Account Details</Text>
-          </TouchableOpacity>
-        </View>
+          </CopilotView>
+        </CopilotStep>
 
         {/* ================= ACCOUNT & SECURITY ================= */}
         <Text style={styles.groupTitle}>ACCOUNT & SECURITY</Text>
@@ -284,86 +312,102 @@ export default function LandlordSettings() {
           />
         </View>
 
-        {/* ================= FACILITY TOOLS ================= */}
-        <Text style={styles.groupTitle}>FACILITY TOOLS</Text>
-        <View style={styles.menuCard}>
-          <MenuItem 
-            icon="pulse-outline" 
-            label="Electricity Billing Rate" 
-            value={`Currently ₱${rate || '0.00'}/kWh`} 
-            onPress={handleOpenRate} 
-            iconColor="#10B981"
-          />
-          <View style={styles.divider} />
-          <MenuItem 
-            icon="warning-outline" 
-            label="Penalty Configuration" 
-            value="Grace period & late fees" 
-            onPress={() => setPenaltyVisible(true)} 
-            iconColor="#F59E0B"
-          />
-          <View style={styles.divider} />
-          <MenuItem 
-            icon="bulb-outline" 
-            label="Manage Electricity Tips" 
-            value="Curate tips for student saving habits" 
-            highlighted={true} 
-            onPress={() => router.push('/(landlord)/manage-tips')} 
-            iconColor="#10B981"
-          />
-          <View style={styles.divider} />
-          <MenuItem 
-            icon="notifications-outline" 
-            label="Notification Alerts" 
-            value="Configure system triggers" 
-            onPress={() => setNotifVisible(true)} 
-            iconColor="#38BDF8"
-          />
-          <View style={styles.divider} />
-          <MenuItem 
-            icon="shield-checkmark-outline" 
-            label="System Audit Logs" 
-            value="Immutable compliance records" 
-            onPress={() => router.push('/(landlord)/audit')} 
-            iconColor="#8B5CF6"
-          />
-        </View>
+        {/* ================= FACILITY TOOLS (Step 14) ================= */}
+        <CopilotStep
+          text="Configure electricity billing rates (₱/kWh), penalty grace periods, and dorm energy tips."
+          order={14}
+          name="landlord_facility_tools"
+        >
+          <CopilotView style={{ width: '100%' }}>
+            <Text style={styles.groupTitle}>FACILITY TOOLS</Text>
+            <View style={styles.menuCard}>
+              <MenuItem 
+                icon="pulse-outline" 
+                label="Electricity Billing Rate" 
+                value={`Currently ₱${rate || '0.00'}/kWh`} 
+                onPress={handleOpenRate} 
+                iconColor="#10B981"
+              />
+              <View style={styles.divider} />
+              <MenuItem 
+                icon="warning-outline" 
+                label="Penalty Configuration" 
+                value="Grace period & late fees" 
+                onPress={() => setPenaltyVisible(true)} 
+                iconColor="#F59E0B"
+              />
+              <View style={styles.divider} />
+              <MenuItem 
+                icon="bulb-outline" 
+                label="Manage Electricity Tips" 
+                value="Curate tips for student saving habits" 
+                highlighted={true} 
+                onPress={() => router.push('/(landlord)/manage-tips')} 
+                iconColor="#10B981"
+              />
+              <View style={styles.divider} />
+              <MenuItem 
+                icon="notifications-outline" 
+                label="Notification Alerts" 
+                value="Configure system triggers" 
+                onPress={() => setNotifVisible(true)} 
+                iconColor="#38BDF8"
+              />
+              <View style={styles.divider} />
+              <MenuItem 
+                icon="shield-checkmark-outline" 
+                label="System Audit Logs" 
+                value="Immutable compliance records" 
+                onPress={() => router.push('/(landlord)/audit')} 
+                iconColor="#8B5CF6"
+              />
+            </View>
+          </CopilotView>
+        </CopilotStep>
 
-        {/* ================= SYSTEM CONFIG ================= */}
-        <Text style={styles.groupTitle}>SYSTEM CONFIG</Text>
-        <View style={styles.menuCard}>
-          <MenuItem 
-            icon="book-outline" 
-            label="App User Manual" 
-            value="How to use the Wattipid app" 
-            onPress={() => router.push('/(landlord)/user-manual')} 
-            iconColor="#10B981"
-          />
-          <View style={styles.divider} />
-          <MenuItem 
-            icon="hardware-chip-outline" 
-            label="Installation & User Manual" 
-            value="System documentation & wiring" 
-            onPress={() => router.push('/(landlord)/manual')} 
-            iconColor="#38BDF8"
-          />
-          <View style={styles.divider} />
-          <MenuItem 
-            icon="document-text-outline" 
-            label="Terms and Conditions" 
-            value="System Legal Policies" 
-            onPress={() => router.push('/terms')} 
-            iconColor="#64748B"
-          />
-          <View style={styles.divider} />
-          <MenuItem 
-            icon="information-circle-outline" 
-            label="About System" 
-            value="Wattipid v2.1.0-prod" 
-            onPress={() => setAboutVisible(true)} 
-            iconColor="#64748B"
-          />
-        </View>
+        {/* ================= SYSTEM CONFIG (Step 15) ================= */}
+        <CopilotStep
+          text="Access app guides, hardware wiring documentation, or replay this interactive landlord walkthrough anytime."
+          order={15}
+          name="landlord_system_config"
+        >
+          <CopilotView style={{ width: '100%' }}>
+            <Text style={styles.groupTitle}>SYSTEM CONFIG</Text>
+            <View style={styles.menuCard}>
+              <MenuItem 
+                icon="book-outline" 
+                label="App User Manual" 
+                value="How to use the Wattipid app" 
+                onPress={() => router.push('/(landlord)/user-manual')} 
+                iconColor="#10B981"
+              />
+              <View style={styles.divider} />
+              <MenuItem 
+                icon="hardware-chip-outline" 
+                label="Installation & User Manual" 
+                value="System documentation & wiring" 
+                onPress={() => router.push('/(landlord)/manual')} 
+                iconColor="#38BDF8"
+              />
+              <View style={styles.divider} />
+              <MenuItem 
+                icon="document-text-outline" 
+                label="Terms and Conditions" 
+                value="System Legal Policies" 
+                onPress={() => router.push('/terms')} 
+                iconColor="#64748B"
+              />
+              <View style={styles.divider} />
+              <MenuItem 
+                icon="information-circle-outline" 
+                label="About System" 
+                value="Wattipid v2.1.0-prod" 
+                onPress={() => setAboutVisible(true)} 
+                iconColor="#64748B"
+              />
+            </View>
+          </CopilotView>
+        </CopilotStep>
 
         {/* ================= SIGN OUT ACCOUNT ================= */}
         <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.7}>

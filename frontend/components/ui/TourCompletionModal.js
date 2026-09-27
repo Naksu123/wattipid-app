@@ -7,9 +7,11 @@ import { useTourContext } from '../../contexts/TourContext';
 const { width } = Dimensions.get('window');
 
 export default function TourCompletionModal() {
-  const { completionModalVisible, closeCompletionModal } = useTourContext();
+  const { completionModalVisible, closeCompletionModal, tourRole } = useTourContext();
 
   if (!completionModalVisible) return null;
+
+  const isLandlord = tourRole === 'landlord';
 
   return (
     <Modal
@@ -28,13 +30,16 @@ export default function TourCompletionModal() {
           {/* Title & Message */}
           <Text style={styles.title}>{"You're All Set!"}</Text>
           <Text style={styles.message}>
-            Now you know the basics of how Wattipid monitors your overall electricity consumption, manages budgets, provides tips, and handles payments.
+            {isLandlord
+              ? 'You have completed the Landlord Tour. You now know how to monitor electricity, manage rooms, verify payments, track penalties, and configure facility tools.'
+              : 'You have completed the Wattipid Tour. You now know how to monitor electricity, track your budget, view analytics, and manage bills.'}
           </Text>
 
           <View style={styles.tipBox}>
             <Ionicons name="book-outline" size={20} color="#3B82F6" />
             <Text style={styles.tipText}>
-              Need a refresher later? You can replay the tour or explore detailed feature guides anytime in <Text style={{ fontWeight: '700', color: '#fff' }}>Settings → User Manual</Text>.
+              Need a refresher later? Replay the tour or view complete guides anytime in{' '}
+              <Text style={{ fontWeight: '700', color: '#fff' }}>Settings → User Manual</Text>.
             </Text>
           </View>
 
@@ -99,39 +104,40 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     textAlign: 'center',
     marginBottom: SPACING.lg,
-    paddingHorizontal: 8,
   },
   tipBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(59, 130, 246, 0.08)',
+    backgroundColor: 'rgba(59, 130, 246, 0.1)',
     borderRadius: RADIUS.md,
-    padding: 12,
+    padding: SPACING.md,
+    gap: 12,
     borderWidth: 1,
     borderColor: 'rgba(59, 130, 246, 0.2)',
-    gap: 10,
     marginBottom: SPACING.xl,
+    width: '100%',
   },
   tipText: {
-    flex: 1,
     fontSize: 12,
-    lineHeight: 17,
+    lineHeight: 18,
     color: '#93C5FD',
+    flex: 1,
   },
   primaryButton: {
-    width: '100%',
-    backgroundColor: '#10B981',
     flexDirection: 'row',
+    backgroundColor: COLORS.primary,
+    paddingVertical: 14,
+    paddingHorizontal: SPACING.xl,
+    borderRadius: RADIUS.md,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    paddingVertical: 14,
-    borderRadius: RADIUS.lg,
-    shadowColor: '#10B981',
+    width: '100%',
+    shadowColor: COLORS.primary,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
+    shadowOpacity: 0.3,
     shadowRadius: 8,
-    elevation: 6,
+    elevation: 4,
   },
   primaryButtonText: {
     color: '#FFFFFF',

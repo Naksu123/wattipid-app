@@ -1,18 +1,25 @@
 import { SafeAreaView } from 'react-native-safe-area-context';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, ScrollView, ActivityIndicator, TouchableOpacity, RefreshControl, Modal  } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
+import { CopilotStep, walkthroughable } from 'react-native-copilot';
+import { useTourAutoStart } from '@/contexts/TourContext';
 import { COLORS } from '../../styles/theme';
 import styles from '../../styles/landlord/audit.styles';
 import apiClient from '../../services/apiClient';
 import { router } from 'expo-router';
+
+const CopilotView = walkthroughable(View);
 
 export default function AuditLogsScreen() {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedLog, setSelectedLog] = useState(null);
+  const scrollViewRef = useRef(null);
+
+  useTourAutoStart('audit', !loading, scrollViewRef, 'landlord');
 
   // Instant Cache Restoration (Stale-While-Revalidate)
   useEffect(() => {
@@ -118,20 +125,29 @@ export default function AuditLogsScreen() {
       </View>
       
       <ScrollView 
+        ref={scrollViewRef}
         contentContainerStyle={styles.scroll}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={COLORS.primary} />}
       >
-        <Text style={styles.disclaimer}>
-          <Ionicons name="shield-checkmark" size={16} /> These records are immutable and track all critical system changes for security compliance.
-        </Text>
-        
-        {logs.length === 0 ? (
-           <View style={styles.center}>
-             <Text style={styles.dateText}>No audit logs found.</Text>
-           </View>
-        ) : (
-          logs.map(renderLogItem)
-        )}
+        <CopilotStep
+          text="Review compliance logs, billing records, payment verification histories, and system events."
+          order={11}
+          name="landlord_audit_logs"
+        >
+          <CopilotView style={{ width: '100%' }}>
+            <Text style={styles.disclaimer}>
+              <Ionicons name="shield-checkmark" size={16} /> These records are immutable and track all critical system changes for security compliance.
+            </Text>
+            
+            {logs.length === 0 ? (
+               <View style={styles.center}>
+                 <Text style={styles.dateText}>No audit logs found.</Text>
+               </View>
+            ) : (
+              logs.map(renderLogItem)
+            )}
+          </CopilotView>
+        </CopilotStep>
       </ScrollView>
 
       {/* Details Modal */}

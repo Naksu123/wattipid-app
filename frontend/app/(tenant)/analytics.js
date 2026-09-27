@@ -570,8 +570,12 @@ export default function AnalyticsScreen() {
           <Text style={s.title}>Energy Analytics</Text>
         </View>
 
-        {/* ── Period Selector Pills ─────────────────────────────────────────── */}
-        <CopilotStep text="Switch between Daily, Weekly, Monthly, and Yearly consumption analytics." order={1} name="analytics_period_tabs">
+        {/* ── Step 6: Period Selector Pills ─────────────────────────────────────────── */}
+        <CopilotStep 
+          text="Switch between Daily, Weekly, Monthly, and Yearly analytics to examine your electricity consumption trends." 
+          order={6} 
+          name="analytics_period_selector"
+        >
           <CopilotView style={s.periodRow}>
             {PERIODS.map(p => (
               <TouchableOpacity
@@ -599,8 +603,12 @@ export default function AnalyticsScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* ── Consumption Analysis Card ─────────────────────────────────────── */}
-        <CopilotStep text="Visual breakdown of your consumption across intervals with peak highlight." order={2} name="analytics_consumption_card">
+        {/* ── Step 7: Consumption Analysis Card ─────────────────────────────────────── */}
+        <CopilotStep 
+          text="Visualizes your consumption across intervals with peak highlights. Tap the toggle to switch between kWh and ₱." 
+          order={7} 
+          name="analytics_consumption"
+        >
           <CopilotView style={s.analysisCard}>
             <View style={s.analysisHeaderRow}>
               <Text style={s.analysisTitle}>CONSUMPTION ANALYSIS</Text>
@@ -660,60 +668,84 @@ export default function AnalyticsScreen() {
           </CopilotView>
         </CopilotStep>
 
-        {/* ── VS LAST PERIOD Card ────────────────────────────────────────────── */}
-        <View style={s.metricCard}>
-          <View style={s.metricIconRed}>
-            <Ionicons name="trending-up" size={24} color="#EF4444" />
-          </View>
-          <View style={s.metricContent}>
-            <Text style={s.metricLabel}>
-              VS LAST {period === 'daily' ? 'DAY' : period === 'weekly' ? 'WEEK' : period === 'yearly' ? 'YEAR' : 'MONTH'}
-            </Text>
-            <Text style={s.metricValueRed}>
-              {compPct >= 0 ? `+${compPct.toFixed(1)}%` : `${compPct.toFixed(1)}%`} kWh • {compCost >= 0 ? `+₱${compCost.toFixed(2)}` : `-₱${Math.abs(compCost).toFixed(2)}`}
-            </Text>
-            <Text style={s.metricSubtext}>
-              {totalPeriodEnergy === 0
-                ? 'No active consumption recorded on this date'
-                : `Total ${totalPeriodEnergy.toFixed(3)} kWh consumed this ${period === 'daily' ? 'day' : period === 'weekly' ? 'week' : period === 'yearly' ? 'year' : 'month'}`}
-            </Text>
-          </View>
-        </View>
-
-        {/* ── EOM FORECASTED BILL Card ──────────────────────────────────────── */}
-        <View style={s.metricCard}>
-          <View style={s.metricIconAmber}>
-            <Ionicons name="pie-chart" size={24} color="#F59E0B" />
-          </View>
-          <View style={s.metricContent}>
-            <Text style={s.metricLabel}>EOM FORECASTED BILL</Text>
-            <Text style={s.metricValueAmber}>₱{forecastVal.toFixed(2)}</Text>
-            <Text style={s.metricSubtext}>
-              {forecastOver > 0
-                ? `Estimated to be ₱${forecastOver.toFixed(0)} over your preset budget cap`
-                : 'Projected within your designated monthly budget target'}
-            </Text>
-          </View>
-        </View>
-
-        {/* ── PDF Export Button ─────────────────────────────────────────────── */}
-        <TouchableOpacity
-          style={s.exportCta}
-          onPress={generateReport}
-          disabled={generatingPdf}
-          activeOpacity={0.85}
+        {/* ── Step 8: VS LAST PERIOD Card ────────────────────────────────────────────── */}
+        <CopilotStep
+          text="Compares current consumption against the previous cycle, showing percentage changes and cost variance."
+          order={8}
+          name="analytics_period_summary"
         >
-          {generatingPdf ? (
-            <ActivityIndicator size="small" color="#0A0F1D" />
-          ) : (
-            <>
-              <Ionicons name="document-text" size={18} color="#0A0F1D" />
-              <Text style={s.exportCtaText}>
-                Export {period.charAt(0).toUpperCase() + period.slice(1)} Report as PDF
-              </Text>
-            </>
-          )}
-        </TouchableOpacity>
+          <CopilotView>
+            <View style={s.metricCard}>
+              <View style={s.metricIconRed}>
+                <Ionicons name="trending-up" size={24} color="#EF4444" />
+              </View>
+              <View style={s.metricContent}>
+                <Text style={s.metricLabel}>
+                  VS LAST {period === 'daily' ? 'DAY' : period === 'weekly' ? 'WEEK' : period === 'yearly' ? 'YEAR' : 'MONTH'}
+                </Text>
+                <Text style={s.metricValueRed}>
+                  {compPct >= 0 ? `+${compPct.toFixed(1)}%` : `${compPct.toFixed(1)}%`} kWh • {compCost >= 0 ? `+₱${compCost.toFixed(2)}` : `-₱${Math.abs(compCost).toFixed(2)}`}
+                </Text>
+                <Text style={s.metricSubtext}>
+                  {totalPeriodEnergy === 0
+                    ? 'No active consumption recorded on this date'
+                    : `Total ${totalPeriodEnergy.toFixed(3)} kWh consumed this ${period === 'daily' ? 'day' : period === 'weekly' ? 'week' : period === 'yearly' ? 'year' : 'month'}`}
+                </Text>
+              </View>
+            </View>
+          </CopilotView>
+        </CopilotStep>
+
+        {/* ── Step 9: EOM FORECASTED BILL Card ──────────────────────────────────────── */}
+        <CopilotStep
+          text="Forecasts your end-of-month bill based on current usage pace, comparing it against your designated budget."
+          order={9}
+          name="analytics_smart_insights"
+        >
+          <CopilotView>
+            <View style={s.metricCard}>
+              <View style={s.metricIconAmber}>
+                <Ionicons name="pie-chart" size={24} color="#F59E0B" />
+              </View>
+              <View style={s.metricContent}>
+                <Text style={s.metricLabel}>EOM FORECASTED BILL</Text>
+                <Text style={s.metricValueAmber}>₱{forecastVal.toFixed(2)}</Text>
+                <Text style={s.metricSubtext}>
+                  {forecastOver > 0
+                    ? `Estimated to be ₱${forecastOver.toFixed(0)} over your preset budget cap`
+                    : 'Projected within your designated monthly budget target'}
+                </Text>
+              </View>
+            </View>
+          </CopilotView>
+        </CopilotStep>
+
+        {/* ── Step 10: PDF Export Button ─────────────────────────────────────────────── */}
+        <CopilotStep
+          text="Export an official PDF report of your electricity consumption for the selected period to save or review."
+          order={10}
+          name="analytics_generate_report"
+        >
+          <CopilotView>
+            <TouchableOpacity
+              style={s.exportCta}
+              onPress={generateReport}
+              disabled={generatingPdf}
+              activeOpacity={0.85}
+            >
+              {generatingPdf ? (
+                <ActivityIndicator size="small" color="#0A0F1D" />
+              ) : (
+                <>
+                  <Ionicons name="document-text" size={18} color="#0A0F1D" />
+                  <Text style={s.exportCtaText}>
+                    Export {period.charAt(0).toUpperCase() + period.slice(1)} Report as PDF
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </CopilotView>
+        </CopilotStep>
 
       </ScrollView>
     </View>

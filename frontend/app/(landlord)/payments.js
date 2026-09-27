@@ -20,7 +20,11 @@ import { getPaymentHistory, sendManualReminder } from '../../services/paymentSer
 import { useSync } from '../../contexts/SyncContext';
 import { generateAndShareReceipt } from '../../utils/ReceiptGenerator';
 import PaymentVerificationModal from '../../components/landlord/Overview/PaymentVerificationModal';
+import { CopilotStep, walkthroughable } from 'react-native-copilot';
+import { useTourAutoStart } from '@/contexts/TourContext';
 import styles from '../../styles/landlord/payments.styles';
+
+const CopilotView = walkthroughable(View);
 
 export default function PaymentsDashboard() {
   const router = useRouter();
@@ -38,6 +42,9 @@ export default function PaymentsDashboard() {
   const [ledgerPage, setLedgerPage] = useState(1);
   const LEDGER_PAGE_SIZE = 5;
   const handledPaymentIdRef = useRef(null);
+  const scrollViewRef = useRef(null);
+
+  useTourAutoStart('payments', !loading, scrollViewRef, 'landlord');
 
   // Instant Cache Restoration (Stale-While-Revalidate)
   useEffect(() => {
@@ -327,6 +334,7 @@ export default function PaymentsDashboard() {
       </View>
 
       <ScrollView
+        ref={scrollViewRef}
         style={styles.container}
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
@@ -338,8 +346,14 @@ export default function PaymentsDashboard() {
           />
         }
       >
-        {/* ================= COMPACT 4-METRIC SUMMARY ================= */}
-        <View style={styles.summaryGrid}>
+        {/* ================= COMPACT 4-METRIC SUMMARY (Step 7) ================= */}
+        <CopilotStep
+          text="Review pending payments, verified receipts, and overdue statements using quick status filters."
+          order={7}
+          name="landlord_payments_summary"
+        >
+          <CopilotView style={{ width: '100%' }}>
+            <View style={styles.summaryGrid}>
           {/* 1. Pending */}
           <TouchableOpacity
             style={[
@@ -519,9 +533,17 @@ export default function PaymentsDashboard() {
             </View>
           </TouchableOpacity>
         </ScrollView>
+          </CopilotView>
+        </CopilotStep>
 
         {/* ================= 1. PENDING PAYMENTS (PRIMARY ACTION AREA) ================= */}
-        {(activeFilter === 'ALL' || activeFilter === 'PENDING') && (
+        <CopilotStep
+          text="Inspect submitted tenant payments and deposit receipts, then verify or reject submissions with one tap."
+          order={8}
+          name="landlord_pending_verifications"
+        >
+          <CopilotView style={{ width: '100%' }}>
+            {(activeFilter === 'ALL' || activeFilter === 'PENDING') && (
           <View>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>
@@ -629,6 +651,8 @@ export default function PaymentsDashboard() {
             )}
           </View>
         )}
+          </CopilotView>
+        </CopilotStep>
 
         {/* ================= 2. OVERDUE ACCOUNTS ================= */}
         {(activeFilter === 'ALL' || activeFilter === 'OVERDUE') && (

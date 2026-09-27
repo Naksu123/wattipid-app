@@ -4,238 +4,453 @@ import { useCopilot } from 'react-native-copilot';
 import Storage from '../services/storage';
 import apiClient from '../services/apiClient';
 
-// The exact sequence of screens in the continuous tour
-export const TOUR_SEQUENCE = [
+// Sequences for Tenant and Landlord tours
+export const TENANT_TOUR_SEQUENCE = [
   'dashboard',
   'analytics',
   'tips',
   'budget',
-  'billing', // using 'billing' because route is /billing/index
+  'billing',
   'settings'
 ];
 
+export const LANDLORD_TOUR_SEQUENCE = [
+  'overview',
+  'rooms',
+  'payments',
+  'penalties',
+  'audit',
+  'notifications',
+  'settings'
+];
+
+// Screen display titles
 export const TOUR_SCREEN_NAMES = {
-  dashboard: 'Dashboard',
-  analytics: 'Analytics',
-  tips: 'Tips',
-  budget: 'Budget',
-  billing: 'Payment',
-  settings: 'Settings'
+  // Tenant
+  dashboard: 'Home Dashboard',
+  analytics: 'Energy Analytics',
+  tips: 'Energy-Saving Tips',
+  budget: 'Smart Budgeting',
+  billing: 'Payment & Billing',
+  settings: 'Account Settings',
+  // Landlord
+  overview: 'Landlord Overview',
+  rooms: 'Room Management',
+  payments: 'Payments Dashboard',
+  penalties: 'Penalty Center',
+  audit: 'Audit & Reports',
+  notifications: 'Notifications',
 };
 
-export const TOUR_STEP_BOUNDARIES = {
-  dashboard: { first: 1, last: 3, firstStepName: 'dashboard_live_sensor' },
-  analytics: { first: 4, last: 8, firstStepName: 'analytics_period_selector' },
-  tips: { first: 9, last: 11, firstStepName: 'tips_general' },
-  budget: { first: 12, last: 14, firstStepName: 'budget_live' },
-  billing: { first: 15, last: 18, firstStepName: 'payment_invoice' },
-  settings: { first: 19, last: 23, firstStepName: 'settings_profile' }
+// Step boundaries for Tenant tour (28 total steps)
+export const TENANT_STEP_BOUNDARIES = {
+  dashboard: { first: 1, last: 5, firstStepName: 'dashboard_live_sensor' },
+  analytics: { first: 6, last: 10, firstStepName: 'analytics_period_selector' },
+  tips: { first: 11, last: 14, firstStepName: 'tips_smart_insights' },
+  budget: { first: 15, last: 18, firstStepName: 'budget_live' },
+  billing: { first: 19, last: 22, firstStepName: 'payment_invoice' },
+  settings: { first: 23, last: 28, firstStepName: 'settings_profile' }
 };
 
-export const ALL_TOUR_STEPS = [
-  // Dashboard (1-3)
+// Step boundaries for Landlord tour (15 total steps)
+export const LANDLORD_STEP_BOUNDARIES = {
+  overview: { first: 1, last: 4, firstStepName: 'landlord_live_monitor' },
+  rooms: { first: 5, last: 6, firstStepName: 'landlord_rooms_header' },
+  payments: { first: 7, last: 8, firstStepName: 'landlord_payments_summary' },
+  penalties: { first: 9, last: 10, firstStepName: 'landlord_penalties_summary' },
+  audit: { first: 11, last: 11, firstStepName: 'landlord_audit_logs' },
+  notifications: { first: 12, last: 12, firstStepName: 'landlord_notifications_center' },
+  settings: { first: 13, last: 15, firstStepName: 'landlord_settings_profile' }
+};
+
+// All Tenant Tour Steps (28 steps)
+export const ALL_TENANT_TOUR_STEPS = [
+  // ── Dashboard (1-5) ──
   {
     id: 'dashboard_live_sensor',
     screenId: 'dashboard',
     targetId: 'dashboard_live_sensor',
     order: 1,
-    title: 'Live Sensor',
-    description: 'This section displays your latest electricity monitoring data, including real-time power, voltage, current, and power factor.'
+    title: 'Live Power Sensor',
+    description: 'Displays real-time power (W), voltage, current, and power factor monitored directly from your IoT submeter.'
   },
   {
     id: 'dashboard_live_cost',
     screenId: 'dashboard',
     targetId: 'dashboard_live_cost',
     order: 2,
-    title: 'Live Cost',
-    description: "This section shows your current electricity-related cost and today's energy consumption based on the latest available monitoring data."
+    title: 'Live Cost Summary',
+    description: "Summarizes today's electricity cost and your active billing cycle usage based on live submeter readings."
+  },
+  {
+    id: 'dashboard_budget_tracking',
+    screenId: 'dashboard',
+    targetId: 'dashboard_budget_tracking',
+    order: 3,
+    title: 'Daily Budget Tracking',
+    description: "Tracks today's energy spending against your daily allowance to help you stay within your designated budget."
   },
   {
     id: 'dashboard_smart_insights',
     screenId: 'dashboard',
     targetId: 'dashboard_smart_insights',
-    order: 3,
+    order: 4,
     title: 'Wattipid Smart Insights',
-    description: 'Wattipid Smart Insights provides useful information and recommendations based on your electricity consumption patterns and behavior.'
+    description: 'Provides intelligent advice and observations tailored to your ongoing electricity usage patterns.'
+  },
+  {
+    id: 'dashboard_settings_entry',
+    screenId: 'dashboard',
+    targetId: 'dashboard_settings_entry',
+    order: 5,
+    title: 'Settings & Notifications',
+    description: 'Settings and notifications are located right here beside your profile in the top header, accessible anytime.'
   },
 
-  // Analytics (4-8)
+  // ── Analytics (6-10) ──
   {
     id: 'analytics_period_selector',
     screenId: 'analytics',
     targetId: 'analytics_period_selector',
-    order: 4,
+    order: 6,
     title: 'Period Selector',
-    description: 'Use these tabs to switch between daily, weekly, monthly, and yearly electricity analytics.'
-  },
-  {
-    id: 'analytics_period_summary',
-    screenId: 'analytics',
-    targetId: 'analytics_period_summary',
-    order: 5,
-    title: 'Period Summary',
-    description: 'This section summarizes your electricity consumption and cost for the selected period, including the daily average.'
+    description: 'Switch between Daily, Weekly, Monthly, and Yearly analytics to examine your electricity consumption trends.'
   },
   {
     id: 'analytics_consumption',
     screenId: 'analytics',
     targetId: 'analytics_consumption',
-    order: 6,
-    title: 'Electricity Consumption',
-    description: 'This section visualizes your electricity consumption and lets you review your data through Charts, Breakdown, and History.'
+    order: 7,
+    title: 'Consumption Chart',
+    description: 'Visualizes your consumption across intervals with peak highlights. Tap the toggle to switch between kWh and ₱.'
+  },
+  {
+    id: 'analytics_period_summary',
+    screenId: 'analytics',
+    targetId: 'analytics_period_summary',
+    order: 8,
+    title: 'Period Comparison',
+    description: 'Compares current consumption against the previous cycle, showing percentage changes and cost variance.'
   },
   {
     id: 'analytics_smart_insights',
     screenId: 'analytics',
     targetId: 'analytics_smart_insights',
-    order: 7,
-    title: 'Wattipid Smart Insights',
-    description: 'Smart Insights analyzes your consumption patterns and provides useful recommendations based on your electricity usage.'
+    order: 9,
+    title: 'Forecasted Bill & Insights',
+    description: 'Forecasts your end-of-month bill based on current usage pace, comparing it against your designated budget.'
   },
   {
     id: 'analytics_generate_report',
     screenId: 'analytics',
     targetId: 'analytics_generate_report',
-    order: 8,
-    title: 'Generate Report',
-    description: 'Generate a report for the selected period to review and keep a record of your electricity consumption.'
+    order: 10,
+    title: 'Generate PDF Report',
+    description: 'Export an official PDF report of your electricity consumption for the selected period to save or review.'
   },
 
-  // Tips (9-11)
+  // ── Tips (11-14) ──
   {
-    id: 'tips_general',
+    id: 'tips_smart_insights',
     screenId: 'tips',
-    targetId: 'tips_general',
-    order: 9,
-    title: 'General Tips',
-    description: 'This section provides electricity-saving recommendations designed to help you understand and improve your electricity consumption behavior.'
+    targetId: 'tips_smart_insights',
+    order: 11,
+    title: 'Smart Insights',
+    description: 'Provides personalized tips generated from your real-time submeter data to help optimize your daily habits.'
   },
   {
     id: 'tips_of_the_day',
     screenId: 'tips',
     targetId: 'tips_of_the_day',
-    order: 10,
+    order: 12,
     title: 'Tip of the Day',
-    description: 'Tip of the Day provides a daily electricity-saving recommendation to help you develop better energy-saving habits.'
+    description: 'Features a fresh daily electricity-saving recommendation to help build sustainable energy conservation habits.'
+  },
+  {
+    id: 'tips_general',
+    screenId: 'tips',
+    targetId: 'tips_general',
+    order: 13,
+    title: 'Energy-Saving Tips',
+    description: 'Explore categorized energy-saving tips across lighting, appliances, cooling, and dorm lifestyle practices.'
   },
   {
     id: 'tips_trending',
     screenId: 'tips',
     targetId: 'tips_trending',
-    order: 11,
+    order: 14,
     title: 'Trending in Dorms',
-    description: 'This section presents useful electricity-saving trends or practices among dorm users.'
+    description: 'Discover top-voted energy conservation practices popular among other dormitory residents.'
   },
 
-  // Budget (12-14)
+  // ── Budget (15-18) ──
   {
     id: 'budget_live',
     screenId: 'budget',
     targetId: 'budget_live',
-    order: 12,
-    title: 'Live Budget',
-    description: 'Live Budget shows how much of your electricity budget has been used and helps you monitor your current budget status.'
+    order: 15,
+    title: 'Live Budget Gauge',
+    description: 'Shows live budget utilization across daily, weekly, and monthly periods with clear status indicators.'
+  },
+  {
+    id: 'budget_edit',
+    screenId: 'budget',
+    targetId: 'budget_edit',
+    order: 16,
+    title: 'Edit Budget Limits',
+    description: 'Tap here to configure or adjust your monthly spending budget and automatic daily allowance limits.'
   },
   {
     id: 'budget_breakdown',
     screenId: 'budget',
     targetId: 'budget_breakdown',
-    order: 13,
+    order: 17,
     title: 'Budget Breakdown',
-    description: 'Budget Breakdown shows how your electricity budget is being used across the available periods.'
+    description: 'Shows your preset budget allowance minus current cost used to provide your exact remaining funds.'
   },
   {
     id: 'budget_comparison',
     screenId: 'budget',
     targetId: 'budget_comparison',
-    order: 14,
+    order: 18,
     title: 'Budget Comparison',
-    description: 'Budget Comparison allows you to compare your electricity consumption or budget performance across different periods.'
+    description: 'Compare current spending and consumption against previous days, weeks, or months to spot efficiency gains.'
   },
 
-  // Payment (15-18)
+  // ── Payment / Billing (19-22) ──
   {
     id: 'payment_invoice',
     screenId: 'billing',
     targetId: 'payment_invoice',
-    order: 15,
-    title: 'Invoice Number',
-    description: 'Invoice Number displays your billing identifier and current payment status.'
+    order: 19,
+    title: 'Statement Invoice',
+    description: 'Displays your official statement invoice identifier, active cycle dates, and current settlement status.'
   },
   {
     id: 'payment_amount_due',
     screenId: 'billing',
     targetId: 'payment_amount_due',
-    order: 16,
-    title: 'Amount Due',
-    description: 'Amount Due shows your current billing balance, due date, and quick payment options.'
+    order: 20,
+    title: 'Total Outstanding & Pay',
+    description: 'Shows your current total balance due and provides a direct button to submit your payment proof.'
   },
   {
     id: 'payment_history',
     screenId: 'billing',
     targetId: 'payment_history',
-    order: 17,
-    title: 'Payment History',
-    description: 'Billing History lets you review previous billing records, while View PDF opens the detailed billing document.'
+    order: 21,
+    title: 'Billing History & PDF',
+    description: 'Review previous payment receipts and open or export your official billing statement as a PDF.'
   },
   {
     id: 'payment_breakdown',
     screenId: 'billing',
     targetId: 'payment_breakdown',
-    order: 18,
+    order: 22,
     title: 'Billing Breakdown',
-    description: 'Billing Breakdown shows the components that make up your bill, including applicable electricity charges, penalties, and other configured charges.'
+    description: 'Itemizes current cycle electricity charges, room rent, penalty fees, and any applied discounts.'
   },
 
-  // Settings (19-23)
+  // ── Settings (23-28) ──
   {
     id: 'settings_profile',
     screenId: 'settings',
     targetId: 'settings_profile',
-    order: 19,
-    title: 'Profile',
-    description: 'Profile lets you view and manage your Wattipid account information.'
+    order: 23,
+    title: 'Tenant Profile',
+    description: 'View and update your personal information, room assignment, and contact details.'
   },
   {
     id: 'settings_lease',
     screenId: 'settings',
     targetId: 'settings_lease',
-    order: 20,
+    order: 24,
     title: 'Lease Information',
-    description: 'Lease Information contains important information related to your room or rental arrangement.'
+    description: 'Review details regarding your assigned room, floor, lease start date, and active account status.'
   },
   {
     id: 'settings_notifications',
     screenId: 'settings',
     targetId: 'settings_notifications',
-    order: 21,
-    title: 'Notifications',
-    description: 'Notification settings help you manage important Wattipid alerts and updates.'
+    order: 25,
+    title: 'Notification Preferences',
+    description: 'Customize alerts for budget limits, high consumption warnings, and upcoming billing due dates.'
   },
   {
     id: 'settings_data_management',
     screenId: 'settings',
     targetId: 'settings_data_management',
-    order: 22,
+    order: 26,
     title: 'Data Management',
-    description: 'Data Management provides controls for managing your account and related application data.'
+    description: 'Manage local data cache and view server API connectivity.'
   },
   {
     id: 'settings_support',
     screenId: 'settings',
     targetId: 'settings_support',
-    order: 23,
-    title: 'Support',
-    description: 'Support provides help and access to the Wattipid User Manual.'
+    order: 27,
+    title: 'User Manual & Support',
+    description: 'Access the complete User Manual, feature guides, or replay this interactive walkthrough anytime.'
+  },
+  {
+    id: 'settings_logout',
+    screenId: 'settings',
+    targetId: 'settings_logout',
+    order: 28,
+    title: 'Sign Out Account',
+    description: 'Securely sign out of your Wattipid tenant session when finished.'
   }
 ];
 
+// All Landlord Tour Steps (15 steps)
+export const ALL_LANDLORD_TOUR_STEPS = [
+  // ── Landlord Overview (1-4) ──
+  {
+    id: 'landlord_live_monitor',
+    screenId: 'overview',
+    targetId: 'landlord_live_monitor',
+    order: 1,
+    title: 'Live Electricity Monitor',
+    description: "Monitors overall dormitory energy usage (kWh), live 5-minute peak load, and building electrical capacity."
+  },
+  {
+    id: 'landlord_revenue_summary',
+    screenId: 'overview',
+    targetId: 'landlord_revenue_summary',
+    order: 2,
+    title: 'Revenue & Tenant Summary',
+    description: 'Summarizes monthly collected revenue, outstanding balances, and total enrolled tenant count.'
+  },
+  {
+    id: 'landlord_occupancy_grid',
+    screenId: 'overview',
+    targetId: 'landlord_occupancy_grid',
+    order: 3,
+    title: 'Room Occupancy & Alerts',
+    description: 'Provides occupied, available, and maintenance room counts, plus direct alerts for pending verifications.'
+  },
+  {
+    id: 'landlord_header_nav',
+    screenId: 'overview',
+    targetId: 'landlord_header_nav',
+    order: 4,
+    title: 'Settings & Notifications',
+    description: 'Access the Landlord Control Panel and system notification center directly from the top header.'
+  },
+
+  // ── Rooms (5-6) ──
+  {
+    id: 'landlord_rooms_header',
+    screenId: 'rooms',
+    targetId: 'landlord_rooms_header',
+    order: 5,
+    title: 'Room Search & Add Unit',
+    description: 'Search units, filter by status (Occupied, Vacant, Maintenance), or tap Add to create a new room.'
+  },
+  {
+    id: 'landlord_room_card',
+    screenId: 'rooms',
+    targetId: 'landlord_room_card',
+    order: 6,
+    title: 'Room Cards & Controls',
+    description: 'View room power usage, manage tenants, send invitation access codes, or export monthly room PDF reports.'
+  },
+
+  // ── Payments (7-8) ──
+  {
+    id: 'landlord_payments_summary',
+    screenId: 'payments',
+    targetId: 'landlord_payments_summary',
+    order: 7,
+    title: 'Payments Dashboard',
+    description: 'Review pending payments, verified receipts, and overdue statements using quick status filters.'
+  },
+  {
+    id: 'landlord_pending_verifications',
+    screenId: 'payments',
+    targetId: 'landlord_pending_verifications',
+    order: 8,
+    title: 'Payment Verification Workflow',
+    description: 'Inspect submitted tenant payments and deposit receipts, then verify or reject submissions with one tap.'
+  },
+
+  // ── Penalties (9-10) ──
+  {
+    id: 'landlord_penalties_summary',
+    screenId: 'penalties',
+    targetId: 'landlord_penalties_summary',
+    order: 9,
+    title: 'Penalties & Overdue Overview',
+    description: 'Summarizes overdue units, unsettled invoices, active late fees, and total outstanding balances.'
+  },
+  {
+    id: 'landlord_penalties_list',
+    screenId: 'penalties',
+    targetId: 'landlord_penalties_list',
+    order: 10,
+    title: 'Overdue Accounts & Reminders',
+    description: 'Inspect days overdue, review calculated late penalties, and send reminder notifications to tenants.'
+  },
+
+  // ── Audit / Reports (11) ──
+  {
+    id: 'landlord_audit_logs',
+    screenId: 'audit',
+    targetId: 'landlord_audit_logs',
+    order: 11,
+    title: 'Audit Logs & Records',
+    description: 'Review compliance logs, billing records, payment verification histories, and system events.'
+  },
+
+  // ── Notifications (12) ──
+  {
+    id: 'landlord_notifications_center',
+    screenId: 'notifications',
+    targetId: 'landlord_notifications_center',
+    order: 12,
+    title: 'Notification Center',
+    description: 'Receive real-time alerts when tenants submit payments, and tap notifications to jump directly to verification.'
+  },
+
+  // ── Settings (13-15) ──
+  {
+    id: 'landlord_settings_profile',
+    screenId: 'settings',
+    targetId: 'landlord_settings_profile',
+    order: 13,
+    title: 'Administrator Profile',
+    description: 'Manage landlord administrator credentials, name, and contact information.'
+  },
+  {
+    id: 'landlord_facility_tools',
+    screenId: 'settings',
+    targetId: 'landlord_facility_tools',
+    order: 14,
+    title: 'Facility Configuration',
+    description: 'Configure electricity billing rates (₱/kWh), penalty grace periods, and dorm energy tips.'
+  },
+  {
+    id: 'landlord_system_config',
+    screenId: 'settings',
+    targetId: 'landlord_system_config',
+    order: 15,
+    title: 'System Manual & Tools',
+    description: 'Access app guides, hardware wiring documentation, or replay this interactive landlord walkthrough anytime.'
+  }
+];
+
+// Backward-compatible exports
+export const TOUR_SEQUENCE = TENANT_TOUR_SEQUENCE;
+export const TOUR_STEP_BOUNDARIES = TENANT_STEP_BOUNDARIES;
+export const ALL_TOUR_STEPS = ALL_TENANT_TOUR_STEPS;
+
 const defaultTourContext = {
+  tourRole: 'tenant',
   isContinuousTour: false,
   currentTourScreen: null,
   isTourActive: false,
   currentStepOrder: 1,
-  totalSteps: 23,
+  totalSteps: 28,
   currentScreen: null,
   currentTargetId: null,
   isNavigating: false,
@@ -263,6 +478,8 @@ const defaultTourContext = {
   getScrollRef: () => null,
   registerNextStepHandler: () => {},
   handleTourOverlayPress: () => {},
+  activeTourSteps: ALL_TENANT_TOUR_STEPS,
+  activeTourBoundaries: TENANT_STEP_BOUNDARIES,
   sequenceTotal: 6,
   sequenceCurrentIndex: 0
 };
@@ -270,13 +487,14 @@ const defaultTourContext = {
 const TourContext = createContext(defaultTourContext);
 
 export const TourProvider = ({ children }) => {
+  const [tourRole, setTourRole] = useState('tenant'); // 'tenant' | 'landlord'
   const [isContinuousTour, setIsContinuousTour] = useState(false);
   const [currentTourScreen, setCurrentTourScreen] = useState(null);
   const [isTourActive, setIsTourActive] = useState(false);
   const [currentStepOrder, setCurrentStepOrder] = useState(1);
   const [isNavigating, setIsNavigating] = useState(false);
   const [isScrolling, setIsScrolling] = useState(false);
-  const [isTargetReady, setIsTargetReady] = useState(false);
+  const isTargetReady = true;
   const [transitionLocked, setTransitionLocked] = useState(false);
   const [welcomeModalVisible, setWelcomeModalVisible] = useState(false);
   const [completionModalVisible, setCompletionModalVisible] = useState(false);
@@ -288,6 +506,12 @@ export const TourProvider = ({ children }) => {
 
   // Single-evaluation guard per user session to prevent duplicate prompts
   const evaluatedUsersRef = useRef(new Set());
+
+  // Derive active steps and boundaries based on role
+  const activeSequence = tourRole === 'landlord' ? LANDLORD_TOUR_SEQUENCE : TENANT_TOUR_SEQUENCE;
+  const activeTourSteps = tourRole === 'landlord' ? ALL_LANDLORD_TOUR_STEPS : ALL_TENANT_TOUR_STEPS;
+  const activeTourBoundaries = tourRole === 'landlord' ? LANDLORD_STEP_BOUNDARIES : TENANT_STEP_BOUNDARIES;
+  const totalSteps = activeTourSteps.length;
 
   const registerScrollRef = useCallback((screenName, ref) => {
     if (screenName && ref) {
@@ -316,9 +540,10 @@ export const TourProvider = ({ children }) => {
     // Normalize user object vs ID
     const userObj = typeof userOrId === 'object' ? userOrId : { id: userOrId, role: 'tenant' };
     const userId = userObj.id;
-    if (!userId || userObj.role !== 'tenant') return;
+    const role = userObj.role === 'landlord' ? 'landlord' : 'tenant';
     
     setActiveUserId(userId);
+    setTourRole(role);
 
     // If already evaluated during this session, do not re-evaluate
     if (evaluatedUsersRef.current.has(userId)) {
@@ -331,9 +556,6 @@ export const TourProvider = ({ children }) => {
       const localCompleted = await Storage.getItem(`onboarding_completed_${userId}`);
 
       // 2. Determine if the user is genuinely a new account eligible for automatic onboarding:
-      // An account MUST be explicitly flagged as a new user (is_new_user === true or 1),
-      // MUST NOT have completed onboarding in the database,
-      // AND MUST NOT have a local completed flag.
       const isCompleted = userObj.onboarding_completed === true || 
                           userObj.onboarding_completed === 1 || 
                           userObj.onboarding_completed === '1' || 
@@ -348,7 +570,6 @@ export const TourProvider = ({ children }) => {
       if (isGenuinelyNewUser) {
         setWelcomeModalVisible(true);
       } else {
-        // Ensure local storage is synced for legacy or existing accounts
         if (localCompleted !== 'true') {
           await Storage.setItem(`onboarding_completed_${userId}`, 'true');
         }
@@ -363,10 +584,7 @@ export const TourProvider = ({ children }) => {
     const uid = userId || activeUserId;
     if (!uid) return;
     try {
-      // 1. Save locally per user ID
       await Storage.setItem(`onboarding_completed_${uid}`, 'true');
-      
-      // 2. Persist to backend database for permanent sync across devices/logins
       await apiClient.post('/api.php?action=completeOnboarding').catch((err) => {
         console.warn('[TourContext] completeOnboarding backend sync error:', err?.message || err);
       });
@@ -375,7 +593,9 @@ export const TourProvider = ({ children }) => {
     }
   }, [activeUserId]);
 
-  const startFullTour = useCallback(() => {
+  const startFullTour = useCallback((role = null) => {
+    const effectiveRole = role || tourRole || 'tenant';
+    setTourRole(effectiveRole);
     setWelcomeModalVisible(false);
     setCompletionModalVisible(false);
     setIsContinuousTour(true);
@@ -384,18 +604,29 @@ export const TourProvider = ({ children }) => {
     setIsNavigating(false);
     setIsScrolling(false);
     setTransitionLocked(false);
-    setCurrentTourScreen(TOUR_SEQUENCE[0]);
+    
+    const seq = effectiveRole === 'landlord' ? LANDLORD_TOUR_SEQUENCE : TENANT_TOUR_SEQUENCE;
+    const firstScreen = seq[0];
+    setCurrentTourScreen(firstScreen);
     screenReadySignals.current = {};
-    router.replace(`/(tenant)/${TOUR_SEQUENCE[0]}`);
-  }, []);
+    
+    const basePath = effectiveRole === 'landlord' ? '/(landlord)' : '/(tenant)';
+    router.replace(`${basePath}/${firstScreen}`);
+  }, [tourRole]);
 
-  const startSingleScreenTour = useCallback((screenName) => {
-    if (!TOUR_SEQUENCE.includes(screenName)) return;
+  const startSingleScreenTour = useCallback((screenName, role = null) => {
+    const effectiveRole = role || tourRole || 'tenant';
+    setTourRole(effectiveRole);
+    const seq = effectiveRole === 'landlord' ? LANDLORD_TOUR_SEQUENCE : TENANT_TOUR_SEQUENCE;
+    const boundaries = effectiveRole === 'landlord' ? LANDLORD_STEP_BOUNDARIES : TENANT_STEP_BOUNDARIES;
+    
+    if (!seq.includes(screenName)) return;
     setWelcomeModalVisible(false);
     setCompletionModalVisible(false);
     setIsContinuousTour(false);
     setIsTourActive(true);
-    const boundary = TOUR_STEP_BOUNDARIES[screenName];
+    
+    const boundary = boundaries[screenName];
     if (boundary) {
       setCurrentStepOrder(boundary.first);
     }
@@ -404,8 +635,11 @@ export const TourProvider = ({ children }) => {
     setTransitionLocked(false);
     setCurrentTourScreen(screenName);
     screenReadySignals.current = {};
-    router.replace(`/(tenant)/${screenName}`);
-  }, []);
+    
+    const basePath = effectiveRole === 'landlord' ? '/(landlord)' : '/(tenant)';
+    const navPath = (effectiveRole === 'tenant' && screenName === 'billing') ? `${basePath}/billing` : `${basePath}/${screenName}`;
+    router.replace(navPath);
+  }, [tourRole]);
 
   const stopTour = useCallback((markComplete = false) => {
     setIsContinuousTour(false);
@@ -432,104 +666,160 @@ export const TourProvider = ({ children }) => {
 
   const closeCompletionModal = useCallback(() => {
     setCompletionModalVisible(false);
-    router.replace('/(tenant)/dashboard');
-  }, []);
+    const returnPath = tourRole === 'landlord' ? '/(landlord)/overview' : '/(tenant)/dashboard';
+    router.replace(returnPath);
+  }, [tourRole]);
 
   const goToNextScreen = useCallback(() => {
     if (!isContinuousTour || !currentTourScreen) {
       return finishTour();
     }
 
-    const currentIndex = TOUR_SEQUENCE.indexOf(currentTourScreen);
-    if (currentIndex < TOUR_SEQUENCE.length - 1) {
-      const nextScreen = TOUR_SEQUENCE[currentIndex + 1];
-      const nextBoundary = TOUR_STEP_BOUNDARIES[nextScreen];
+    const seq = tourRole === 'landlord' ? LANDLORD_TOUR_SEQUENCE : TENANT_TOUR_SEQUENCE;
+    const boundaries = tourRole === 'landlord' ? LANDLORD_STEP_BOUNDARIES : TENANT_STEP_BOUNDARIES;
+    const basePath = tourRole === 'landlord' ? '/(landlord)' : '/(tenant)';
+    
+    const currentIndex = seq.indexOf(currentTourScreen);
+    if (currentIndex < seq.length - 1) {
+      const nextScreen = seq[currentIndex + 1];
+      const nextBoundary = boundaries[nextScreen];
       if (nextBoundary) {
         setCurrentStepOrder(nextBoundary.first);
       }
       setIsNavigating(true);
       setCurrentTourScreen(nextScreen);
-      router.replace(`/(tenant)/${nextScreen}`);
+      
+      const navPath = (tourRole === 'tenant' && nextScreen === 'billing') ? `${basePath}/billing` : `${basePath}/${nextScreen}`;
+      router.replace(navPath);
     } else {
       // Reached the end of full tour!
       finishTour();
     }
-  }, [isContinuousTour, currentTourScreen, finishTour]);
+  }, [isContinuousTour, currentTourScreen, tourRole, finishTour]);
 
   const goToPrevScreen = useCallback(() => {
     if (!isContinuousTour || !currentTourScreen) return stopTour();
 
-    const currentIndex = TOUR_SEQUENCE.indexOf(currentTourScreen);
+    const seq = tourRole === 'landlord' ? LANDLORD_TOUR_SEQUENCE : TENANT_TOUR_SEQUENCE;
+    const boundaries = tourRole === 'landlord' ? LANDLORD_STEP_BOUNDARIES : TENANT_STEP_BOUNDARIES;
+    const basePath = tourRole === 'landlord' ? '/(landlord)' : '/(tenant)';
+
+    const currentIndex = seq.indexOf(currentTourScreen);
     if (currentIndex > 0) {
-      const prevScreen = TOUR_SEQUENCE[currentIndex - 1];
-      const prevBoundary = TOUR_STEP_BOUNDARIES[prevScreen];
+      const prevScreen = seq[currentIndex - 1];
+      const prevBoundary = boundaries[prevScreen];
       if (prevBoundary) {
         setCurrentStepOrder(prevBoundary.last);
       }
       setIsNavigating(true);
       setCurrentTourScreen(prevScreen);
-      router.replace(`/(tenant)/${prevScreen}`);
+      
+      const navPath = (tourRole === 'tenant' && prevScreen === 'billing') ? `${basePath}/billing` : `${basePath}/${prevScreen}`;
+      router.replace(navPath);
     } else {
       stopTour();
     }
-  }, [isContinuousTour, currentTourScreen, stopTour]);
+  }, [isContinuousTour, currentTourScreen, tourRole, stopTour]);
 
   const signalScreenReady = useCallback((screenName) => {
     screenReadySignals.current[screenName] = true;
-    setIsTargetReady(true);
-    setIsNavigating(false);
+    setIsNavigating(prev => (prev ? false : prev));
   }, []);
 
   const isScreenReady = useCallback((screenName) => {
     return !!screenReadySignals.current[screenName];
   }, []);
 
-  const currentStepObj = ALL_TOUR_STEPS.find(s => s.order === currentStepOrder) || ALL_TOUR_STEPS[0];
+  const currentStepObj = activeTourSteps.find(s => s.order === currentStepOrder) || activeTourSteps[0];
+
+  const contextValue = React.useMemo(() => ({
+    tourRole,
+    setTourRole,
+    isContinuousTour,
+    currentTourScreen,
+    isTourActive,
+    currentStep: currentStepObj,
+    currentStepOrder,
+    setCurrentStepOrder,
+    totalSteps,
+    currentScreen: currentTourScreen,
+    currentTargetId: currentStepObj?.targetId,
+    isNavigating,
+    setIsNavigating,
+    isScrolling,
+    setIsScrolling,
+    isTargetReady,
+    transitionLocked,
+    setTransitionLocked,
+    welcomeModalVisible,
+    completionModalVisible,
+    activeUserId,
+    setWelcomeModalVisible,
+    checkAndPromptOnboarding,
+    markOnboardingCompleted,
+    startFullTour,
+    startContinuousTour: startFullTour,
+    startSingleScreenTour,
+    stopTour,
+    skipTour,
+    finishTour,
+    closeCompletionModal,
+    goToNextScreen,
+    goToPrevScreen,
+    signalScreenReady,
+    isScreenReady,
+    registerScrollRef,
+    getScrollRef,
+    registerNextStepHandler,
+    handleTourOverlayPress,
+    activeTourSteps,
+    activeTourBoundaries,
+    sequenceTotal: activeSequence.length,
+    sequenceCurrentIndex: currentTourScreen ? activeSequence.indexOf(currentTourScreen) + 1 : 0
+  }), [
+    tourRole,
+    setTourRole,
+    isContinuousTour,
+    currentTourScreen,
+    isTourActive,
+    currentStepObj,
+    currentStepOrder,
+    setCurrentStepOrder,
+    totalSteps,
+    isNavigating,
+    setIsNavigating,
+    isScrolling,
+    setIsScrolling,
+    isTargetReady,
+    transitionLocked,
+    setTransitionLocked,
+    welcomeModalVisible,
+    completionModalVisible,
+    activeUserId,
+    setWelcomeModalVisible,
+    checkAndPromptOnboarding,
+    markOnboardingCompleted,
+    startFullTour,
+    startSingleScreenTour,
+    stopTour,
+    skipTour,
+    finishTour,
+    closeCompletionModal,
+    goToNextScreen,
+    goToPrevScreen,
+    signalScreenReady,
+    isScreenReady,
+    registerScrollRef,
+    getScrollRef,
+    registerNextStepHandler,
+    handleTourOverlayPress,
+    activeTourSteps,
+    activeTourBoundaries,
+    activeSequence
+  ]);
 
   return (
-    <TourContext.Provider
-      value={{
-        isContinuousTour,
-        currentTourScreen,
-        isTourActive,
-        currentStep: currentStepObj,
-        currentStepOrder,
-        setCurrentStepOrder,
-        totalSteps: 23,
-        currentScreen: currentTourScreen,
-        currentTargetId: currentStepObj?.targetId,
-        isNavigating,
-        setIsNavigating,
-        isScrolling,
-        setIsScrolling,
-        isTargetReady,
-        transitionLocked,
-        setTransitionLocked,
-        welcomeModalVisible,
-        completionModalVisible,
-        activeUserId,
-        setWelcomeModalVisible,
-        checkAndPromptOnboarding,
-        markOnboardingCompleted,
-        startFullTour,
-        startContinuousTour: startFullTour, // Alias for backward compatibility
-        startSingleScreenTour,
-        stopTour,
-        skipTour,
-        finishTour,
-        closeCompletionModal,
-        goToNextScreen,
-        goToPrevScreen,
-        signalScreenReady,
-        isScreenReady,
-        registerScrollRef,
-        getScrollRef,
-        registerNextStepHandler,
-        handleTourOverlayPress,
-        sequenceTotal: TOUR_SEQUENCE.length,
-        sequenceCurrentIndex: currentTourScreen ? TOUR_SEQUENCE.indexOf(currentTourScreen) + 1 : 0
-      }}
-    >
+    <TourContext.Provider value={contextValue}>
       {children}
     </TourContext.Provider>
   );
@@ -540,14 +830,38 @@ export const useTourContext = () => {
   return context || defaultTourContext;
 };
 
-export const useTourAutoStart = (screenName, isScreenLoaded, scrollViewRef = null) => {
-  const { currentTourScreen, isTourActive, signalScreenReady, registerScrollRef } = useTourContext();
+export const useTourAutoStart = (screenName, isScreenLoaded, scrollViewRef = null, role = null) => {
+  const { 
+    currentTourScreen, 
+    isTourActive, 
+    signalScreenReady, 
+    registerScrollRef, 
+    tourRole,
+    setTourRole,
+    activeTourBoundaries 
+  } = useTourContext();
+  
   const copilot = useCopilot();
   const copilotRef = useRef(copilot);
   copilotRef.current = copilot;
 
+  const hasStartedScreenRef = useRef(null);
+
+  // Sync role if explicitly provided and tour is active
+  useEffect(() => {
+    if (role && role !== tourRole && isTourActive) {
+      setTourRole(role);
+    }
+  }, [role, tourRole, isTourActive, setTourRole]);
+
   useEffect(() => {
     if (scrollViewRef && scrollViewRef.current) {
+      // If flatlist, ensure scrollTo exists so Copilot can scroll it smoothly
+      if (!scrollViewRef.current.scrollTo && typeof scrollViewRef.current.scrollToOffset === 'function') {
+        scrollViewRef.current.scrollTo = ({ y, animated = true }) => {
+          scrollViewRef.current.scrollToOffset({ offset: y, animated });
+        };
+      }
       registerScrollRef(screenName, scrollViewRef);
     }
   }, [screenName, scrollViewRef, registerScrollRef]);
@@ -559,20 +873,31 @@ export const useTourAutoStart = (screenName, isScreenLoaded, scrollViewRef = nul
     }
   }, [isTourActive, currentTourScreen, screenName, isScreenLoaded, signalScreenReady]);
 
-  // 2. Start Copilot overlay when aligned and retry with fresh copilot reference
+  // 2. Start Copilot overlay once when screen is loaded
   useEffect(() => {
-    if (!isTourActive || currentTourScreen !== screenName || !isScreenLoaded) {
+    if (!isTourActive || currentTourScreen !== screenName) {
+      hasStartedScreenRef.current = null;
       return;
     }
 
+    if (!isScreenLoaded) {
+      return;
+    }
+
+    if (hasStartedScreenRef.current === screenName) {
+      return;
+    }
+    hasStartedScreenRef.current = screenName;
+
     let isMounted = true;
-    let attempts = 0;
-    const maxAttempts = 20;
-    const boundary = TOUR_STEP_BOUNDARIES[screenName];
+    
+    // Determine boundaries for current screen
+    const boundary = activeTourBoundaries[screenName] || 
+                     (tourRole === 'landlord' ? LANDLORD_STEP_BOUNDARIES[screenName] : TENANT_STEP_BOUNDARIES[screenName]);
     const targetStepName = boundary?.firstStepName;
 
-    // If starting on settings, reset scroll to top immediately
-    if (screenName === 'settings' && scrollViewRef?.current?.scrollTo) {
+    // Reset scroll to top immediately if scroll ref is available
+    if (scrollViewRef?.current?.scrollTo) {
       try {
         scrollViewRef.current.scrollTo({ y: 0, animated: false });
         if (scrollViewRef.current._scrollY !== undefined) {
@@ -581,27 +906,19 @@ export const useTourAutoStart = (screenName, isScreenLoaded, scrollViewRef = nul
       } catch (_e) {}
     }
 
-    const tryStart = () => {
+    const timer = setTimeout(() => {
       if (!isMounted) return;
-      
       const scrollEl = (scrollViewRef && scrollViewRef.current) ? scrollViewRef.current : null;
       const currentStartFn = copilotRef.current?.start;
       
       if (typeof currentStartFn === 'function') {
         currentStartFn(targetStepName, scrollEl);
       }
-
-      attempts++;
-      if (attempts < maxAttempts && !copilotRef.current?.visible) {
-        setTimeout(tryStart, 150);
-      }
-    };
-
-    const timer = setTimeout(tryStart, 250);
+    }, 240);
 
     return () => {
       isMounted = false;
       clearTimeout(timer);
     };
-  }, [isTourActive, currentTourScreen, screenName, isScreenLoaded, scrollViewRef]);
+  }, [isTourActive, currentTourScreen, screenName, isScreenLoaded, scrollViewRef, activeTourBoundaries, tourRole]);
 };

@@ -1,9 +1,11 @@
 import React, { useRef, useEffect, useCallback } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SPACING, RADIUS } from '../../styles/theme';
-import { useTourContext, TOUR_SCREEN_NAMES, TOUR_STEP_BOUNDARIES, ALL_TOUR_STEPS } from '../../contexts/TourContext';
+import { useTourContext, TOUR_SCREEN_NAMES } from '../../contexts/TourContext';
 import { useCopilot } from 'react-native-copilot';
+
+const { width } = Dimensions.get('window');
 
 export const CustomTooltip = () => {
   const { goToNext, stop, isLastStep, currentStep } = useCopilot();
@@ -14,14 +16,17 @@ export const CustomTooltip = () => {
     stopTour,
     finishTour,
     registerNextStepHandler,
-    setCurrentStepOrder
+    setCurrentStepOrder,
+    totalSteps,
+    activeTourSteps,
+    activeTourBoundaries
   } = useTourContext();
 
-  const currentScreenBoundary = currentTourScreen ? TOUR_STEP_BOUNDARIES[currentTourScreen] : null;
+  const currentScreenBoundary = currentTourScreen ? activeTourBoundaries[currentTourScreen] : null;
   const isScreenLastStep = !!isLastStep || (currentScreenBoundary ? currentStep?.order === currentScreenBoundary.last : false);
 
   const globalStepOrder = currentStep?.order || 1;
-  const matchedStepDef = ALL_TOUR_STEPS.find(s => s.order === globalStepOrder || s.targetId === currentStep?.name);
+  const matchedStepDef = activeTourSteps?.find(s => s.order === globalStepOrder || s.targetId === currentStep?.name || s.id === currentStep?.name);
   const stepTitle = matchedStepDef?.title || (currentTourScreen ? TOUR_SCREEN_NAMES[currentTourScreen] : 'Wattipid Guide');
 
   // Debounce transition lock to prevent double-skipping or rapid click bugs
@@ -78,19 +83,21 @@ export const CustomTooltip = () => {
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <Ionicons name="sparkles" size={18} color={COLORS.primary} />
+          <Ionicons name="sparkles" size={17} color={COLORS.primary} />
           <Text style={styles.title} numberOfLines={1}>{stepTitle}</Text>
         </View>
         
         <View style={styles.macroProgress}>
           <Text style={styles.macroProgressText}>
-            Step {globalStepOrder} of 23
+            Step {globalStepOrder} of {totalSteps || 28}
           </Text>
         </View>
       </View>
       
       {/* Step Explanation */}
-      <Text style={styles.description}>{currentStep?.text || matchedStepDef?.description || ''}</Text>
+      <Text style={styles.description}>
+        {matchedStepDef?.description || currentStep?.text || ''}
+      </Text>
 
       {/* Footer with Hint and Skip Button ONLY (NO Next or Back buttons) */}
       <View style={styles.footer}>
@@ -119,7 +126,7 @@ const styles = StyleSheet.create({
     padding: SPACING.md,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.14)',
-    width: '100%',
+    width: Math.min(width - 32, 380),
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.6,

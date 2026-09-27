@@ -4,7 +4,6 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { COLORS } from '@/styles/theme';
 import { apiCall } from '../../services/api';
 import AlertModal from '../../components/modals/AlertModal';
 
@@ -21,10 +20,17 @@ export default function ForgotPasswordScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   
-  const [alert, setAlert] = useState({ visible: false, title: '', message: '', type: 'info' });
+  const [alert, setAlert] = useState({ 
+    visible: false, 
+    title: '', 
+    message: '', 
+    type: 'info',
+    buttonText: 'Acknowledge',
+    onAction: null 
+  });
 
-  const showAlert = (title, message, type = 'info') => {
-    setAlert({ visible: true, title, message, type });
+  const showAlert = (title, message, type = 'info', onAction = null, buttonText = 'Acknowledge') => {
+    setAlert({ visible: true, title, message, type, onAction, buttonText });
   };
 
   const handleBack = () => {
@@ -48,7 +54,13 @@ export default function ForgotPasswordScreen() {
     setError('');
     try {
       await apiCall('requestPasswordReset', { email });
-      showAlert('Check Your Email', 'If this email is registered, you will receive a reset code.', 'success');
+      showAlert(
+        'Check Your Email',
+        'If this email is registered, you will receive a 6-digit reset code shortly.',
+        'success',
+        () => setStep(2),
+        'Enter Code'
+      );
       setStep(2);
     } catch (err) {
       setError(err.message || 'Failed to connect to server');
@@ -87,14 +99,26 @@ export default function ForgotPasswordScreen() {
     setError('');
     try {
       await apiCall('resetPassword', { email, otp, password });
-      showAlert('Success', 'Your password has been reset successfully.', 'success');
+      showAlert(
+        'Success',
+        'Your password has been reset successfully.',
+        'success',
+        () => {
+          if (role === 'landlord') {
+            router.replace('/(auth)/landlord-login');
+          } else {
+            router.replace('/(auth)/tenant-login');
+          }
+        },
+        'Proceed to Login'
+      );
       setTimeout(() => {
         if (role === 'landlord') {
           router.replace('/(auth)/landlord-login');
         } else {
           router.replace('/(auth)/tenant-login');
         }
-      }, 2000);
+      }, 2500);
     } catch (err) {
       setError(err.message || 'Reset failed');
     } finally {
@@ -304,7 +328,16 @@ export default function ForgotPasswordScreen() {
         title={alert.title}
         message={alert.message}
         type={alert.type}
-        onClose={() => setAlert({ ...alert, visible: false })}
+        buttonText={alert.buttonText || 'Acknowledge'}
+        showTip={false}
+        onAcknowledge={() => {
+          if (alert.onAction) alert.onAction();
+          setAlert(prev => ({ ...prev, visible: false }));
+        }}
+        onClose={() => {
+          if (alert.onAction) alert.onAction();
+          setAlert(prev => ({ ...prev, visible: false }));
+        }}
       />
     </SafeAreaView>
   );

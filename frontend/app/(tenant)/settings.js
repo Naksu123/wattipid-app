@@ -256,7 +256,7 @@ export default function TenantSettings() {
         </View>
 
         {/* ================= 1. PROFILE SUMMARY ================= */}
-        <CopilotStep text="Profile lets you view and manage your Wattipid account information." order={19} name="settings_profile">
+        <CopilotStep text="Profile lets you view and manage your Wattipid account information." order={23} name="settings_profile">
           <CopilotView>
             <View style={s.profileCard}>
               <View style={s.profileMainRow}>
@@ -288,7 +288,7 @@ export default function TenantSettings() {
         </CopilotStep>
 
         {/* ================= 2. LEASE INFORMATION ================= */}
-        <CopilotStep text="Lease Information contains important information related to your room or rental arrangement." order={20} name="settings_lease">
+        <CopilotStep text="Lease Information contains important information related to your room or rental arrangement." order={24} name="settings_lease">
           <CopilotView>
             <Text style={s.sectionLabel}>Lease Information</Text>
             <View style={s.leaseCard}>
@@ -332,7 +332,7 @@ export default function TenantSettings() {
         </View>
 
         {/* ================= 4. NOTIFICATION PREFERENCES ================= */}
-        <CopilotStep text="Notification settings help you manage important Wattipid alerts and updates." order={21} name="settings_notifications">
+        <CopilotStep text="Notification settings help you manage important Wattipid alerts and updates." order={25} name="settings_notifications">
           <CopilotView>
             <Text style={s.sectionLabel}>Notification Preferences</Text>
             <View style={s.sectionCard}>
@@ -371,9 +371,8 @@ export default function TenantSettings() {
           </CopilotView>
         </CopilotStep>
 
-
-        {/* ================= 6. DATA MANAGEMENT ================= */}
-        <CopilotStep text="Data Management provides controls for managing your account and related application data." order={22} name="settings_data_management">
+        {/* ================= 5. DATA MANAGEMENT ================= */}
+        <CopilotStep text="Data Management provides controls for managing your account and related application data." order={26} name="settings_data_management">
           <CopilotView>
             <Text style={s.sectionLabel}>Data Management</Text>
             <View style={s.sectionCard}>
@@ -407,8 +406,8 @@ export default function TenantSettings() {
           </CopilotView>
         </CopilotStep>
 
-        {/* ================= 7. SUPPORT ================= */}
-        <CopilotStep text="Support provides help and access to the Wattipid User Manual." order={23} name="settings_support">
+        {/* ================= 6. SUPPORT ================= */}
+        <CopilotStep text="Support provides help and access to the Wattipid User Manual." order={27} name="settings_support">
           <CopilotView>
             <Text style={s.sectionLabel}>Support & Documentation</Text>
             <View style={s.sectionCard}>
@@ -451,15 +450,19 @@ export default function TenantSettings() {
           </CopilotView>
         </CopilotStep>
 
-        {/* ================= 8. SIGN OUT ACCOUNT ================= */}
-        <TouchableOpacity 
-          style={s.logoutBtn} 
-          onPress={() => setLogoutVisible(true)} 
-          activeOpacity={0.7}
-        >
-          <Ionicons name="log-out-outline" size={18} color="#EF4444" />
-          <Text style={s.logoutBtnText}>Sign Out Account</Text>
-        </TouchableOpacity>
+        {/* ================= 7. SIGN OUT ACCOUNT ================= */}
+        <CopilotStep text="Sign Out allows you to securely exit your session on this device." order={28} name="settings_logout">
+          <CopilotView style={{ width: '100%' }}>
+            <TouchableOpacity 
+              style={s.logoutBtn} 
+              onPress={() => setLogoutVisible(true)} 
+              activeOpacity={0.7}
+            >
+              <Ionicons name="log-out-outline" size={18} color="#EF4444" />
+              <Text style={s.logoutBtnText}>Sign Out Account</Text>
+            </TouchableOpacity>
+          </CopilotView>
+        </CopilotStep>
 
         <Text style={s.versionText}>Wattipid v2.1.0 • IoT Energy Management</Text>
       </ScrollView>

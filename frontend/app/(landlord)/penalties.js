@@ -15,9 +15,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { CopilotStep, walkthroughable } from 'react-native-copilot';
+import { useTourAutoStart } from '@/contexts/TourContext';
 import { getOverdueAccounts } from '../../services/penaltyService';
 import { sendManualReminder } from '../../services/paymentService';
 import styles from '../../styles/landlord/penalties.styles';
+
+const CopilotView = walkthroughable(View);
 
 export default function PenaltyCenterScreen() {
   const router = useRouter();
@@ -42,6 +46,9 @@ export default function PenaltyCenterScreen() {
   const [remindingId, setRemindingId] = useState(null);
 
   const hasPenaltiesRef = React.useRef(false);
+  const scrollViewRef = React.useRef(null);
+
+  useTourAutoStart('penalties', !loading, scrollViewRef, 'landlord');
 
   // Instant Cache Restoration (Stale-While-Revalidate)
   useEffect(() => {
@@ -258,6 +265,7 @@ export default function PenaltyCenterScreen() {
       </View>
 
       <ScrollView
+        ref={scrollViewRef}
         style={styles.container}
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
@@ -281,8 +289,14 @@ export default function PenaltyCenterScreen() {
           </View>
         ) : null}
 
-        {/* ================= UNIFIED EXECUTIVE SUMMARY CARD ================= */}
-        <View style={styles.summaryCard}>
+        {/* ================= UNIFIED EXECUTIVE SUMMARY CARD (Step 9) ================= */}
+        <CopilotStep
+          text="Summarizes overdue units, unsettled invoices, active late fees, and total outstanding balances."
+          order={9}
+          name="landlord_penalties_summary"
+        >
+          <CopilotView style={{ width: '100%' }}>
+            <View style={styles.summaryCard}>
           {/* Card Top Title Bar */}
           <View style={styles.summaryCardHeader}>
             <View style={styles.summaryCardTitleWrap}>
@@ -453,9 +467,17 @@ export default function PenaltyCenterScreen() {
             </View>
           </TouchableOpacity>
         </ScrollView>
+          </CopilotView>
+        </CopilotStep>
 
-        {/* ================= OVERDUE ACCOUNTS LIST ================= */}
-        <View style={styles.sectionHeader}>
+        {/* ================= OVERDUE ACCOUNTS LIST (Step 10) ================= */}
+        <CopilotStep
+          text="Inspect days overdue, review calculated late penalties, and send reminder notifications to tenants."
+          order={10}
+          name="landlord_penalties_list"
+        >
+          <CopilotView style={{ width: '100%' }}>
+            <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>
             Overdue Accounts ({filteredInvoices.length})
           </Text>
@@ -593,6 +615,8 @@ export default function PenaltyCenterScreen() {
             );
           })
         )}
+          </CopilotView>
+        </CopilotStep>
 
         {/* ================= PENALTY ACTIVITY TIMELINE ================= */}
         <View style={styles.activityCard}>

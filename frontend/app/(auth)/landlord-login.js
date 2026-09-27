@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
-  ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator, StyleSheet,
+  ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator, StyleSheet, Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -71,7 +71,7 @@ export default function LandlordLoginScreen() {
       } else {
         showModal({ type: 'error', title: 'Error', message: 'Failed to record terms acceptance. Please try again.' });
       }
-    } catch (e) {
+    } catch (_e) {
       showModal({ type: 'error', title: 'Error', message: 'Network error while accepting terms.' });
     }
   };
@@ -112,8 +112,12 @@ export default function LandlordLoginScreen() {
 
           {/* Header Block */}
           <View style={styles.headerBlock}>
-            <View style={styles.landlordIconAura}>
-              <Ionicons name="business-outline" size={28} color="#3B82F6" />
+            <View style={styles.logoWrap}>
+              <Image 
+                source={require('../../assets/images/Wattipid-icon.png')}
+                style={styles.logoImage}
+                resizeMode="contain"
+              />
             </View>
             <Text style={styles.title}>Welcome Back, Landlord</Text>
             <Text style={styles.subtitle}>
@@ -279,16 +283,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 28,
   },
-  landlordIconAura: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: 'rgba(59, 130, 246, 0.12)',
+  logoWrap: {
+    width: 100,
+    height: 100,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(59, 130, 246, 0.25)',
     marginBottom: 16,
+  },
+  logoImage: {
+    width: '100%',
+    height: '100%',
   },
   title: {
     fontSize: 24,

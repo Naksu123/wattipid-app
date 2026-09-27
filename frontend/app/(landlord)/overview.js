@@ -12,12 +12,15 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { CopilotStep, walkthroughable } from 'react-native-copilot';
+import { useTourAutoStart } from '@/contexts/TourContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSync } from '../../contexts/SyncContext';
 import { getLiveOverview } from '../../services/database';
 import { COLORS } from '../../styles/theme';
 import styles from '../../styles/landlord/overview.styles';
 
+const CopilotView = walkthroughable(View);
 const LANDLORD_OVERVIEW_CACHE_KEY = '@cached_landlord_overview';
 
 export default function OverviewScreen() {
@@ -29,6 +32,9 @@ export default function OverviewScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [activeActionPage, setActiveActionPage] = useState(0);
   const actionScrollRef = useRef(null);
+  const scrollViewRef = useRef(null);
+
+  useTourAutoStart('overview', !loading, scrollViewRef, 'landlord');
 
   const screenWidth = Dimensions.get('window').width;
   const pageWidth = screenWidth - 32;
@@ -208,56 +214,63 @@ export default function OverviewScreen() {
       <StatusBar barStyle="light-content" />
 
       {/* ================= HEADER (Matches landlord-dashboard.png) ================= */}
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          {/* Avatar with Initials - Tappable to open Settings */}
-          <TouchableOpacity
-            style={styles.avatarCircle}
-            onPress={() => router.push('/(landlord)/settings')}
-            activeOpacity={0.8}
-            accessibilityRole="button"
-            accessibilityLabel="Profile and settings"
-          >
-            <Text style={styles.avatarText}>{initials}</Text>
-          </TouchableOpacity>
+      <CopilotStep
+        text="Access the Landlord Control Panel and system notification center directly from the top header."
+        order={4}
+        name="landlord_header_nav"
+      >
+        <CopilotView style={styles.header}>
+          <View style={styles.headerLeft}>
+            {/* Avatar with Initials - Tappable to open Settings */}
+            <TouchableOpacity
+              style={styles.avatarCircle}
+              onPress={() => router.push('/(landlord)/settings')}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="Profile and settings"
+            >
+              <Text style={styles.avatarText}>{initials}</Text>
+            </TouchableOpacity>
 
-          <View style={styles.headerInfo}>
-            <Text style={styles.greeting} numberOfLines={1}>
-              Hello, {firstName}
-            </Text>
-            <Text style={styles.subtitle}>Real-Time Monitoring Dashboard</Text>
+            <View style={styles.headerInfo}>
+              <Text style={styles.greeting} numberOfLines={1}>
+                Hello, {firstName}
+              </Text>
+              <Text style={styles.subtitle}>Real-Time Monitoring Dashboard</Text>
+            </View>
           </View>
-        </View>
 
-        {/* Right Actions: Notification Bell + Settings Icon beside name */}
-        <View style={styles.headerRight}>
-          <TouchableOpacity
-            style={styles.headerActionBtn}
-            onPress={() => router.push('/(landlord)/notifications')}
-            activeOpacity={0.75}
-            accessibilityRole="button"
-            accessibilityLabel="Notifications"
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Ionicons name="notifications-outline" size={19} color="#FFFFFF" />
-            {unreadCount > 0 && <View style={styles.notifBadgeDot} />}
-          </TouchableOpacity>
+          {/* Right Actions: Notification Bell + Settings Icon beside name */}
+          <View style={styles.headerRight}>
+            <TouchableOpacity
+              style={styles.headerActionBtn}
+              onPress={() => router.push('/(landlord)/notifications')}
+              activeOpacity={0.75}
+              accessibilityRole="button"
+              accessibilityLabel="Notifications"
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="notifications-outline" size={19} color="#FFFFFF" />
+              {unreadCount > 0 && <View style={styles.notifBadgeDot} />}
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.headerActionBtn}
-            onPress={() => router.push('/(landlord)/settings')}
-            activeOpacity={0.75}
-            accessibilityRole="button"
-            accessibilityLabel="Settings"
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Ionicons name="settings-outline" size={19} color="#FFFFFF" />
-          </TouchableOpacity>
-        </View>
-      </View>
+            <TouchableOpacity
+              style={styles.headerActionBtn}
+              onPress={() => router.push('/(landlord)/settings')}
+              activeOpacity={0.75}
+              accessibilityRole="button"
+              accessibilityLabel="Settings"
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="settings-outline" size={19} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
+        </CopilotView>
+      </CopilotStep>
 
       {/* ================= CONTENT SCROLL ================= */}
       <ScrollView
+        ref={scrollViewRef}
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
         refreshControl={
@@ -269,199 +282,223 @@ export default function OverviewScreen() {
         }
       >
         {/* ================= 1. LIVE ELECTRICITY MONITOR ================= */}
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <Text style={styles.cardTitle}>Live Electricity Monitor</Text>
-            <View style={styles.syncingBadge}>
-              <View style={styles.syncingDot} />
-              <Text style={styles.syncingText}>SYNCING</Text>
-            </View>
-          </View>
-
-          {/* Metric Boxes Row */}
-          <View style={styles.monitorRow}>
-            {/* Today's Usage Box */}
-            <View style={styles.monitorBox}>
-              <Text style={styles.monitorBoxLabel}>{"Today's Usage"}</Text>
-              <Text style={styles.monitorBoxValue} numberOfLines={1}>
-                {Number(liveElectricity.todayEnergyKwh || 0).toFixed(2)}{' '}
-                <Text style={styles.monitorBoxUnit}>kWh</Text>
-              </Text>
-              <View style={styles.monitorBoxMeta}>
-                <View style={styles.metaPillLive}>
-                  <Text style={styles.metaPillLiveText}>LIVE</Text>
+        <CopilotStep
+          text="Monitors overall dormitory energy usage (kWh), live 5-minute peak load, and building electrical capacity."
+          order={1}
+          name="landlord_live_monitor"
+        >
+          <CopilotView style={{ width: '100%' }}>
+            <View style={styles.card}>
+              <View style={styles.cardHeader}>
+                <Text style={styles.cardTitle}>Live Electricity Monitor</Text>
+                <View style={styles.syncingBadge}>
+                  <View style={styles.syncingDot} />
+                  <Text style={styles.syncingText}>SYNCING</Text>
                 </View>
-                <Text style={styles.metaDescText} numberOfLines={1}>
-                  Live sync
+              </View>
+
+              {/* Metric Boxes Row */}
+              <View style={styles.monitorRow}>
+                {/* Today's Usage Box */}
+                <View style={styles.monitorBox}>
+                  <Text style={styles.monitorBoxLabel}>{"Today's Usage"}</Text>
+                  <Text style={styles.monitorBoxValue} numberOfLines={1}>
+                    {Number(liveElectricity.todayEnergyKwh || 0).toFixed(2)}{' '}
+                    <Text style={styles.monitorBoxUnit}>kWh</Text>
+                  </Text>
+                  <View style={styles.monitorBoxMeta}>
+                    <View style={styles.metaPillLive}>
+                      <Text style={styles.metaPillLiveText}>LIVE</Text>
+                    </View>
+                    <Text style={styles.metaDescText} numberOfLines={1}>
+                      Live sync
+                    </Text>
+                  </View>
+                </View>
+
+                {/* 5-Min Peak Load Box */}
+                <View style={styles.monitorBox}>
+                  <Text style={styles.monitorBoxLabel}>5-Min Peak Load</Text>
+                  <Text style={styles.monitorBoxValue} numberOfLines={1}>
+                    {Number(liveElectricity.livePeakPowerW || 0).toFixed(1)}{' '}
+                    <Text style={styles.monitorBoxUnit}>W</Text>
+                  </Text>
+                  <View style={styles.monitorBoxMeta}>
+                    <View style={styles.metaPillPeak}>
+                      <Text style={styles.metaPillPeakText}>PEAK</Text>
+                    </View>
+                    <Text style={styles.metaDescText} numberOfLines={1}>
+                      Stable load
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* System Load Capacity Bar */}
+              <View style={styles.loadCapacityHeader}>
+                <Text style={styles.loadCapacityTitle}>System Load Capacity</Text>
+                <Text style={[styles.loadCapacityPct, { color: loadBarColor }]}>
+                  {loadPct.toFixed(1)}%
                 </Text>
               </View>
-            </View>
-
-            {/* 5-Min Peak Load Box */}
-            <View style={styles.monitorBox}>
-              <Text style={styles.monitorBoxLabel}>5-Min Peak Load</Text>
-              <Text style={styles.monitorBoxValue} numberOfLines={1}>
-                {Number(liveElectricity.livePeakPowerW || 0).toFixed(1)}{' '}
-                <Text style={styles.monitorBoxUnit}>W</Text>
-              </Text>
-              <View style={styles.monitorBoxMeta}>
-                <View style={styles.metaPillPeak}>
-                  <Text style={styles.metaPillPeakText}>PEAK</Text>
-                </View>
-                <Text style={styles.metaDescText} numberOfLines={1}>
-                  Stable load
-                </Text>
+              <View style={styles.loadTrack}>
+                <View
+                  style={[
+                    styles.loadFill,
+                    { width: `${Math.max(loadPct, 2)}%`, backgroundColor: loadBarColor },
+                  ]}
+                />
               </View>
             </View>
-          </View>
-
-          {/* System Load Capacity Bar */}
-          <View style={styles.loadCapacityHeader}>
-            <Text style={styles.loadCapacityTitle}>System Load Capacity</Text>
-            <Text style={[styles.loadCapacityPct, { color: loadBarColor }]}>
-              {loadPct.toFixed(1)}%
-            </Text>
-          </View>
-          <View style={styles.loadTrack}>
-            <View
-              style={[
-                styles.loadFill,
-                { width: `${Math.max(loadPct, 2)}%`, backgroundColor: loadBarColor },
-              ]}
-            />
-          </View>
-        </View>
+          </CopilotView>
+        </CopilotStep>
 
         {/* ================= 2. TOTAL REVENUE & FINANCIAL SUMMARY ================= */}
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <Text style={styles.cardTitle}>Total Revenue</Text>
-            <Text style={styles.quickActionsTag}>This month</Text>
-          </View>
-          <Text style={styles.revenueSubtitle}>Total collected & billed</Text>
-          <Text style={styles.revenueHeroValue} numberOfLines={1}>
-            {formatCurrency(statistics.totalBilled || statistics.monthlyRevenue || 0)}
-          </Text>
-
-          {/* Secondary Financial / Operational Row */}
-          <View style={styles.financialRow}>
-            <View style={styles.financialCard}>
-              <Text style={styles.financialLabel}>Tenants</Text>
-              <Text style={[styles.financialValue, { color: '#38BDF8' }]} numberOfLines={1}>
-                {statistics.totalTenants || 0}
+        <CopilotStep
+          text="Summarizes monthly collected revenue, outstanding balances, and total enrolled tenant count."
+          order={2}
+          name="landlord_revenue_summary"
+        >
+          <CopilotView style={{ width: '100%' }}>
+            <View style={styles.card}>
+              <View style={styles.cardHeader}>
+                <Text style={styles.cardTitle}>Total Revenue</Text>
+                <Text style={styles.quickActionsTag}>This month</Text>
+              </View>
+              <Text style={styles.revenueSubtitle}>Total collected & billed</Text>
+              <Text style={styles.revenueHeroValue} numberOfLines={1}>
+                {formatCurrency(statistics.totalBilled || statistics.monthlyRevenue || 0)}
               </Text>
-            </View>
 
-            <View style={styles.financialCard}>
-              <Text style={styles.financialLabel}>Collected</Text>
-              <Text style={[styles.financialValue, { color: '#10B981' }]} numberOfLines={1}>
-                {formatCurrency(statistics.monthlyRevenue || 0)}
-              </Text>
-            </View>
+              {/* Secondary Financial / Operational Row */}
+              <View style={styles.financialRow}>
+                <View style={styles.financialCard}>
+                  <Text style={styles.financialLabel}>Tenants</Text>
+                  <Text style={[styles.financialValue, { color: '#38BDF8' }]} numberOfLines={1}>
+                    {statistics.totalTenants || 0}
+                  </Text>
+                </View>
 
-            <View style={styles.financialCard}>
-              <Text style={styles.financialLabel}>Outstanding</Text>
-              <Text style={[styles.financialValue, { color: '#F59E0B' }]} numberOfLines={1}>
-                {formatCurrency(statistics.outstandingRevenue || 0)}
-              </Text>
+                <View style={styles.financialCard}>
+                  <Text style={styles.financialLabel}>Collected</Text>
+                  <Text style={[styles.financialValue, { color: '#10B981' }]} numberOfLines={1}>
+                    {formatCurrency(statistics.monthlyRevenue || 0)}
+                  </Text>
+                </View>
+
+                <View style={styles.financialCard}>
+                  <Text style={styles.financialLabel}>Outstanding</Text>
+                  <Text style={[styles.financialValue, { color: '#F59E0B' }]} numberOfLines={1}>
+                    {formatCurrency(statistics.outstandingRevenue || 0)}
+                  </Text>
+                </View>
+              </View>
             </View>
-          </View>
-        </View>
+          </CopilotView>
+        </CopilotStep>
 
         {/* ================= 3. ROOM OCCUPANCY & PAYMENT ALERTS ================= */}
-        <View style={styles.sectionRowHeader}>
-          <Text style={styles.sectionRowTitle}>Room Occupancy</Text>
-          <TouchableOpacity
-            onPress={() => router.push('/(landlord)/rooms')}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Text style={{ fontSize: 11.5, color: '#10B981', fontWeight: '700' }}>Manage Rooms ›</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Occupancy Status Grid */}
-        <View style={styles.occupancyGrid}>
-          <View style={styles.occupancyBox}>
-            <Text style={[styles.occupancyBoxValue, { color: '#10B981' }]}>
-              {statistics.occupiedRooms || 0}
-            </Text>
-            <Text style={styles.occupancyBoxLabel}>Occupied</Text>
-          </View>
-
-          <View style={styles.occupancyBox}>
-            <Text style={[styles.occupancyBoxValue, { color: '#38BDF8' }]}>
-              {statistics.vacantRooms || 0}
-            </Text>
-            <Text style={styles.occupancyBoxLabel}>Available</Text>
-          </View>
-
-          <View style={styles.occupancyBox}>
-            <Text style={[styles.occupancyBoxValue, { color: '#F59E0B' }]}>
-              {statistics.maintenanceRooms || 0}
-            </Text>
-            <Text style={styles.occupancyBoxLabel}>Maintenance</Text>
-          </View>
-
-          <View style={styles.occupancyBox}>
-            <Text style={[styles.occupancyBoxValue, { color: '#FFFFFF' }]}>
-              {statistics.totalRooms || 0}
-            </Text>
-            <Text style={styles.occupancyBoxLabel}>Total Units</Text>
-          </View>
-        </View>
-
-        {/* Payment Action Alerts */}
-        {(pendingPayments.length > 0 || overdueCount > 0) && (
-          <View style={styles.paymentAlertsCard}>
-            {pendingPayments.length > 0 && (
+        <CopilotStep
+          text="Provides occupied, available, and maintenance room counts, plus direct alerts for pending verifications."
+          order={3}
+          name="landlord_occupancy_grid"
+        >
+          <CopilotView style={{ width: '100%' }}>
+            <View style={styles.sectionRowHeader}>
+              <Text style={styles.sectionRowTitle}>Room Occupancy</Text>
               <TouchableOpacity
-                style={styles.alertItem}
-                onPress={() => router.push('/(landlord)/payments')}
-                activeOpacity={0.75}
+                onPress={() => router.push('/(landlord)/rooms')}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
-                <View style={styles.alertItemLeft}>
-                  <View style={[styles.alertIconBox, { backgroundColor: 'rgba(245, 158, 11, 0.12)' }]}>
-                    <Ionicons name="receipt-outline" size={17} color="#F59E0B" />
-                  </View>
-                  <View>
-                    <Text style={styles.alertTitle}>Pending Verifications</Text>
-                    <Text style={styles.alertSubtitle}>Awaiting landlord confirmation</Text>
-                  </View>
-                </View>
-                <View style={[styles.alertPill, { backgroundColor: 'rgba(245, 158, 11, 0.15)' }]}>
-                  <Text style={[styles.alertPillText, { color: '#F59E0B' }]}>
-                    {pendingPayments.length} pending
-                  </Text>
-                  <Ionicons name="chevron-forward" size={12} color="#F59E0B" />
-                </View>
+                <Text style={{ fontSize: 11.5, color: '#10B981', fontWeight: '700' }}>Manage Rooms ›</Text>
               </TouchableOpacity>
-            )}
+            </View>
 
-            {overdueCount > 0 && (
-              <TouchableOpacity
-                style={styles.alertItem}
-                onPress={() => router.push('/(landlord)/penalties')}
-                activeOpacity={0.75}
-              >
-                <View style={styles.alertItemLeft}>
-                  <View style={[styles.alertIconBox, { backgroundColor: 'rgba(239, 68, 68, 0.12)' }]}>
-                    <Ionicons name="warning-outline" size={17} color="#EF4444" />
-                  </View>
-                  <View>
-                    <Text style={styles.alertTitle}>Overdue Accounts</Text>
-                    <Text style={styles.alertSubtitle}>Unsettled past due date</Text>
-                  </View>
-                </View>
-                <View style={[styles.alertPill, { backgroundColor: 'rgba(239, 68, 68, 0.15)' }]}>
-                  <Text style={[styles.alertPillText, { color: '#EF4444' }]}>
-                    {overdueCount} overdue
-                  </Text>
-                  <Ionicons name="chevron-forward" size={12} color="#EF4444" />
-                </View>
-              </TouchableOpacity>
+            {/* Occupancy Status Grid */}
+            <View style={styles.occupancyGrid}>
+              <View style={styles.occupancyBox}>
+                <Text style={[styles.occupancyBoxValue, { color: '#10B981' }]}>
+                  {statistics.occupiedRooms || 0}
+                </Text>
+                <Text style={styles.occupancyBoxLabel}>Occupied</Text>
+              </View>
+
+              <View style={styles.occupancyBox}>
+                <Text style={[styles.occupancyBoxValue, { color: '#38BDF8' }]}>
+                  {statistics.vacantRooms || 0}
+                </Text>
+                <Text style={styles.occupancyBoxLabel}>Available</Text>
+              </View>
+
+              <View style={styles.occupancyBox}>
+                <Text style={[styles.occupancyBoxValue, { color: '#F59E0B' }]}>
+                  {statistics.maintenanceRooms || 0}
+                </Text>
+                <Text style={styles.occupancyBoxLabel}>Maintenance</Text>
+              </View>
+
+              <View style={styles.occupancyBox}>
+                <Text style={[styles.occupancyBoxValue, { color: '#FFFFFF' }]}>
+                  {statistics.totalRooms || 0}
+                </Text>
+                <Text style={styles.occupancyBoxLabel}>Total Units</Text>
+              </View>
+            </View>
+
+            {/* Payment Action Alerts */}
+            {(pendingPayments.length > 0 || overdueCount > 0) && (
+              <View style={styles.paymentAlertsCard}>
+                {pendingPayments.length > 0 && (
+                  <TouchableOpacity
+                    style={styles.alertItem}
+                    onPress={() => router.push('/(landlord)/payments')}
+                    activeOpacity={0.75}
+                  >
+                    <View style={styles.alertItemLeft}>
+                      <View style={[styles.alertIconBox, { backgroundColor: 'rgba(245, 158, 11, 0.12)' }]}>
+                        <Ionicons name="receipt-outline" size={17} color="#F59E0B" />
+                      </View>
+                      <View>
+                        <Text style={styles.alertTitle}>Pending Verifications</Text>
+                        <Text style={styles.alertSubtitle}>Awaiting landlord confirmation</Text>
+                      </View>
+                    </View>
+                    <View style={[styles.alertPill, { backgroundColor: 'rgba(245, 158, 11, 0.15)' }]}>
+                      <Text style={[styles.alertPillText, { color: '#F59E0B' }]}>
+                        {pendingPayments.length} pending
+                      </Text>
+                      <Ionicons name="chevron-forward" size={12} color="#F59E0B" />
+                    </View>
+                  </TouchableOpacity>
+                )}
+
+                {overdueCount > 0 && (
+                  <TouchableOpacity
+                    style={styles.alertItem}
+                    onPress={() => router.push('/(landlord)/penalties')}
+                    activeOpacity={0.75}
+                  >
+                    <View style={styles.alertItemLeft}>
+                      <View style={[styles.alertIconBox, { backgroundColor: 'rgba(239, 68, 68, 0.12)' }]}>
+                        <Ionicons name="warning-outline" size={17} color="#EF4444" />
+                      </View>
+                      <View>
+                        <Text style={styles.alertTitle}>Overdue Accounts</Text>
+                        <Text style={styles.alertSubtitle}>Unsettled past due date</Text>
+                      </View>
+                    </View>
+                    <View style={[styles.alertPill, { backgroundColor: 'rgba(239, 68, 68, 0.15)' }]}>
+                      <Text style={[styles.alertPillText, { color: '#EF4444' }]}>
+                        {overdueCount} overdue
+                      </Text>
+                      <Ionicons name="chevron-forward" size={12} color="#EF4444" />
+                    </View>
+                  </TouchableOpacity>
+                )}
+              </View>
             )}
-          </View>
-        )}
+          </CopilotView>
+        </CopilotStep>
 
         {/* ================= 4. QUICK ACTIONS (Sliding Pagination Carousel like Tips) ================= */}
         <View style={styles.quickActionsHeader}>

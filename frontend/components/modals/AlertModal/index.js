@@ -17,10 +17,12 @@ const TIPS = [
 
 export default function AlertModal({
   visible = false,
-  type = 'warning', // 'warning' | 'danger' | 'info'
+  type = 'warning', // 'warning' | 'danger' | 'info' | 'success'
   title = 'Alert',
   message = '',
   onAcknowledge,
+  onClose,
+  buttonText = 'Acknowledge',
   onAdjustSettings,
   showTip = true,
   customTip = null,
@@ -29,14 +31,16 @@ export default function AlertModal({
     warning: { icon: 'warning', color: COLORS.warning, bgColor: 'rgba(245, 158, 11, 0.15)' },
     danger: { icon: 'alert-circle', color: COLORS.danger, bgColor: 'rgba(239, 68, 68, 0.15)' },
     info: { icon: 'information-circle', color: COLORS.info, bgColor: 'rgba(59, 130, 246, 0.15)' },
+    success: { icon: 'checkmark-circle', color: COLORS.success, bgColor: 'rgba(16, 185, 129, 0.15)' },
   };
 
+  const handleAction = onAcknowledge || onClose;
   const { icon, color, bgColor } = config[type] || config.warning;
   const randomTip = TIPS[Math.floor(Math.random() * TIPS.length)];
   const displayTip = customTip || randomTip;
 
   return (
-    <Modal visible={visible} transparent animationType="fade" statusBarTranslucent>
+    <Modal visible={visible} transparent animationType="fade" statusBarTranslucent onRequestClose={handleAction}>
       <View style={styles.overlay}>
         <View style={styles.modal}>
           {/* Icon */}
@@ -65,10 +69,10 @@ export default function AlertModal({
           <View style={styles.actions}>
             <TouchableOpacity
               style={[styles.button, styles.primaryButton]}
-              onPress={onAcknowledge}
+              onPress={handleAction}
               activeOpacity={0.8}
             >
-              <Text style={styles.primaryButtonText}>Acknowledge</Text>
+              <Text style={styles.primaryButtonText}>{buttonText}</Text>
             </TouchableOpacity>
 
             {onAdjustSettings && (

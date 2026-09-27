@@ -7,9 +7,11 @@ import { useTourContext } from '../../contexts/TourContext';
 const { width } = Dimensions.get('window');
 
 export default function WelcomeTourModal() {
-  const { welcomeModalVisible, startContinuousTour, skipTour } = useTourContext();
+  const { welcomeModalVisible, startContinuousTour, skipTour, tourRole } = useTourContext();
 
   if (!welcomeModalVisible) return null;
+
+  const isLandlord = tourRole === 'landlord';
 
   return (
     <Modal
@@ -23,58 +25,108 @@ export default function WelcomeTourModal() {
           {/* Brand Icon Header */}
           <View style={styles.iconContainer}>
             <View style={styles.iconCircle}>
-              <Ionicons name="flash" size={32} color="#10B981" />
+              <Ionicons name={isLandlord ? "business" : "flash"} size={32} color="#10B981" />
             </View>
             <View style={styles.glowEffect} />
           </View>
 
           {/* Title & Subtitle */}
-          <Text style={styles.title}>Welcome to Wattipid</Text>
+          <Text style={styles.title}>
+            {isLandlord ? 'Welcome, Dormitory Admin' : 'Welcome to Wattipid'}
+          </Text>
           <Text style={styles.subtitle}>
-            Your smart companion for monitoring overall room electricity usage, tracking your budget, exploring consumption trends, and managing bills.
+            {isLandlord
+              ? 'Your smart command center for real-time submeter monitoring, room assignment, tenant management, payment verification, and billing.'
+              : 'Your smart companion for monitoring room electricity usage, tracking your budget, exploring consumption trends, and managing bills.'}
           </Text>
 
           {/* Key Value Points */}
           <View style={styles.featuresList}>
-            <View style={styles.featureItem}>
-              <View style={[styles.featureIconWrap, { backgroundColor: 'rgba(16, 185, 129, 0.15)' }]}>
-                <Ionicons name="speedometer-outline" size={18} color="#10B981" />
-              </View>
-              <View style={styles.featureTextWrap}>
-                <Text style={styles.featureTitle}>Real-Time Consumption</Text>
-                <Text style={styles.featureDesc}>Live power draw and energy usage from your submeter</Text>
-              </View>
-            </View>
+            {isLandlord ? (
+              <>
+                <View style={styles.featureItem}>
+                  <View style={[styles.featureIconWrap, { backgroundColor: 'rgba(16, 185, 129, 0.15)' }]}>
+                    <Ionicons name="speedometer-outline" size={18} color="#10B981" />
+                  </View>
+                  <View style={styles.featureTextWrap}>
+                    <Text style={styles.featureTitle}>Real-Time Monitoring</Text>
+                    <Text style={styles.featureDesc}>Live power load, energy consumption, and capacity</Text>
+                  </View>
+                </View>
 
-            <View style={styles.featureItem}>
-              <View style={[styles.featureIconWrap, { backgroundColor: 'rgba(59, 130, 246, 0.15)' }]}>
-                <Ionicons name="pie-chart-outline" size={18} color="#3B82F6" />
-              </View>
-              <View style={styles.featureTextWrap}>
-                <Text style={styles.featureTitle}>Budget & Alerts</Text>
-                <Text style={styles.featureDesc}>Set limits and get proactive warning before overspending</Text>
-              </View>
-            </View>
+                <View style={styles.featureItem}>
+                  <View style={[styles.featureIconWrap, { backgroundColor: 'rgba(59, 130, 246, 0.15)' }]}>
+                    <Ionicons name="business-outline" size={18} color="#3B82F6" />
+                  </View>
+                  <View style={styles.featureTextWrap}>
+                    <Text style={styles.featureTitle}>Room Management</Text>
+                    <Text style={styles.featureDesc}>Assign rooms, invite tenants, and generate reports</Text>
+                  </View>
+                </View>
 
-            <View style={styles.featureItem}>
-              <View style={[styles.featureIconWrap, { backgroundColor: 'rgba(245, 158, 11, 0.15)' }]}>
-                <Ionicons name="bulb-outline" size={18} color="#F59E0B" />
-              </View>
-              <View style={styles.featureTextWrap}>
-                <Text style={styles.featureTitle}>Smart Tips & Analytics</Text>
-                <Text style={styles.featureDesc}>Personalized recommendations based on usage patterns</Text>
-              </View>
-            </View>
+                <View style={styles.featureItem}>
+                  <View style={[styles.featureIconWrap, { backgroundColor: 'rgba(245, 158, 11, 0.15)' }]}>
+                    <Ionicons name="wallet-outline" size={18} color="#F59E0B" />
+                  </View>
+                  <View style={styles.featureTextWrap}>
+                    <Text style={styles.featureTitle}>Payment Verification</Text>
+                    <Text style={styles.featureDesc}>Review deposit receipts and verify payments with one tap</Text>
+                  </View>
+                </View>
 
-            <View style={styles.featureItem}>
-              <View style={[styles.featureIconWrap, { backgroundColor: 'rgba(168, 85, 247, 0.15)' }]}>
-                <Ionicons name="receipt-outline" size={18} color="#A855F7" />
-              </View>
-              <View style={styles.featureTextWrap}>
-                <Text style={styles.featureTitle}>Billing & Easy Payment</Text>
-                <Text style={styles.featureDesc}>Transparent charge breakdown and online payment upload</Text>
-              </View>
-            </View>
+                <View style={styles.featureItem}>
+                  <View style={[styles.featureIconWrap, { backgroundColor: 'rgba(239, 68, 68, 0.15)' }]}>
+                    <Ionicons name="alert-circle-outline" size={18} color="#EF4444" />
+                  </View>
+                  <View style={styles.featureTextWrap}>
+                    <Text style={styles.featureTitle}>Penalty & Overdue Center</Text>
+                    <Text style={styles.featureDesc}>Track late accounts and send automated reminder notices</Text>
+                  </View>
+                </View>
+              </>
+            ) : (
+              <>
+                <View style={styles.featureItem}>
+                  <View style={[styles.featureIconWrap, { backgroundColor: 'rgba(16, 185, 129, 0.15)' }]}>
+                    <Ionicons name="speedometer-outline" size={18} color="#10B981" />
+                  </View>
+                  <View style={styles.featureTextWrap}>
+                    <Text style={styles.featureTitle}>Real-Time Consumption</Text>
+                    <Text style={styles.featureDesc}>Live power draw and energy usage from your submeter</Text>
+                  </View>
+                </View>
+
+                <View style={styles.featureItem}>
+                  <View style={[styles.featureIconWrap, { backgroundColor: 'rgba(59, 130, 246, 0.15)' }]}>
+                    <Ionicons name="pie-chart-outline" size={18} color="#3B82F6" />
+                  </View>
+                  <View style={styles.featureTextWrap}>
+                    <Text style={styles.featureTitle}>Budget & Alerts</Text>
+                    <Text style={styles.featureDesc}>Set limits and get proactive warning before overspending</Text>
+                  </View>
+                </View>
+
+                <View style={styles.featureItem}>
+                  <View style={[styles.featureIconWrap, { backgroundColor: 'rgba(245, 158, 11, 0.15)' }]}>
+                    <Ionicons name="bulb-outline" size={18} color="#F59E0B" />
+                  </View>
+                  <View style={styles.featureTextWrap}>
+                    <Text style={styles.featureTitle}>Smart Tips & Analytics</Text>
+                    <Text style={styles.featureDesc}>Personalized recommendations based on usage patterns</Text>
+                  </View>
+                </View>
+
+                <View style={styles.featureItem}>
+                  <View style={[styles.featureIconWrap, { backgroundColor: 'rgba(168, 85, 247, 0.15)' }]}>
+                    <Ionicons name="receipt-outline" size={18} color="#A855F7" />
+                  </View>
+                  <View style={styles.featureTextWrap}>
+                    <Text style={styles.featureTitle}>Billing & Easy Payment</Text>
+                    <Text style={styles.featureDesc}>Transparent charge breakdown and online payment upload</Text>
+                  </View>
+                </View>
+              </>
+            )}
           </View>
 
           {/* Action Buttons */}
@@ -82,7 +134,7 @@ export default function WelcomeTourModal() {
             <TouchableOpacity 
               style={styles.primaryButton}
               activeOpacity={0.8}
-              onPress={startContinuousTour}
+              onPress={() => startContinuousTour(tourRole)}
             >
               <Text style={styles.primaryButtonText}>Start Full Tour</Text>
               <Ionicons name="arrow-forward" size={18} color="#fff" />
@@ -127,27 +179,25 @@ const styles = StyleSheet.create({
   iconContainer: {
     position: 'relative',
     marginBottom: SPACING.md,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   iconCircle: {
     width: 68,
     height: 68,
     borderRadius: 34,
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
     borderWidth: 1.5,
-    borderColor: 'rgba(16, 185, 129, 0.4)',
+    borderColor: 'rgba(16, 185, 129, 0.3)',
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 2,
   },
   glowEffect: {
     position: 'absolute',
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: 'rgba(16, 185, 129, 0.2)',
-    filter: 'blur(10px)',
+    top: -10,
+    left: -10,
+    right: -10,
+    bottom: -10,
+    backgroundColor: 'rgba(16, 185, 129, 0.05)',
+    borderRadius: 44,
   },
   title: {
     fontSize: 22,
@@ -155,7 +205,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     marginBottom: 8,
     textAlign: 'center',
-    letterSpacing: -0.5,
   },
   subtitle: {
     fontSize: 13,
@@ -163,7 +212,6 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     textAlign: 'center',
     marginBottom: SPACING.lg,
-    paddingHorizontal: 8,
   },
   featuresList: {
     width: '100%',
@@ -206,18 +254,18 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   primaryButton: {
-    backgroundColor: '#10B981',
     flexDirection: 'row',
+    backgroundColor: COLORS.primary,
+    paddingVertical: 14,
+    borderRadius: RADIUS.md,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    paddingVertical: 14,
-    borderRadius: RADIUS.lg,
-    shadowColor: '#10B981',
+    shadowColor: COLORS.primary,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
+    shadowOpacity: 0.3,
     shadowRadius: 8,
-    elevation: 6,
+    elevation: 4,
   },
   primaryButtonText: {
     color: '#FFFFFF',
@@ -225,7 +273,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   secondaryButton: {
-    paddingVertical: 12,
+    paddingVertical: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },

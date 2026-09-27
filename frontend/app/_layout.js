@@ -113,6 +113,7 @@ function CopilotTourWrapper({ children }) {
       margin={10}
       overlay="view"
       animated={false}
+      arrowSize={0}
       stepNumberComponent={() => null}
       tooltipComponent={CustomTooltip}
       tooltipStyle={{

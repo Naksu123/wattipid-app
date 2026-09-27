@@ -128,8 +128,15 @@ apiClient.interceptors.request.use(
       }
     }
 
-    // Skip injecting tokens if we're logging out
-    if (isLoggingOut) return config;
+    // Skip non-logout requests if we're logging out
+    const isLogoutReq = config.url?.includes('action=logout') || config.data?.action === 'logout';
+    if (isLoggingOut && !isLogoutReq) {
+      const controller = new AbortController();
+      controller.abort('Logging out');
+      config.signal = controller.signal;
+      return config;
+    }
+
     const token = await Storage.getItem('user_token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -184,9 +191,11 @@ apiClient.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    // If we're logging out, silently swallow all errors
-    if (isLoggingOut) {
-      return Promise.resolve({ data: { success: false, message: 'Logging out' } });
+    const isCanceled = axios.isCancel(error) || error.message === 'canceled' || error.name === 'CanceledError' || error.message === 'Logging out';
+
+    // If we're logging out or request was canceled due to logout, silently swallow all errors
+    if (isLoggingOut || isCanceled) {
+      return Promise.resolve({ data: { success: true, isLoggingOut: true, message: 'Logging out', data: {} } });
     }
 
     // Extract action from payload or url for route classification
@@ -309,7 +318,6 @@ apiClient.interceptors.response.use(
     // Show friendly toast message
     const isSyncRoute = originalRequest?.url?.includes('action=syncTenantData') || originalRequest?.url?.includes('action=syncLandlordData') || originalRequest?.url?.includes('action=syncState') || originalRequest?.data?.action === 'syncState' || originalRequest?.data?.includes?.('syncState');
     const isReminderRoute = originalRequest?.data?.action === 'send_manual_reminder';
-    const isCanceled = axios.isCancel(error) || error.message === 'canceled' || error.name === 'CanceledError';
     if (!isLoggingOut && !isAuthRoute && !isSyncRoute && !isReminderRoute && !isCanceled) {
       let userMessage = error.response?.data?.message || 'Unable to process your request at this time. Server is currently unavailable.';
       if (typeof userMessage === 'string' && (userMessage.toLowerCase().includes('database') || userMessage.toLowerCase().includes('sqlstate'))) {

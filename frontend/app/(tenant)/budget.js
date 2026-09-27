@@ -344,22 +344,22 @@ function BudgetScreen() {
         </View>
 
         {/* ================= 2. LIVE BUDGET PROGRESS (Matches smart-budgeting.png) ================= */}
-        <CopilotStep
-          text="Live Budget shows how much of your electricity budget has been used and helps you monitor your current budget status."
-          order={12}
-          name="budget_live"
-        >
-          <CopilotView style={s.fullWidth}>
-            {!editing ? (
-              loading && !budgetData ? (
-                /* Loading State */
-                <View style={s.loadingCard}>
-                  <ActivityIndicator size="large" color={COLORS.primary} />
-                  <Text style={s.loadingText}>Retrieving budget and spending limits...</Text>
-                </View>
-              ) : !budgetData ? (
-                /* Empty State: No Budget Set */
-                <View style={s.emptyBudgetCard}>
+        {!editing ? (
+          loading && !budgetData ? (
+            /* Loading State */
+            <View style={s.loadingCard}>
+              <ActivityIndicator size="large" color={COLORS.primary} />
+              <Text style={s.loadingText}>Retrieving budget and spending limits...</Text>
+            </View>
+          ) : !budgetData ? (
+            /* Empty State: No Budget Set */
+            <View style={s.emptyBudgetCard}>
+              <CopilotStep
+                text="Live Budget shows how much of your electricity budget has been used and helps you monitor your current budget status."
+                order={15}
+                name="budget_live"
+              >
+                <CopilotView style={{ alignItems: 'center', width: '100%' }}>
                   <View style={s.emptyBudgetIconWrap}>
                     <Ionicons name="wallet-outline" size={32} color="#10B981" />
                   </View>
@@ -367,6 +367,14 @@ function BudgetScreen() {
                   <Text style={s.emptyBudgetDesc}>
                     Set a monthly budget to automatically track your daily and weekly electricity allowances.
                   </Text>
+                </CopilotView>
+              </CopilotStep>
+              <CopilotStep
+                text="Tap here to configure or adjust your monthly spending budget and automatic daily allowance limits."
+                order={16}
+                name="budget_edit"
+              >
+                <CopilotView style={{ width: '100%', marginTop: 8 }}>
                   <TouchableOpacity 
                     onPress={() => setEditing(true)} 
                     activeOpacity={0.8} 
@@ -374,28 +382,36 @@ function BudgetScreen() {
                   >
                     <Text style={s.emptyBudgetBtnText}>Set Monthly Budget</Text>
                   </TouchableOpacity>
-                </View>
-              ) : (
-                /* Configured Budget Display */
-                <View style={s.fullWidth}>
-                  {/* Period Switcher Tabs */}
-                  <View style={s.tabRow}>
-                    {BUDGET_TABS.map(tab => (
-                      <TouchableOpacity 
-                        key={tab} 
-                        onPress={() => setActiveTab(tab)}
-                        style={[s.tabBtn, activeTab === tab && s.tabActive]} 
-                        activeOpacity={0.7}
-                      >
-                        <Text style={[s.tabText, activeTab === tab && s.tabTextActive]}>
-                          {tab.charAt(0).toUpperCase() + tab.slice(1)}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
+                </CopilotView>
+              </CopilotStep>
+            </View>
+          ) : (
+            /* Configured Budget Display */
+            <View style={s.fullWidth}>
+              {/* Period Switcher Tabs */}
+              <View style={s.tabRow}>
+                {BUDGET_TABS.map(tab => (
+                  <TouchableOpacity 
+                    key={tab} 
+                    onPress={() => setActiveTab(tab)}
+                    style={[s.tabBtn, activeTab === tab && s.tabActive]} 
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[s.tabText, activeTab === tab && s.tabTextActive]}>
+                      {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
 
-                  {/* Main Circular Progress Ring Card */}
-                  <View style={s.progressCard}>
+              {/* Main Circular Progress Ring Card */}
+              <View style={s.progressCard}>
+                <CopilotStep
+                  text="Live Budget shows how much of your electricity budget has been used and helps you monitor your current budget status."
+                  order={15}
+                  name="budget_live"
+                >
+                  <CopilotView style={{ width: '100%', alignItems: 'center' }}>
                     {/* Live Indicator & Status Badge */}
                     <View style={s.liveIndicatorWrap}>
                       <View style={s.liveDotWrap}>
@@ -428,54 +444,60 @@ function BudgetScreen() {
                         {daysRemaining} Days Left in Current Billing Cycle
                       </Text>
                     </View>
+                  </CopilotView>
+                </CopilotStep>
 
-                    {/* Action Buttons: Edit & Reset */}
-                    <View style={s.mainActionRow}>
-                      <TouchableOpacity 
-                        onPress={() => setEditing(true)} 
-                        style={s.mainEditBtn} 
-                        activeOpacity={0.8}
-                      >
-                        <Ionicons name="create-outline" size={15} color="#10B981" />
-                        <Text style={s.mainEditBtnText}>Edit Budget</Text>
-                      </TouchableOpacity>
+                {/* Action Buttons: Edit & Reset */}
+                <CopilotStep
+                  text="Tap here to configure or adjust your monthly spending budget and automatic daily allowance limits."
+                  order={16}
+                  name="budget_edit"
+                >
+                  <CopilotView style={s.mainActionRow}>
+                    <TouchableOpacity 
+                      onPress={() => setEditing(true)} 
+                      style={s.mainEditBtn} 
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons name="create-outline" size={15} color="#10B981" />
+                      <Text style={s.mainEditBtnText}>Edit Budget</Text>
+                    </TouchableOpacity>
 
-                      <TouchableOpacity 
-                        onPress={handleResetBudget} 
-                        style={s.mainResetBtn} 
-                        activeOpacity={0.8}
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                      >
-                        <Ionicons name="trash-outline" size={15} color="#EF4444" />
-                        <Text style={s.mainResetBtnText}>Reset</Text>
-                      </TouchableOpacity>
-                    </View>
+                    <TouchableOpacity 
+                      onPress={handleResetBudget} 
+                      style={s.mainResetBtn} 
+                      activeOpacity={0.8}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Ionicons name="trash-outline" size={15} color="#EF4444" />
+                      <Text style={s.mainResetBtnText}>Reset</Text>
+                    </TouchableOpacity>
+                  </CopilotView>
+                </CopilotStep>
+              </View>
+
+              {/* Daily Spend Target Card (from smart-budgeting.png) */}
+              {spendTarget > 0 && (
+                <View style={s.targetCard}>
+                  <View style={s.targetIconBadge}>
+                    <Ionicons name="calculator-outline" size={18} color="#10B981" />
                   </View>
-
-                  {/* Daily Spend Target Card (from smart-budgeting.png) */}
-                  {spendTarget > 0 && (
-                    <View style={s.targetCard}>
-                      <View style={s.targetIconBadge}>
-                        <Ionicons name="calculator-outline" size={18} color="#10B981" />
-                      </View>
-                      <View style={s.targetContent}>
-                        <Text style={s.targetLabel}>Daily Spend Target</Text>
-                        <Text style={s.targetDesc}>
-                          Spend under ₱{spendTarget.toFixed(2)}/day to stay on track.
-                        </Text>
-                      </View>
-                    </View>
-                  )}
+                  <View style={s.targetContent}>
+                    <Text style={s.targetLabel}>Daily Spend Target</Text>
+                    <Text style={s.targetDesc}>
+                      Spend under ₱{spendTarget.toFixed(2)}/day to stay on track.
+                    </Text>
+                  </View>
                 </View>
-              )
-            ) : null}
-          </CopilotView>
-        </CopilotStep>
+              )}
+            </View>
+          )
+        ) : null}
 
         {/* ================= 3. BUDGET BREAKDOWN (PRIORITY SECTION) ================= */}
         <CopilotStep
-          text="Budget Breakdown shows how your electricity budget is being used across the available periods."
-          order={13}
+          text="Budget Breakdown shows your preset budget allowance minus current cost used to provide your exact remaining funds."
+          order={17}
           name="budget_breakdown"
         >
           <CopilotView style={s.fullWidth}>
@@ -569,14 +591,26 @@ function BudgetScreen() {
                   })}
                 </View>
               </View>
-            ) : null}
+            ) : (
+              <View style={[s.breakdownCard, { opacity: 0.85 }]}>
+                <View style={s.sectionHeaderRow}>
+                  <View style={s.sectionTitleRow}>
+                    <Ionicons name="pie-chart-outline" size={15} color="#10B981" />
+                    <Text style={s.sectionTitle}>BUDGET BREAKDOWN</Text>
+                  </View>
+                </View>
+                <Text style={{ color: '#94A3B8', fontSize: 13, marginTop: 8 }}>
+                  Configure your monthly budget to unlock automatic daily, weekly, and billing cycle cost breakdown.
+                </Text>
+              </View>
+            )}
           </CopilotView>
         </CopilotStep>
 
         {/* ================= 4. BUDGET COMPARISON ================= */}
         <CopilotStep
-          text="Budget Comparison allows you to compare your electricity consumption or budget performance across different periods."
-          order={14}
+          text="Budget Comparison allows you to compare your electricity consumption and spending trends against previous periods."
+          order={18}
           name="budget_comparison"
         >
           <CopilotView style={s.fullWidth}>

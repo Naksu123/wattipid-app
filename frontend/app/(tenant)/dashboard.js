@@ -504,64 +504,72 @@ export default function DashboardScreen() {
         }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
       >
-        {/* Redesigned Header matching tenant-dashboard.png */}
-        <View style={ms.redesignHeader}>
-          <View style={ms.headerLeft}>
-            {/* Avatar Circle with Initials - Tappable to open settings/profile */}
-            <TouchableOpacity 
-              style={ms.avatarCircle}
-              onPress={() => router.push('/(tenant)/settings')}
-              activeOpacity={0.85}
-              accessibilityLabel="Profile and Settings"
-              accessibilityRole="button"
-            >
-              <Text style={ms.avatarText}>{tenantInitials}</Text>
-            </TouchableOpacity>
+        {/* Step 5: Header Navigation & Settings Entry Point */}
+        <CopilotStep
+          text="Settings and notifications are located right here beside your profile in the top header, accessible anytime."
+          order={5}
+          name="dashboard_settings_entry"
+        >
+          <CopilotView>
+            <View style={ms.redesignHeader}>
+              <View style={ms.headerLeft}>
+                {/* Avatar Circle with Initials - Tappable to open settings/profile */}
+                <TouchableOpacity 
+                  style={ms.avatarCircle}
+                  onPress={() => router.push('/(tenant)/settings')}
+                  activeOpacity={0.85}
+                  accessibilityLabel="Profile and Settings"
+                  accessibilityRole="button"
+                >
+                  <Text style={ms.avatarText}>{tenantInitials}</Text>
+                </TouchableOpacity>
 
-            {/* Name and Room (Clean text only, no icons, no duplicate room name) */}
-            <View style={ms.headerInfo}>
-              <Text style={ms.greetingText} numberOfLines={1}>Hi, {firstName}</Text>
-              <View style={ms.roomPill}>
-                <Text style={ms.roomPillText}>{roomLabel}</Text>
+                {/* Name and Room (Clean text only, no icons, no duplicate room name) */}
+                <View style={ms.headerInfo}>
+                  <Text style={ms.greetingText} numberOfLines={1}>Hi, {firstName}</Text>
+                  <View style={ms.roomPill}>
+                    <Text style={ms.roomPillText}>{roomLabel}</Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* Right Actions: Live Online badge, Notification Bell, and Settings Button */}
+              <View style={ms.headerRight}>
+                <View style={[ms.liveOnlineBadge, offline && ms.liveOnlineBadgeOffline]}>
+                  <View style={[ms.liveOnlineDot, offline && ms.liveOnlineDotOffline]} />
+                  <Text style={[ms.liveOnlineText, offline && ms.liveOnlineTextOffline]}>
+                    {offline ? 'Offline' : 'Live Online'}
+                  </Text>
+                </View>
+
+                <TouchableOpacity 
+                  style={ms.headerActionBtn} 
+                  onPress={() => router.push('/(tenant)/notifications')}
+                  activeOpacity={0.8}
+                  accessibilityLabel="Notifications"
+                  accessibilityRole="button"
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Ionicons name="notifications-outline" size={19} color="#FFFFFF" />
+                  {unreadCount > 0 && (
+                    <View style={ms.notifBadgeDot} />
+                  )}
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                  style={ms.headerActionBtn} 
+                  onPress={() => router.push('/(tenant)/settings')}
+                  activeOpacity={0.8}
+                  accessibilityLabel="Settings"
+                  accessibilityRole="button"
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Ionicons name="settings-outline" size={19} color="#FFFFFF" />
+                </TouchableOpacity>
               </View>
             </View>
-          </View>
-
-          {/* Right Actions: Live Online badge, Notification Bell, and Settings Button */}
-          <View style={ms.headerRight}>
-            <View style={[ms.liveOnlineBadge, offline && ms.liveOnlineBadgeOffline]}>
-              <View style={[ms.liveOnlineDot, offline && ms.liveOnlineDotOffline]} />
-              <Text style={[ms.liveOnlineText, offline && ms.liveOnlineTextOffline]}>
-                {offline ? 'Offline' : 'Live Online'}
-              </Text>
-            </View>
-
-            <TouchableOpacity 
-              style={ms.headerActionBtn} 
-              onPress={() => router.push('/(tenant)/notifications')}
-              activeOpacity={0.8}
-              accessibilityLabel="Notifications"
-              accessibilityRole="button"
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <Ionicons name="notifications-outline" size={19} color="#FFFFFF" />
-              {unreadCount > 0 && (
-                <View style={ms.notifBadgeDot} />
-              )}
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={ms.headerActionBtn} 
-              onPress={() => router.push('/(tenant)/settings')}
-              activeOpacity={0.8}
-              accessibilityLabel="Settings"
-              accessibilityRole="button"
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <Ionicons name="settings-outline" size={19} color="#FFFFFF" />
-            </TouchableOpacity>
-          </View>
-        </View>
+          </CopilotView>
+        </CopilotStep>
 
         {/* Step 1: Real-Time Power Hero Card */}
         <CopilotStep
@@ -705,77 +713,85 @@ export default function DashboardScreen() {
           </CopilotView>
         </CopilotStep>
 
-        {/* Daily Budget Tracking Card */}
-        <View style={ms.redesignCard}>
-          {/* Header Row */}
-          <View style={ms.cardHeaderRow}>
-            <Text style={ms.cardHeaderTitle}>DAILY BUDGET TRACKING</Text>
-            {budget && budget.daily_allowance > 0 ? (
-              <View style={[
-                ms.budgetStatusBadge,
-                { backgroundColor: budgetPct > 100 ? 'rgba(239, 68, 68, 0.15)' : (budgetPct > 75 ? 'rgba(245, 158, 11, 0.15)' : 'rgba(16, 185, 129, 0.15)') }
-              ]}>
-                <Text style={[
-                  ms.budgetStatusText,
-                  { color: budgetPct > 100 ? '#EF4444' : (budgetPct > 75 ? '#F59E0B' : '#10B981') }
-                ]}>
-                  {budgetPct > 100 ? 'Budget Exceeded' : (budgetPct > 75 ? 'Near Limit' : 'On Track')}
-                </Text>
-              </View>
-            ) : null}
-          </View>
-
-          {budget && budget.daily_allowance > 0 ? (
-            <View>
-              {/* 3 Metric Columns: Daily Budget, Spent Today, Remaining */}
-              <View style={ms.budgetMetricsRow}>
-                <View style={ms.budgetMetricCol}>
-                  <Text style={ms.budgetMetricLabel}>Daily Budget</Text>
-                  <Text style={ms.budgetMetricValue}>₱{Number(budget.daily_allowance).toFixed(2)}</Text>
-                </View>
-
-                <View style={ms.budgetMetricCol}>
-                  <Text style={ms.budgetMetricLabel}>{"Today's Cost"}</Text>
-                  <Text style={[ms.budgetMetricValue, { color: budgetPct > 90 ? '#EF4444' : '#FFFFFF' }]}>
-                    ₱{Number(todayUsage?.totalCost || 0).toFixed(2)}
-                  </Text>
-                </View>
-
-                <View style={[ms.budgetMetricCol, { alignItems: 'flex-end' }]}>
-                  <Text style={ms.budgetMetricLabel}>Remaining</Text>
-                  <Text style={[
-                    ms.budgetMetricValue, 
-                    { color: (Number(budget.daily_allowance) - Number(todayUsage?.totalCost || 0)) <= 0 ? '#EF4444' : '#10B981' }
+        {/* Step 3: Daily Budget Tracking Card */}
+        <CopilotStep
+          text="Tracks today's energy spending against your daily allowance to help you stay within your designated budget."
+          order={3}
+          name="dashboard_budget_tracking"
+        >
+          <CopilotView>
+            <View style={ms.redesignCard}>
+              {/* Header Row */}
+              <View style={ms.cardHeaderRow}>
+                <Text style={ms.cardHeaderTitle}>DAILY BUDGET TRACKING</Text>
+                {budget && budget.daily_allowance > 0 ? (
+                  <View style={[
+                    ms.budgetStatusBadge,
+                    { backgroundColor: budgetPct > 100 ? 'rgba(239, 68, 68, 0.15)' : (budgetPct > 75 ? 'rgba(245, 158, 11, 0.15)' : 'rgba(16, 185, 129, 0.15)') }
                   ]}>
-                    ₱{Math.max(0, Number(budget.daily_allowance) - Number(todayUsage?.totalCost || 0)).toFixed(2)}
-                  </Text>
-                </View>
+                    <Text style={[
+                      ms.budgetStatusText,
+                      { color: budgetPct > 100 ? '#EF4444' : (budgetPct > 75 ? '#F59E0B' : '#10B981') }
+                    ]}>
+                      {budgetPct > 100 ? 'Budget Exceeded' : (budgetPct > 75 ? 'Near Limit' : 'On Track')}
+                    </Text>
+                  </View>
+                ) : null}
               </View>
 
-              {/* Animated Progress Bar */}
-              <View style={ms.budgetProgressBarBg}>
-                <Animated.View style={[
-                  ms.budgetProgressBarFill,
-                  {
-                    width: animatedBudgetPct.interpolate({ inputRange: [0, 100], outputRange: ['0%', '100%'], extrapolate: 'clamp' }),
-                    backgroundColor: budgetPct > 90 ? '#EF4444' : (budgetPct > 70 ? '#F59E0B' : '#10B981'),
-                  }
-                ]} />
-              </View>
+              {budget && budget.daily_allowance > 0 ? (
+                <View>
+                  {/* 3 Metric Columns: Daily Budget, Spent Today, Remaining */}
+                  <View style={ms.budgetMetricsRow}>
+                    <View style={ms.budgetMetricCol}>
+                      <Text style={ms.budgetMetricLabel}>Daily Budget</Text>
+                      <Text style={ms.budgetMetricValue}>₱{Number(budget.daily_allowance).toFixed(2)}</Text>
+                    </View>
+
+                    <View style={ms.budgetMetricCol}>
+                      <Text style={ms.budgetMetricLabel}>{"Today's Cost"}</Text>
+                      <Text style={[ms.budgetMetricValue, { color: budgetPct > 90 ? '#EF4444' : '#FFFFFF' }]}>
+                        ₱{Number(todayUsage?.totalCost || 0).toFixed(2)}
+                      </Text>
+                    </View>
+
+                    <View style={[ms.budgetMetricCol, { alignItems: 'flex-end' }]}>
+                      <Text style={ms.budgetMetricLabel}>Remaining</Text>
+                      <Text style={[
+                        ms.budgetMetricValue, 
+                        { color: (Number(budget.daily_allowance) - Number(todayUsage?.totalCost || 0)) <= 0 ? '#EF4444' : '#10B981' }
+                      ]}>
+                        ₱{Math.max(0, Number(budget.daily_allowance) - Number(todayUsage?.totalCost || 0)).toFixed(2)}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Animated Progress Bar */}
+                  <View style={ms.budgetProgressBarBg}>
+                    <Animated.View style={[
+                      ms.budgetProgressBarFill,
+                      {
+                        width: animatedBudgetPct.interpolate({ inputRange: [0, 100], outputRange: ['0%', '100%'], extrapolate: 'clamp' }),
+                        backgroundColor: budgetPct > 90 ? '#EF4444' : (budgetPct > 70 ? '#F59E0B' : '#10B981'),
+                      }
+                    ]} />
+                  </View>
+                </View>
+              ) : (
+                <View style={ms.budgetPromptWrap}>
+                  <Text style={ms.budgetPromptText}>No daily budget configured yet.</Text>
+                  <TouchableOpacity 
+                    style={ms.setBudgetBtn}
+                    onPress={() => router.push('/(tenant)/budget')}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={ms.setBudgetBtnText}>Set Daily Budget</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
             </View>
-          ) : (
-            <View style={ms.budgetPromptWrap}>
-              <Text style={ms.budgetPromptText}>No daily budget configured yet.</Text>
-              <TouchableOpacity 
-                style={ms.setBudgetBtn}
-                onPress={() => router.push('/(tenant)/budget')}
-                activeOpacity={0.8}
-              >
-                <Text style={ms.setBudgetBtnText}>Set Daily Budget</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
+          </CopilotView>
+        </CopilotStep>
 
         {/* Today's Wattage Trend Card (Strictly Actual IoT Sensor Data Only) */}
         <View style={ms.redesignCard}>
@@ -837,47 +853,45 @@ export default function DashboardScreen() {
           )}
         </View>
 
-        {/* Step 3: Energy Tip Banner matching tenant-dashboard.png */}
+        {/* Step 4: Energy Tip Banner matching tenant-dashboard.png */}
         <CopilotStep
-          text="Wattipid Smart Insights provides useful information and recommendations based on your electricity consumption patterns and behavior."
-          order={3}
+          text="Wattipid Smart Insights provides intelligent advice and observations tailored to your ongoing electricity usage patterns."
+          order={4}
           name="dashboard_smart_insights"
         >
           <CopilotView>
-            {!tipDismissed && (
-              <View style={ms.tipBannerCard}>
-                <View style={[
-                  ms.tipIconBadge,
-                  smartTip?.color ? {
-                    backgroundColor: `${smartTip.color}1F`,
-                    borderColor: `${smartTip.color}40`,
-                  } : null
-                ]}>
-                  <Ionicons 
-                    name={smartTip?.icon || 'leaf'} 
-                    size={17} 
-                    color={smartTip?.color || '#10B981'} 
-                  />
-                </View>
-                <View style={ms.tipTextContainer}>
-                  {smartTip?.title ? (
-                    <Text style={ms.tipTitleText}>{smartTip.title}</Text>
-                  ) : null}
-                  <Text style={ms.tipMessageText}>
-                    {smartTip
-                      ? (smartTip.message || smartTip.tip)
-                      : (randomTip?.message || 'Tip: Ironing clothes in bulk during off-peak hours (10PM-6AM) saves up to ₱120/month.')}
-                  </Text>
-                </View>
-                <TouchableOpacity 
-                  style={ms.tipDismissBtn}
-                  onPress={() => setTipDismissed(true)}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                  <Ionicons name="close" size={16} color="#64748B" />
-                </TouchableOpacity>
+            <View style={ms.tipBannerCard}>
+              <View style={[
+                ms.tipIconBadge,
+                smartTip?.color ? {
+                  backgroundColor: `${smartTip.color}1F`,
+                  borderColor: `${smartTip.color}40`,
+                } : null
+              ]}>
+                <Ionicons 
+                  name={smartTip?.icon || 'leaf'} 
+                  size={17} 
+                  color={smartTip?.color || '#10B981'} 
+                />
               </View>
-            )}
+              <View style={ms.tipTextContainer}>
+                {smartTip?.title ? (
+                  <Text style={ms.tipTitleText}>{smartTip.title}</Text>
+                ) : null}
+                <Text style={ms.tipMessageText}>
+                  {smartTip
+                    ? (smartTip.message || smartTip.tip)
+                    : (randomTip?.message || 'Tip: Ironing clothes in bulk during off-peak hours (10PM-6AM) saves up to ₱120/month.')}
+                </Text>
+              </View>
+              <TouchableOpacity 
+                style={ms.tipDismissBtn}
+                onPress={() => setTipDismissed(true)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Ionicons name="close" size={16} color="#64748B" />
+              </TouchableOpacity>
+            </View>
           </CopilotView>
         </CopilotStep>
 

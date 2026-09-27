@@ -178,21 +178,25 @@ export default function UserManualScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Full Tour CTA Card (Matches Screenshot 2) */}
-        {!searchQuery.trim() && !isLandlord && (
+        {/* Full Tour CTA Card */}
+        {!searchQuery.trim() && (
           <TouchableOpacity 
-            onPress={startFullTour} 
+            onPress={() => startFullTour(isLandlord ? 'landlord' : 'tenant')} 
             activeOpacity={0.85}
             style={s.tourCard}
             accessibilityRole="button"
-            accessibilityLabel="Start Full Tour"
+            accessibilityLabel={`Start ${roleLabel} Full Tour`}
           >
             <View style={s.tourIconWrap}>
               <Ionicons name="play-circle" size={28} color="#FFFFFF" />
             </View>
             <View style={s.tourContent}>
-              <Text style={s.tourTitle}>Start Full Tour</Text>
-              <Text style={s.tourSubtitle}>Complete walkthrough across all 6 main screens (23 steps)</Text>
+              <Text style={s.tourTitle}>Start {roleLabel} Full Tour</Text>
+              <Text style={s.tourSubtitle}>
+                {isLandlord 
+                  ? 'Complete walkthrough across all 7 landlord screens (15 steps)' 
+                  : 'Complete walkthrough across all 6 main screens (28 steps)'}
+              </Text>
             </View>
             <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
           </TouchableOpacity>
