@@ -4,125 +4,549 @@ import { COLORS, RADIUS, SPACING } from '../../theme';
 export default StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: '#070C18',
   },
+
+  // ── Header (Normal Mobile App Hierarchy) ──
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    padding: SPACING.lg,
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 14,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.05)'
+    borderBottomColor: 'rgba(255, 255, 255, 0.06)',
+    backgroundColor: '#070C18',
   },
-  closeBtn: {
-    padding: 8,
-    borderRadius: 20,
-    backgroundColor: 'rgba(0,0,0,0.05)',
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+    marginRight: 10,
+  },
+  headerBackBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  headerTitleWrap: {
+    flex: 1,
   },
   headerTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: COLORS.textPrimary,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.3,
   },
-  historySection: {
-    flex: 1,
-    padding: SPACING.lg,
-  },
-  filterHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20
-  },
-  filterTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: COLORS.textPrimary
-  },
-  filterDropdown: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: 'rgba(30,41,59,0.05)',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20
-  },
-  filterDropdownText: {
-    color: COLORS.textPrimary,
+  headerSubtitle: {
+    fontSize: 12,
     fontWeight: '600',
-    fontSize: 13
+    color: '#10B981',
+    marginTop: 2,
   },
-  histGroup: {
-    marginBottom: 20
-  },
-  histGroupHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 12,
-    paddingLeft: 4
-  },
-  histDate: {
-    color: COLORS.textPrimary,
-    fontWeight: '700',
-    fontSize: 14
-  },
-  histTableWrapper: {
-    paddingBottom: 4
-  },
-  histRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    backgroundColor: 'rgba(255,255,255,0.03)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
-    borderRadius: 8,
-    marginBottom: 4
-  },
-  histRowAlt: {
-    backgroundColor: 'rgba(255,255,255,0.01)'
-  },
-  histColTime: { flex: 1, color: COLORS.textPrimary, fontWeight: '600', fontSize: 13 },
-  histColWatts: { flex: 1, color: COLORS.textPrimary, fontSize: 13 },
-  histColKwh: { flex: 1, color: COLORS.textPrimary, fontSize: 13 },
-  histColCost: { flex: 1, color: COLORS.textPrimary, fontWeight: '600', fontSize: 13 },
-  histColStatus: { width: 40, alignItems: 'flex-end' },
-  statusDot: { width: 8, height: 8, borderRadius: 4 },
-  emptyHist: {
+  headerCloseBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 40,
-    backgroundColor: 'rgba(255,255,255,0.03)',
-    borderRadius: RADIUS.lg,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
+    borderColor: 'rgba(255, 255, 255, 0.06)',
   },
-  emptyHistText: {
-    color: COLORS.textMuted,
-    marginTop: 12,
-    fontWeight: '500'
+
+  // ── Scrollable Body ──
+  scrollContent: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 36,
   },
+
+  // ── Filter Toolbar (Responsive & Symmetrical) ──
+  filterBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+    minHeight: 36,
+  },
+  filterLabelWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  filterBarLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#64748B',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+  },
+  filterDropdownBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    backgroundColor: '#0C1322',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 10,
+    maxWidth: '65%',
+  },
+  filterDropdownText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#E2E8F0',
+    flexShrink: 1,
+  },
+
+  // ── Period Accrued Cost Summary Card ──
+  costSummaryCard: {
+    backgroundColor: '#0C1322',
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: 'rgba(16, 185, 129, 0.22)',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  costSummaryLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+    marginRight: 10,
+  },
+  costIconBadge: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  costLabel: {
+    fontSize: 10.5,
+    fontWeight: '800',
+    color: '#64748B',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
+  costSubtitle: {
+    fontSize: 11.5,
+    fontWeight: '600',
+    color: '#94A3B8',
+    marginTop: 2,
+  },
+  costSummaryRight: {
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+  },
+  costSummaryValue: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#10B981',
+    letterSpacing: -0.2,
+  },
+
+  // ── Secondary Stats Row (Equal Height, Symmetric) ──
+  statsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 18,
+  },
+  statCard: {
+    flex: 1,
+    backgroundColor: '#0C1322',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    justifyContent: 'center',
+    minHeight: 64,
+  },
+  statHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  statLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#64748B',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
+  statValueRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 4,
+  },
+  statValueEnergy: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#38BDF8',
+  },
+  statValuePower: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#F59E0B',
+  },
+  statUnit: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#94A3B8',
+  },
+
+  // ── Transaction Logs Section Header ──
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+    paddingHorizontal: 2,
+  },
+  sectionTitleWrap: {
+    flex: 1,
+  },
+  sectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+  },
+  sectionTitleText: {
+    fontSize: 14.5,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.1,
+  },
+  sectionSubtitleText: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: '#64748B',
+    marginTop: 2,
+    paddingLeft: 22,
+  },
+  logsCountPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.2)',
+  },
+  logsCountPillText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#10B981',
+  },
+
+  // ── Date Group Header ──
+  dateGroup: {
+    marginBottom: 16,
+  },
+  dateGroupHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+    paddingHorizontal: 2,
+  },
+  dateGroupLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  dateGroupText: {
+    color: '#E2E8F0',
+    fontWeight: '700',
+    fontSize: 12.5,
+  },
+  dateGroupCountText: {
+    color: '#64748B',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+
+  // ── Table Card ──
+  tableCard: {
+    backgroundColor: '#0C1322',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+    overflow: 'hidden',
+    width: '100%',
+  },
+
+  // ── Table Header Row (Evenly Balanced Gaps) ──
+  tableHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 9,
+    paddingHorizontal: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.025)',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+    width: '100%',
+  },
+  colHeaderTime: {
+    flex: 1.15,
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#64748B',
+    letterSpacing: 0.5,
+    textAlign: 'left',
+    paddingLeft: 6,
+  },
+  colHeaderPower: {
+    flex: 0.95,
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#64748B',
+    letterSpacing: 0.5,
+    textAlign: 'right',
+    paddingRight: 8,
+  },
+  colHeaderEnergy: {
+    flex: 1.0,
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#64748B',
+    letterSpacing: 0.5,
+    textAlign: 'right',
+    paddingRight: 8,
+  },
+  colHeaderCost: {
+    flex: 1.0,
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#10B981',
+    letterSpacing: 0.5,
+    textAlign: 'right',
+    paddingRight: 8,
+  },
+  colHeaderStatus: {
+    width: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerDotIcon: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#64748B',
+  },
+
+  // ── Table Data Row (Even Spacing & Alignment) ──
+  tableRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 38,
+    paddingHorizontal: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.03)',
+    width: '100%',
+  },
+  tableRowAlt: {
+    backgroundColor: 'rgba(255, 255, 255, 0.012)',
+  },
+  colTime: {
+    flex: 1.15,
+    color: '#E2E8F0',
+    fontWeight: '600',
+    fontSize: 11.5,
+    textAlign: 'left',
+    paddingLeft: 6,
+  },
+  colPower: {
+    flex: 0.95,
+    color: '#38BDF8',
+    fontWeight: '600',
+    fontSize: 11.5,
+    textAlign: 'right',
+    paddingRight: 8,
+  },
+  colEnergy: {
+    flex: 1.0,
+    color: '#CBD5E1',
+    fontWeight: '500',
+    fontSize: 11,
+    textAlign: 'right',
+    paddingRight: 8,
+  },
+  colCost: {
+    flex: 1.0,
+    color: '#10B981',
+    fontWeight: '800',
+    fontSize: 12,
+    textAlign: 'right',
+    paddingRight: 8,
+  },
+  colStatus: {
+    width: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statusDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+  },
+
+  // ── Load More Records Button ──
+  loadMoreBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    height: 36,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: 9,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+    marginHorizontal: 10,
+    marginVertical: 8,
+  },
+  loadMoreBtnText: {
+    color: '#10B981',
+    fontSize: 11.5,
+    fontWeight: '700',
+  },
+
+  // ── Empty State ──
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 36,
+    paddingHorizontal: 20,
+    backgroundColor: '#0C1322',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+    marginTop: 6,
+  },
+  emptyIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  emptyTitle: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: '#E2E8F0',
+    marginBottom: 3,
+  },
+  emptyText: {
+    fontSize: 11.5,
+    color: '#64748B',
+    textAlign: 'center',
+    fontWeight: '500',
+    maxWidth: 240,
+  },
+
+  // ── Filter Modal Styling (BaseModal) ──
   filterOption: {
-    padding: 16, 
-    backgroundColor: 'rgba(255,255,255,0.03)', 
-    borderRadius: RADIUS.md, 
-    marginBottom: 8, 
-    borderWidth: 1, 
-    borderColor: 'rgba(255,255,255,0.05)'
+    paddingVertical: 11,
+    paddingHorizontal: 14,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: 10,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   filterOptionActive: {
-    borderColor: COLORS.primary,
-    backgroundColor: 'rgba(34,197,94,0.1)'
+    borderColor: '#10B981',
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+  },
+  filterOptionTitle: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 12.5,
+  },
+  filterOptionTitleActive: {
+    color: '#10B981',
+  },
+  filterOptionSubtitle: {
+    color: '#94A3B8',
+    fontSize: 11,
+    marginTop: 2,
+    fontWeight: '500',
+  },
+  filterSectionLabel: {
+    fontSize: 10.5,
+    fontWeight: '800',
+    color: '#64748B',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+    marginTop: 10,
+    marginBottom: 8,
+  },
+  datePickerRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 14,
   },
   datePickerControl: {
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    backgroundColor: 'rgba(255,255,255,0.03)', 
-    borderRadius: RADIUS.md, 
-    borderWidth: 1, 
-    borderColor: 'rgba(255,255,255,0.05)'
-  }
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#070D18',
+    borderRadius: 9,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    height: 38,
+    paddingHorizontal: 4,
+  },
+  datePickerBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  datePickerValueText: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  applyFilterBtn: {
+    height: 40,
+    backgroundColor: '#10B981',
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#10B981',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  applyFilterBtnText: {
+    color: '#042F2E',
+    fontWeight: '800',
+    fontSize: 12.5,
+  },
 });
