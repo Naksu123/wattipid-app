@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { View, Text, ScrollView, RefreshControl, TouchableOpacity, Animated, Easing } from 'react-native';
+import { View, Text, ScrollView, RefreshControl, TouchableOpacity, Animated, Easing, Modal, StyleSheet } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useIsFocused } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -61,6 +61,43 @@ export default function DashboardScreen() {
   const [activities, setActivities] = useState([]);
   const [hourlyData, setHourlyData] = useState([]);
   const [breakdownExpanded, setBreakdownExpanded] = useState(false);
+  const [tipModalVisible, setTipModalVisible] = useState(false);
+  const autoPopupTriggeredRef = useRef(false);
+
+  // Floating centered modal entrance animation
+  const tipModalScaleAnim = useRef(new Animated.Value(0.9)).current;
+  const tipModalOpacityAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (tipModalVisible) {
+      tipModalScaleAnim.setValue(0.9);
+      tipModalOpacityAnim.setValue(0);
+      Animated.parallel([
+        Animated.spring(tipModalScaleAnim, {
+          toValue: 1,
+          friction: 8,
+          tension: 65,
+          useNativeDriver: true,
+        }),
+        Animated.timing(tipModalOpacityAnim, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [tipModalVisible, tipModalScaleAnim, tipModalOpacityAnim]);
+
+  // Auto-pop up Wattipid Tip once per session when budget limit is reached or exceeded
+  useEffect(() => {
+    if (loading || autoPopupTriggeredRef.current) return;
+    const currentCost = Number(todayUsage?.totalCost || 0);
+    const dailyAllowance = Number(budget?.daily_allowance || 0);
+    if (dailyAllowance > 0 && currentCost >= dailyAllowance * 0.95) {
+      autoPopupTriggeredRef.current = true;
+      setTipModalVisible(true);
+    }
+  }, [loading, todayUsage?.totalCost, budget?.daily_allowance]);
 
   // Copilot Tour & First-Time Onboarding
   const scrollViewRef = useRef(null);
@@ -144,7 +181,10 @@ export default function DashboardScreen() {
         apiClient.post('/api.php', { action: 'getAvailableBillingCycles', roomId }),
         getPaymentInsights(roomId),
         getNotificationHistory(null, 10),
-        tipsService.getSmartRecommendation(),
+        tipsService.getSmartRecommendation({
+          user,
+          relevantCategories: ['High Consumption Awareness', 'Electricity Conservation', 'General Energy Saving', 'Appliances']
+        }),
         getHourlyBreakdown(roomId)
       ]);
 
@@ -478,6 +518,17 @@ export default function DashboardScreen() {
     };
   }, [hourlyData, offline, deviceOnline, data.power]);
 
+  const isOverspending = budgetPct > 90;
+  const accentColor = isOverspending ? '#F59E0B' : '#10B981';
+  const activeTipTitle = randomTip?.title || smartTip?.title || (isOverspending ? 'Managing Over-Budget Usage' : 'Power Down When Unneeded');
+  const activeTipMessage = randomTip?.message || smartTip?.message || (
+    isOverspending
+      ? 'To manage overspending today, unplug high-draw appliances and shift non-essential electricity use to off-peak hours.'
+      : 'Turn off electrical equipment when it is no longer needed to reduce overall electricity consumption.'
+  );
+  const activeTipCategory = randomTip?.category || smartTip?.category || (isOverspending ? 'High Consumption Awareness' : 'Electricity Conservation');
+  const activeTipIcon = randomTip?.icon || smartTip?.icon || (isOverspending ? 'alert-circle' : 'leaf');
+
   return (
     <View style={ms.container}>
       {/* GLOBAL SYNC STATUS BANNER */}
@@ -504,25 +555,26 @@ export default function DashboardScreen() {
         }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
       >
-        {/* Step 5: Header Navigation & Settings Entry Point */}
+        {/* Step 5: Header Navigation & Profile Entry Point */}
         <CopilotStep
-          text="Settings and notifications are located right here beside your profile in the top header, accessible anytime."
+          text="Access your account settings and profile anytime by tapping your tenant profile name or avatar in the top header."
           order={5}
           name="dashboard_settings_entry"
         >
           <CopilotView>
             <View style={ms.redesignHeader}>
-              <View style={ms.headerLeft}>
-                {/* Avatar Circle with Initials - Tappable to open settings/profile */}
-                <TouchableOpacity 
-                  style={ms.avatarCircle}
-                  onPress={() => router.push('/(tenant)/settings')}
-                  activeOpacity={0.85}
-                  accessibilityLabel="Profile and Settings"
-                  accessibilityRole="button"
-                >
+              {/* Tappable Profile (Avatar + Tenant Name & Room) to open Settings */}
+              <TouchableOpacity 
+                style={ms.headerLeft}
+                onPress={() => router.push('/(tenant)/settings')}
+                activeOpacity={0.8}
+                accessibilityLabel="Tenant Profile and Settings"
+                accessibilityRole="button"
+              >
+                {/* Avatar Circle with Initials */}
+                <View style={ms.avatarCircle}>
                   <Text style={ms.avatarText}>{tenantInitials}</Text>
-                </TouchableOpacity>
+                </View>
 
                 {/* Name and Room (Clean text only, no icons, no duplicate room name) */}
                 <View style={ms.headerInfo}>
@@ -531,9 +583,9 @@ export default function DashboardScreen() {
                     <Text style={ms.roomPillText}>{roomLabel}</Text>
                   </View>
                 </View>
-              </View>
+              </TouchableOpacity>
 
-              {/* Right Actions: Live Online badge, Notification Bell, and Settings Button */}
+              {/* Right Actions: Live Online badge and Notification Bell */}
               <View style={ms.headerRight}>
                 <View style={[ms.liveOnlineBadge, offline && ms.liveOnlineBadgeOffline]}>
                   <View style={[ms.liveOnlineDot, offline && ms.liveOnlineDotOffline]} />
@@ -554,17 +606,6 @@ export default function DashboardScreen() {
                   {unreadCount > 0 && (
                     <View style={ms.notifBadgeDot} />
                   )}
-                </TouchableOpacity>
-
-                <TouchableOpacity 
-                  style={ms.headerActionBtn} 
-                  onPress={() => router.push('/(tenant)/settings')}
-                  activeOpacity={0.8}
-                  accessibilityLabel="Settings"
-                  accessibilityRole="button"
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                >
-                  <Ionicons name="settings-outline" size={19} color="#FFFFFF" />
                 </TouchableOpacity>
               </View>
             </View>
@@ -644,7 +685,7 @@ export default function DashboardScreen() {
                 <View style={ms.billingBox}>
                   <Text style={ms.billingBoxLabel}>{"Today's Usage"}</Text>
                   <Text style={ms.billingBoxKwh}>
-                    {Number(todayUsage.totalEnergy || 0).toFixed(1)} kWh
+                    {(Number(todayUsage?.totalEnergy || 0) || 0).toFixed(2)} kWh
                   </Text>
                   <Text style={ms.billingBoxCostToday}>
                     ₱{Number(todayUsage.totalCost || 0).toFixed(2)}
@@ -655,7 +696,7 @@ export default function DashboardScreen() {
                 <View style={ms.billingBox}>
                   <Text style={ms.billingBoxLabel}>Current Cycle</Text>
                   <Text style={ms.billingBoxKwh}>
-                    {totalEnergyKwh.toFixed(1)} kWh
+                    {(Number(totalEnergyKwh) || 0).toFixed(2)} kWh
                   </Text>
                   <Text style={ms.billingBoxCostCycle}>
                     ₱{Number(currentCycleTotal || 0).toFixed(2)}
@@ -853,50 +894,259 @@ export default function DashboardScreen() {
           )}
         </View>
 
-        {/* Step 4: Energy Tip Banner matching tenant-dashboard.png */}
-        <CopilotStep
-          text="Wattipid Smart Insights provides intelligent advice and observations tailored to your ongoing electricity usage patterns."
-          order={4}
-          name="dashboard_smart_insights"
-        >
-          <CopilotView>
-            <View style={ms.tipBannerCard}>
-              <View style={[
-                ms.tipIconBadge,
-                smartTip?.color ? {
-                  backgroundColor: `${smartTip.color}1F`,
-                  borderColor: `${smartTip.color}40`,
-                } : null
-              ]}>
-                <Ionicons 
-                  name={smartTip?.icon || 'leaf'} 
-                  size={17} 
-                  color={smartTip?.color || '#10B981'} 
-                />
-              </View>
-              <View style={ms.tipTextContainer}>
-                {smartTip?.title ? (
-                  <Text style={ms.tipTitleText}>{smartTip.title}</Text>
-                ) : null}
-                <Text style={ms.tipMessageText}>
-                  {smartTip
-                    ? (smartTip.message || smartTip.tip)
-                    : (randomTip?.message || 'Tip: Ironing clothes in bulk during off-peak hours (10PM-6AM) saves up to ₱120/month.')}
-                </Text>
-              </View>
+        {/* Step 4: Wattipid Smart Insights (Actionable Tips from Wattipid Tips) */}
+        {!tipDismissed && (
+          <CopilotStep
+            text="Wattipid Smart Insights provides intelligent advice and observations tailored to your ongoing electricity usage patterns."
+            order={4}
+            name="dashboard_smart_insights"
+          >
+            <CopilotView>
               <TouchableOpacity 
-                style={ms.tipDismissBtn}
-                onPress={() => setTipDismissed(true)}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                style={ms.tipBannerCard}
+                onPress={() => setTipModalVisible(true)}
+                activeOpacity={0.88}
+                accessibilityRole="button"
+                accessibilityLabel="View Wattipid Tip details"
               >
-                <Ionicons name="close" size={16} color="#64748B" />
+                <View style={[
+                  ms.tipIconBadge,
+                  isOverspending ? {
+                    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+                    borderColor: 'rgba(245, 158, 11, 0.35)',
+                  } : null
+                ]}>
+                  <Ionicons 
+                    name={activeTipIcon} 
+                    size={18} 
+                    color={accentColor} 
+                  />
+                </View>
+
+                <View style={ms.tipTextContainer}>
+                  {/* Category Pill & Origin */}
+                  <View style={ms.tipHeaderBadgeRow}>
+                    <View style={[
+                      ms.tipCategoryPill,
+                      isOverspending && ms.tipCategoryPillWarning
+                    ]}>
+                      <Text style={[
+                        ms.tipCategoryPillText,
+                        isOverspending && ms.tipCategoryPillTextWarning
+                      ]}>
+                        {isOverspending ? 'OVERSPENDING INSIGHT' : 'SMART SAVING TIP'}
+                      </Text>
+                    </View>
+                    <Text style={ms.tipCategorySub} numberOfLines={1}>
+                      • {activeTipCategory}
+                    </Text>
+                  </View>
+
+                  {/* Tip Title from Wattipid Tips */}
+                  <Text style={ms.tipTitleText} numberOfLines={2}>
+                    {activeTipTitle}
+                  </Text>
+
+                  {/* Actionable Tip Advice */}
+                  <Text style={ms.tipMessageText} numberOfLines={3}>
+                    {activeTipMessage}
+                  </Text>
+
+                  {/* Direct link to Wattipid Tips */}
+                  <TouchableOpacity 
+                    style={ms.tipActionLink}
+                    onPress={() => {
+                      setTipModalVisible(false);
+                      router.push('/(tenant)/tips');
+                    }}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel="Explore Wattipid Tips"
+                  >
+                    <Text style={ms.tipActionLinkText}>Explore more tips in Wattipid Tips</Text>
+                    <Ionicons name="arrow-forward" size={13} color="#10B981" />
+                  </TouchableOpacity>
+                </View>
+
+                <TouchableOpacity 
+                  style={ms.tipDismissBtn}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    setTipDismissed(true);
+                  }}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Dismiss Smart Insight"
+                >
+                  <Ionicons name="close" size={16} color="#64748B" />
+                </TouchableOpacity>
               </TouchableOpacity>
-            </View>
-          </CopilotView>
-        </CopilotStep>
+            </CopilotView>
+          </CopilotStep>
+        )}
 
         <View style={{ height: 30 }} />
       </ScrollView>
+
+      {/* ================= FLOATING CENTERED WATTIPID TIP MODAL ================= */}
+      <Modal
+        visible={tipModalVisible}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={() => setTipModalVisible(false)}
+      >
+        <View style={ms.floatingModalOverlay}>
+          {/* Backdrop Dismiss Button */}
+          <TouchableOpacity
+            style={StyleSheet.absoluteFill}
+            activeOpacity={1}
+            onPress={() => setTipModalVisible(false)}
+            accessibilityRole="button"
+            accessibilityLabel="Dismiss modal backdrop"
+          />
+
+          {/* Floating Centered Card */}
+          <Animated.View
+            style={[
+              ms.floatingModalCard,
+              {
+                opacity: tipModalOpacityAnim,
+                transform: [{ scale: tipModalScaleAnim }],
+                borderColor: isOverspending ? 'rgba(245, 158, 11, 0.4)' : 'rgba(16, 185, 129, 0.4)',
+              }
+            ]}
+          >
+            {/* 1. Modal Top Bar: Pill Badge + Close Button */}
+            <View style={ms.floatingModalHeader}>
+              <View style={[
+                ms.modalBadgePill,
+                {
+                  backgroundColor: isOverspending ? 'rgba(245, 158, 11, 0.15)' : 'rgba(16, 185, 129, 0.15)',
+                  borderColor: isOverspending ? 'rgba(245, 158, 11, 0.35)' : 'rgba(16, 185, 129, 0.35)',
+                }
+              ]}>
+                <Ionicons
+                  name={isOverspending ? 'warning' : 'leaf'}
+                  size={12}
+                  color={accentColor}
+                />
+                <Text style={[ms.modalBadgePillText, { color: accentColor }]}>
+                  {isOverspending ? 'OVERSPENDING INSIGHT' : 'SMART SAVING TIP'}
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                style={ms.floatingModalCloseBtn}
+                onPress={() => setTipModalVisible(false)}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                accessibilityRole="button"
+                accessibilityLabel="Close tip modal"
+              >
+                <Ionicons name="close" size={17} color="#94A3B8" />
+              </TouchableOpacity>
+            </View>
+
+            {/* 2. Scrollable Modal Body (Prevents Any Vertical Overflow on Small Screens) */}
+            <ScrollView
+              style={ms.floatingModalScroll}
+              contentContainerStyle={ms.floatingModalScrollContent}
+              showsVerticalScrollIndicator={false}
+              bounces={false}
+            >
+              {/* Hero Row: Icon + Title & Category */}
+              <View style={ms.floatingModalHeroRow}>
+                <View style={[
+                  ms.floatingModalIconWrap,
+                  {
+                    backgroundColor: isOverspending ? 'rgba(245, 158, 11, 0.14)' : 'rgba(16, 185, 129, 0.14)',
+                    borderColor: isOverspending ? 'rgba(245, 158, 11, 0.3)' : 'rgba(16, 185, 129, 0.3)',
+                  }
+                ]}>
+                  <Ionicons
+                    name={activeTipIcon}
+                    size={22}
+                    color={accentColor}
+                  />
+                </View>
+
+                <View style={ms.floatingModalHeroTextWrap}>
+                  <Text style={ms.floatingModalTitle} numberOfLines={2}>
+                    {activeTipTitle}
+                  </Text>
+                  <Text style={ms.floatingModalCategoryText} numberOfLines={1}>
+                    {activeTipCategory}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Actionable Advice Message Card */}
+              <View style={ms.floatingModalMessageBox}>
+                <Text style={ms.floatingModalMessage}>
+                  {activeTipMessage}
+                </Text>
+              </View>
+
+              {/* Budget Impact Box */}
+              <View style={[
+                ms.floatingModalImpactBox,
+                {
+                  backgroundColor: isOverspending ? 'rgba(245, 158, 11, 0.08)' : 'rgba(16, 185, 129, 0.08)',
+                  borderColor: isOverspending ? 'rgba(245, 158, 11, 0.22)' : 'rgba(16, 185, 129, 0.22)',
+                }
+              ]}>
+                <View style={ms.floatingModalImpactHeader}>
+                  <Ionicons
+                    name="sparkles"
+                    size={13}
+                    color={accentColor}
+                  />
+                  <Text style={[ms.floatingModalImpactTitle, { color: accentColor }]}>
+                    How this helps your budget
+                  </Text>
+                </View>
+                <Text style={ms.floatingModalImpactText}>
+                  {isOverspending
+                    ? 'High wattage drains your daily allowance quickly. Reducing idle appliances now helps prevent excess charges on your upcoming bill.'
+                    : 'Consistent small daily energy habits keep your monthly electricity bill comfortably within budget.'}
+                </Text>
+              </View>
+            </ScrollView>
+
+            {/* 3. Pinned Action Footer (Always Visible & Never Clipped) */}
+            <View style={ms.floatingModalActions}>
+              <TouchableOpacity
+                style={[
+                  ms.floatingModalPrimaryBtn,
+                  { backgroundColor: accentColor }
+                ]}
+                onPress={() => {
+                  setTipModalVisible(false);
+                  router.push('/(tenant)/tips');
+                }}
+                activeOpacity={0.82}
+                accessibilityRole="button"
+                accessibilityLabel="Explore all tips"
+              >
+                <Text style={ms.floatingModalPrimaryBtnText} numberOfLines={1}>
+                  Explore Wattipid Tips
+                </Text>
+                <Ionicons name="arrow-forward" size={15} color="#042F2E" />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={ms.floatingModalSecondaryBtn}
+                onPress={() => setTipModalVisible(false)}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel="Got it"
+              >
+                <Text style={ms.floatingModalSecondaryBtnText}>Got It, Thanks!</Text>
+              </TouchableOpacity>
+            </View>
+          </Animated.View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -964,10 +1214,10 @@ function getSmartPopupTip(power, todayCost, budget) {
 
   if (budgetPct > 95) {
     return {
-      icon: 'alert-circle',
-      color: COLORS.danger,
-      title: 'Budget Exhausted',
-      message: 'You hit your daily limit! To avoid extra costs, unplug idle electronics, turn off unnecessary lights, and avoid using heavy appliances like irons or heaters for the rest of the day.'
+      icon: 'bulb-outline',
+      color: COLORS.warning,
+      title: 'Managing Over-Budget Usage',
+      message: 'You have reached today\'s budget limit. Unplug idle electronics, turn off standby appliances, and delay heavy heating loads to prevent extra charges.'
     };
   }
 

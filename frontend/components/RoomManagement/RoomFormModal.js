@@ -108,44 +108,48 @@ export default function RoomFormModal({
         <TouchableWithoutFeedback onPress={onClose}>
           <View style={s.centerModalOverlay}>
             <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
-              <View style={s.centerModalContainer}>
+              <View style={[s.saasModalCard, { maxWidth: 360 }]}>
                 {/* Header */}
-                <View style={s.centerModalHeaderRow}>
-                  <View style={s.centerModalTitleWrap}>
-                    <Text style={s.centerModalTitle}>
-                      {isEditMode ? 'Edit Room' : 'Add New Room'}
-                    </Text>
-                    {isEditMode && initialData?.room_id && (
-                      <Text style={s.centerModalSubtitle}>
-                        {initialData.room_id}
+                <View style={s.saasModalHeaderRow}>
+                  <View style={s.saasModalHeaderLeft}>
+                    <View style={[s.saasModalIconBadge, { backgroundColor: isEditMode ? 'rgba(56, 189, 248, 0.12)' : 'rgba(16, 185, 129, 0.12)' }]}>
+                      <Ionicons name={isEditMode ? 'create-outline' : 'add-circle-outline'} size={17} color={isEditMode ? '#38BDF8' : '#10B981'} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={s.saasModalTitle} numberOfLines={1}>
+                        {isEditMode ? 'Edit Room Info' : 'Add New Room'}
                       </Text>
-                    )}
+                      <Text style={[s.saasModalSubtitle, isEditMode && { color: '#38BDF8' }]} numberOfLines={1}>
+                        {isEditMode && initialData?.room_id ? `Room ${initialData.room_id}` : 'Configure unit parameters'}
+                      </Text>
+                    </View>
                   </View>
                   <TouchableOpacity
-                    style={s.menuCloseBtn}
+                    style={s.saasModalCloseBtn}
                     onPress={onClose}
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    accessibilityRole="button"
                     accessibilityLabel="Close Form"
                   >
-                    <Ionicons name="close-circle" size={26} color="rgba(255, 255, 255, 0.4)" />
+                    <Ionicons name="close" size={16} color="#94A3B8" />
                   </TouchableOpacity>
                 </View>
 
-                <View style={s.centerModalDivider} />
+                <View style={s.saasModalDivider} />
 
                 {/* Form Fields */}
                 <ScrollView
                   style={s.formScrollView}
                   showsVerticalScrollIndicator={false}
-                  contentContainerStyle={{ paddingBottom: 24 }}
+                  contentContainerStyle={{ paddingBottom: 10 }}
                   keyboardShouldPersistTaps="handled"
                 >
                   {/* Room Name / Number */}
                   <Text style={s.formFieldLabel}>
-                    Room Name / Number <Text style={{ color: COLORS.danger }}>*</Text>
+                    ROOM NUMBER <Text style={{ color: COLORS.danger }}>*</Text>
                   </Text>
-                  <View style={[s.formInputBox, errors.room_id && s.formInputBoxError]}>
-                    <Ionicons name="home-outline" size={18} color={COLORS.textMuted} style={{ marginRight: 8 }} />
+                  <View style={[s.formInputBox, errors.room_id && s.formInputBoxError, isEditMode && { opacity: 0.75 }]}>
+                    <Ionicons name="home-outline" size={15} color={COLORS.textMuted} style={{ marginRight: 8 }} />
                     <TextInput
                       style={s.formTextInput}
                       placeholder="e.g. Room 101"
@@ -157,11 +161,14 @@ export default function RoomFormModal({
                       }}
                       editable={!isEditMode}
                     />
+                    {isEditMode && (
+                      <Ionicons name="lock-closed-outline" size={14} color="#64748B" />
+                    )}
                   </View>
                   {errors.room_id && <Text style={s.formErrorText}>{errors.room_id}</Text>}
 
                   {/* Room Type */}
-                  <Text style={[s.formFieldLabel, { marginTop: 16 }]}>Room Type</Text>
+                  <Text style={[s.formFieldLabel, { marginTop: 10 }]}>ROOM TYPE</Text>
                   <View style={s.typeChipsRow}>
                     {ROOM_TYPES.map((type) => {
                       const isSelected = formData.room_type === type;
@@ -181,7 +188,7 @@ export default function RoomFormModal({
                   </View>
 
                   {/* Base Monthly Rent */}
-                  <Text style={[s.formFieldLabel, { marginTop: 16 }]}>Base Monthly Rent (₱)</Text>
+                  <Text style={[s.formFieldLabel, { marginTop: 10 }]}>BASE MONTHLY RENT (₱)</Text>
                   <View style={s.formInputBox}>
                     <Text style={s.currencyPrefix}>₱</Text>
                     <TextInput
@@ -195,12 +202,12 @@ export default function RoomFormModal({
                   </View>
 
                   {/* Custom Utility Rate */}
-                  <Text style={[s.formFieldLabel, { marginTop: 16 }]}>Custom Utility Rate (₱/kWh)</Text>
+                  <Text style={[s.formFieldLabel, { marginTop: 10 }]}>CUSTOM UTILITY RATE (₱/kWh)</Text>
                   <View style={s.formInputBox}>
                     <Text style={s.currencyPrefix}>₱</Text>
                     <TextInput
                       style={s.formTextInput}
-                      placeholder={`Leave blank for default: ₱${defaultUtilityRate.toFixed(2)}`}
+                      placeholder={`Default rate: ₱${defaultUtilityRate.toFixed(2)}`}
                       placeholderTextColor={COLORS.textMuted}
                       value={formData.utility_rate}
                       onChangeText={(val) => setFormData((prev) => ({ ...prev, utility_rate: val }))}
@@ -209,9 +216,9 @@ export default function RoomFormModal({
                   </View>
 
                   {/* Max Occupancy */}
-                  <Text style={[s.formFieldLabel, { marginTop: 16 }]}>Max Occupancy</Text>
+                  <Text style={[s.formFieldLabel, { marginTop: 10 }]}>MAX OCCUPANCY</Text>
                   <View style={s.formInputBox}>
-                    <Ionicons name="people-outline" size={18} color={COLORS.textMuted} style={{ marginRight: 8 }} />
+                    <Ionicons name="people-outline" size={15} color={COLORS.textMuted} style={{ marginRight: 8 }} />
                     <TextInput
                       style={s.formTextInput}
                       placeholder="1"
@@ -223,8 +230,8 @@ export default function RoomFormModal({
                   </View>
 
                   {/* Description */}
-                  <Text style={[s.formFieldLabel, { marginTop: 16 }]}>Description</Text>
-                  <View style={[s.formInputBox, { height: 80, alignItems: 'flex-start', paddingTop: 10 }]}>
+                  <Text style={[s.formFieldLabel, { marginTop: 10 }]}>DESCRIPTION (OPTIONAL)</Text>
+                  <View style={[s.formInputBox, { height: 64, alignItems: 'flex-start', paddingTop: 8 }]}>
                     <TextInput
                       style={[s.formTextInput, { height: '100%', textAlignVertical: 'top' }]}
                       placeholder="Enter room details or features..."
@@ -232,14 +239,14 @@ export default function RoomFormModal({
                       value={formData.description}
                       onChangeText={(val) => setFormData((prev) => ({ ...prev, description: val }))}
                       multiline
-                      numberOfLines={3}
+                      numberOfLines={2}
                     />
                   </View>
 
                   {/* Status Selection (Edit Mode) */}
                   {isEditMode && (
                     <>
-                      <Text style={[s.formFieldLabel, { marginTop: 16 }]}>Room Status</Text>
+                      <Text style={[s.formFieldLabel, { marginTop: 10 }]}>ROOM STATUS</Text>
                       <View style={s.statusChipsWrap}>
                         {STATUS_OPTIONS.map((opt) => {
                           const isSelected = formData.status === opt.key;
@@ -262,26 +269,31 @@ export default function RoomFormModal({
                 </ScrollView>
 
                 {/* Footer Buttons */}
-                <View style={s.formFooterActions}>
+                <View style={s.saasActionRow}>
                   <TouchableOpacity
-                    style={s.formCancelBtn}
+                    style={s.saasBtnSecondary}
                     onPress={onClose}
                     disabled={loading}
                     activeOpacity={0.75}
                   >
-                    <Text style={s.formCancelBtnText}>Cancel</Text>
+                    <Text style={s.saasBtnSecondaryText}>Cancel</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
-                    style={[s.formSaveBtn, loading && { opacity: 0.7 }]}
+                    style={[s.saasBtnPrimary, { backgroundColor: isEditMode ? '#38BDF8' : '#10B981' }, loading && { opacity: 0.7 }]}
                     onPress={handleSave}
                     disabled={loading}
                     activeOpacity={0.8}
                   >
                     {loading ? (
-                      <ActivityIndicator color="#FFFFFF" size="small" />
+                      <ActivityIndicator color={isEditMode ? '#082F49' : '#042F2E'} size="small" />
                     ) : (
-                      <Text style={s.formSaveBtnText}>{isEditMode ? 'Save Changes' : 'Save Room'}</Text>
+                      <>
+                        <Ionicons name="checkmark-circle-outline" size={16} color={isEditMode ? '#082F49' : '#042F2E'} />
+                        <Text style={[s.saasBtnPrimaryText, { color: isEditMode ? '#082F49' : '#042F2E' }]}>
+                          {isEditMode ? 'Save Changes' : 'Save Room'}
+                        </Text>
+                      </>
                     )}
                   </TouchableOpacity>
                 </View>

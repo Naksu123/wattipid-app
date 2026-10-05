@@ -176,7 +176,7 @@ const RoomCard = memo(({ room, consumption, onManage, onMore }) => {
               accessibilityRole="button"
               hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             >
-              <Ionicons name="ellipsis-horizontal" size={20} color="#94A3B8" />
+              <Ionicons name="ellipsis-horizontal" size={18} color="#94A3B8" />
             </TouchableOpacity>
           </View>
         </View>

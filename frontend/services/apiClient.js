@@ -1,20 +1,32 @@
 import axios from 'axios';
 import { DeviceEventEmitter } from 'react-native';
 import Storage from './storage';
-import { API_URL } from './config';
+import { API_URL, getActiveBaseUrl } from './config';
 
 /**
- * Wattipid Secure API Client
- * Features:
- * 1. Automatic JWT Injection
- * 2. Automatic Refresh Token Rotation
- * 3. Centralized Error Handling
+ * Standard Failure Categories as defined by Wattipid API Architecture.
  */
+export const FailureCategory = {
+  NETWORK_UNAVAILABLE: 'NETWORK_UNAVAILABLE',
+  REQUEST_TIMEOUT: 'REQUEST_TIMEOUT',
+  API_UNREACHABLE: 'API_UNREACHABLE',
+  HTTP_UNAUTHORIZED: 'HTTP_UNAUTHORIZED',
+  HTTP_NOT_FOUND: 'HTTP_NOT_FOUND',
+  HTTP_SERVER_ERROR: 'HTTP_SERVER_ERROR',
+  INVALID_API_RESPONSE: 'INVALID_API_RESPONSE',
+  SYNC_ALREADY_RUNNING: 'SYNC_ALREADY_RUNNING',
+};
 
 // Global flag to suppress "Session Expired" alerts during intentional logout
 let isLoggingOut = false;
 export const getIsLoggingOut = () => isLoggingOut;
 export const setIsLoggingOut = (val) => { isLoggingOut = val; };
+
+// Track device offline status reported by NetworkContext
+let isDeviceOffline = false;
+DeviceEventEmitter.addListener('networkStatusChanged', (status) => {
+  isDeviceOffline = (status === 'offline');
+});
 
 const apiClient = axios.create({
   baseURL: API_URL,
@@ -23,6 +35,21 @@ const apiClient = axios.create({
     'Bypass-Tunnel-Reminder': 'true', // Prevents LocalTunnel HTML reminder pages
   },
   timeout: 15000,
+});
+
+/**
+ * Dynamically updates apiClient's default baseURL when switching environments.
+ */
+export function setClientBaseUrl(url) {
+  if (url && typeof url === 'string') {
+    const cleanUrl = url.trim().replace(/\/+$/, '');
+    apiClient.defaults.baseURL = cleanUrl;
+    console.log('[apiClient] Base URL dynamically updated to:', cleanUrl);
+  }
+}
+
+DeviceEventEmitter.addListener('apiBaseUrlChanged', (newUrl) => {
+  setClientBaseUrl(newUrl);
 });
 
 // --- IN-FLIGHT REQUEST DEDUPLICATION ---
@@ -97,7 +124,7 @@ apiClient.request = function (configOrUrl, maybeConfig) {
 };
 
 // --- REQUEST INTERCEPTOR ---
-// Automatically injects the Access Token into every request
+// Automatically injects Access Token and applies timeout/routing policies
 apiClient.interceptors.request.use(
   async (config) => {
     // Extract action for routing & timeout decisions
@@ -120,6 +147,18 @@ apiClient.interceptors.request.use(
                       action === 'getLatestConsumption' ||
                       action === 'syncTenantData' ||
                       action === 'syncLandlordData';
+
+    // Fast-fail background sync/polling if device is confirmed offline
+    if ((config.isBackgroundSync || isPolling) && isDeviceOffline) {
+      const offlineError = new Error('Device is offline. Network is unavailable.');
+      offlineError.category = FailureCategory.NETWORK_UNAVAILABLE;
+      offlineError.diagnosticMessage = 'Device is offline. Network is unavailable.';
+      offlineError.userFriendlyMessage = 'No internet connection. Please verify Wi-Fi or mobile data.';
+      offlineError.timestamp = new Date().toISOString();
+      offlineError.action = action || 'unknown';
+      offlineError.status = null;
+      return Promise.reject(offlineError);
+    }
 
     // Differentiated timeout: 8s for background sync & polling, 15s for normal requests
     if (config.isBackgroundSync || isPolling) {
@@ -162,29 +201,90 @@ const processQueue = (error, token = null) => {
   failedQueue = [];
 };
 
+/**
+ * Categorize error into standard failure category with diagnostic and user-friendly messages.
+ */
+export function classifyApiError(error, reqAction = '', targetBaseUrl = '') {
+  const status = error.response?.status;
+  const code = error.code;
+  const rawMessage = error.message || '';
+  const effectiveBaseUrl = targetBaseUrl || apiClient.defaults.baseURL || getActiveBaseUrl() || API_URL;
+
+  let category = FailureCategory.API_UNREACHABLE;
+  let diagnosticMessage = '';
+  let userFriendlyMessage = 'An unexpected network error occurred.';
+
+  if (code === 'ECONNABORTED' || rawMessage.toLowerCase().includes('timeout')) {
+    category = FailureCategory.REQUEST_TIMEOUT;
+    diagnosticMessage = `Request timed out (${error.config?.timeout || 15000}ms) for action: ${reqAction || 'unknown'}`;
+    userFriendlyMessage = 'Your request took longer than expected. Please check your connection.';
+  } else if (status === 401 || status === 403) {
+    category = FailureCategory.HTTP_UNAUTHORIZED;
+    diagnosticMessage = `Unauthorized or forbidden (HTTP ${status}) on action: ${reqAction || 'unknown'}`;
+    userFriendlyMessage = 'Session expired or unauthorized. Please log in again.';
+  } else if (status === 404) {
+    category = FailureCategory.HTTP_NOT_FOUND;
+    diagnosticMessage = `Endpoint not found (HTTP 404) on action: ${reqAction || 'unknown'}`;
+    userFriendlyMessage = 'Requested service endpoint was not found on the server.';
+  } else if (status >= 500) {
+    category = FailureCategory.HTTP_SERVER_ERROR;
+    const serverMsg = error.response?.data?.message || error.response?.statusText || 'Internal Server Error';
+    diagnosticMessage = `Backend server error (HTTP ${status}): ${serverMsg}`;
+    userFriendlyMessage = 'The server is temporarily unavailable. We are trying to reconnect.';
+  } else if (status === 429) {
+    category = FailureCategory.REQUEST_TIMEOUT;
+    diagnosticMessage = `Rate limit exceeded (HTTP 429) on action: ${reqAction || 'unknown'}`;
+    userFriendlyMessage = 'Too many requests. Please wait a moment.';
+  } else if (rawMessage.includes('JSON') || rawMessage.includes('source code')) {
+    category = FailureCategory.INVALID_API_RESPONSE;
+    diagnosticMessage = `Malformed API response or leaked PHP tags received on action: ${reqAction || 'unknown'}`;
+    userFriendlyMessage = 'Invalid data received from server.';
+  } else {
+    // Distinguish genuine device offline from backend unreachable
+    if (isDeviceOffline) {
+      category = FailureCategory.NETWORK_UNAVAILABLE;
+      diagnosticMessage = 'No network connectivity detected on this device.';
+      userFriendlyMessage = 'Unable to connect. Please check your internet connection.';
+    } else {
+      category = FailureCategory.API_UNREACHABLE;
+      diagnosticMessage = `Backend server is unreachable at ${effectiveBaseUrl}. Server may be stopped or port unreachable.`;
+      userFriendlyMessage = 'Unable to reach the Wattipid server. Reconnecting...';
+    }
+  }
+
+  return {
+    category,
+    status: status || null,
+    diagnosticMessage,
+    userFriendlyMessage,
+    action: reqAction || 'unknown',
+    timestamp: new Date().toISOString(),
+  };
+}
+
 // --- RESPONSE INTERCEPTOR ---
 apiClient.interceptors.response.use(
   (response) => {
     // Defensive JSON & BOM Handling: If response.data is a string, check for BOM or valid JSON
     if (typeof response.data === 'string') {
-        if (response.data.includes('<?php') || response.data.includes('require_once')) {
-            console.error('[API Diagnostic] Server leaked PHP code:', response.data.substring(0, 200));
-            throw new Error('Server returned source code instead of JSON. Check PHP tags.');
-        }
+      if (response.data.includes('<?php') || response.data.includes('require_once')) {
+        console.error('[API Diagnostic] Server leaked PHP code:', response.data.substring(0, 200));
+        throw new Error('Server returned source code instead of JSON. Check PHP tags.');
+      }
 
-        let rawStr = response.data;
-        // Strip UTF-8 BOM if present (\uFEFF)
-        if (rawStr.charCodeAt(0) === 0xFEFF) {
-            rawStr = rawStr.slice(1);
+      let rawStr = response.data;
+      // Strip UTF-8 BOM if present (\uFEFF)
+      if (rawStr.charCodeAt(0) === 0xFEFF) {
+        rawStr = rawStr.slice(1);
+      }
+      rawStr = rawStr.trim();
+      if ((rawStr.startsWith('{') && rawStr.endsWith('}')) || (rawStr.startsWith('[') && rawStr.endsWith(']'))) {
+        try {
+          response.data = JSON.parse(rawStr);
+        } catch (e) {
+          console.warn('[apiClient] Could not auto-recover JSON string:', e.message);
         }
-        rawStr = rawStr.trim();
-        if ((rawStr.startsWith('{') && rawStr.endsWith('}')) || (rawStr.startsWith('[') && rawStr.endsWith(']'))) {
-            try {
-                response.data = JSON.parse(rawStr);
-            } catch (e) {
-                console.warn('[apiClient] Could not auto-recover JSON string:', e.message);
-            }
-        }
+      }
     }
     return response;
   },
@@ -229,29 +329,28 @@ apiClient.interceptors.response.use(
     const canRetry = isGet || isIdempotentPost;
     const isNetworkError = error.message === 'Network Error' || error.code === 'ECONNABORTED' || error.response?.status >= 500;
 
-    // Fast-fail background sync/polling so cached UI is never blocked!
-    // Only retry user-initiated idempotent requests with max 2 quick retries (1s, 2s)
+    // Retry user-initiated idempotent requests with max 2 quick retries (1s, 2s)
+    // NEVER retry background sync here — background sync has its own dedicated exponential backoff engine!
     if (originalRequest && isNetworkError && canRetry && !isPollingOrSync) {
-        if (!originalRequest._retryCount) originalRequest._retryCount = 0;
-        if (originalRequest._retryCount < 2) {
-            originalRequest._retryCount++;
-            const backoffMs = originalRequest._retryCount * 1000; // 1s, 2s
-            console.log(`[Network] Retrying request (${originalRequest._retryCount}/2) in ${backoffMs}ms...`);
-            await new Promise(resolve => setTimeout(resolve, backoffMs));
-            return apiClient.request(originalRequest);
-        }
+      if (!originalRequest._retryCount) originalRequest._retryCount = 0;
+      if (originalRequest._retryCount < 2) {
+        originalRequest._retryCount++;
+        const backoffMs = originalRequest._retryCount * 1000; // 1s, 2s
+        await new Promise(resolve => setTimeout(resolve, backoffMs));
+        return apiClient.request(originalRequest);
+      }
     }
 
-    // Phase 7: Replace raw Axios errors with user-friendly messages
-    if (error.code === 'ECONNABORTED') {
-        error.message = 'Your request is taking longer than expected. Please check your connection.';
-    } else if (error.message === 'Network Error') {
-        error.message = 'Unable to connect. Please check your internet connection.';
-    } else if (error.response?.status >= 500) {
-        error.message = 'The server is temporarily unavailable. We are trying to reconnect.';
-    } else if (error.response?.status === 429) {
-        error.message = 'Too many requests. Please wait a moment.';
-    }
+    // Categorize error with standard failure category and diagnostics
+    const classified = classifyApiError(error, reqAction, apiClient.defaults.baseURL);
+    error.category = classified.category;
+    error.status = classified.status;
+    error.diagnosticMessage = classified.diagnosticMessage;
+    error.userFriendlyMessage = classified.userFriendlyMessage;
+    error.action = classified.action;
+    error.timestamp = classified.timestamp;
+    // Keep error.message informative rather than a generic blind string
+    error.message = classified.diagnosticMessage;
 
     const authActions = ['login', 'register', 'verifyAccessCode', 'requestPasswordReset', 'verifyResetOTP', 'sendVerificationCode', 'resendVerificationCode'];
     const isAuthRoute = authActions.includes(reqAction) || originalRequest?.url?.includes('action=login') || originalRequest?.url?.includes('action=register') || originalRequest?.url?.includes('action=verifyAccessCode');
@@ -287,7 +386,8 @@ apiClient.interceptors.response.use(
           return Promise.resolve({ data: { success: false, message: 'Session expired' } });
         }
 
-        const response = await axios.post(`${API_URL}/api.php?action=refreshToken`, { refreshToken });
+        const activeUrl = apiClient.defaults.baseURL || getActiveBaseUrl() || API_URL;
+        const response = await axios.post(`${activeUrl}/api.php?action=refreshToken`, { refreshToken });
         if (response.data.success) {
           const { token, refreshToken: newRefreshToken } = response.data.data;
           await Storage.setItem('user_token', token);
@@ -309,19 +409,29 @@ apiClient.interceptors.response.use(
           DeviceEventEmitter.emit('forceLogout');
           DeviceEventEmitter.emit('showToast', { message: 'Session Expired. Please log in again.', type: 'error' });
         }
-        processQueue(error, null); // Reject queued requests with original 401 error
+        processQueue(error, null);
         isRefreshing = false;
         return Promise.resolve({ data: { success: false, message: 'Session expired' } });
       }
     }
 
-    // Show friendly toast message
-    const isSyncRoute = originalRequest?.url?.includes('action=syncTenantData') || originalRequest?.url?.includes('action=syncLandlordData') || originalRequest?.url?.includes('action=syncState') || originalRequest?.data?.action === 'syncState' || originalRequest?.data?.includes?.('syncState');
+    // Show friendly toast message for foreground user actions only
+    const isSyncRoute = originalRequest?.url?.includes('action=syncTenantData') || 
+                        originalRequest?.url?.includes('action=syncLandlordData') || 
+                        originalRequest?.url?.includes('action=syncState') || 
+                        originalRequest?.data?.action === 'syncState' || 
+                        originalRequest?.isBackgroundSync;
     const isReminderRoute = originalRequest?.data?.action === 'send_manual_reminder';
+
     if (!isLoggingOut && !isAuthRoute && !isSyncRoute && !isReminderRoute && !isCanceled) {
-      let userMessage = error.response?.data?.message || 'Unable to process your request at this time. Server is currently unavailable.';
-      if (typeof userMessage === 'string' && (userMessage.toLowerCase().includes('database') || userMessage.toLowerCase().includes('sqlstate'))) {
-        userMessage = 'Database service is temporarily reconnecting. Please pull to refresh.';
+      let userMessage = error.userFriendlyMessage;
+      if (typeof error.response?.data?.message === 'string') {
+        const backendMsg = error.response.data.message;
+        if (backendMsg.toLowerCase().includes('database') || backendMsg.toLowerCase().includes('sqlstate')) {
+          userMessage = 'Database service is temporarily reconnecting. Please pull to refresh.';
+        } else if (!backendMsg.toLowerCase().includes('unauthorized')) {
+          userMessage = backendMsg;
+        }
       }
       DeviceEventEmitter.emit('showToast', { message: userMessage, type: 'error', duration: 4000 });
     }

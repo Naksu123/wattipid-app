@@ -3,13 +3,14 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, L
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { CopilotStep, walkthroughable } from 'react-native-copilot';
 import { useTourAutoStart } from '@/contexts/TourContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useModal } from '@/contexts/ModalContext';
 import { getTenantBillingOverview } from '../../../services/database';
 import GlassCard from '../../../components/ui/GlassCard';
-import { COLORS, SPACING, RADIUS } from '../../../styles/theme';
+import { COLORS, SPACING, RADIUS, GRADIENTS } from '../../../styles/theme';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
     UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -29,15 +30,20 @@ const PaymentSkeleton = () => (
 
             {/* Hero Card Skeleton */}
             <GlassCard style={styles.heroCard} premium>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                    <View style={[styles.skeletonLine, { width: 120, height: 14 }]} />
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                    <View style={{ gap: 4 }}>
+                        <View style={[styles.skeletonLine, { width: 110, height: 11 }]} />
+                        <View style={[styles.skeletonLine, { width: 150, height: 16 }]} />
+                    </View>
                     <View style={[styles.skeletonLine, { width: 70, height: 22, borderRadius: 11 }]} />
                 </View>
-                <View style={[styles.skeletonLine, { width: 100, height: 12, marginBottom: 8 }]} />
-                <View style={[styles.skeletonLine, { width: 180, height: 38, marginBottom: 12 }]} />
-                <View style={[styles.skeletonLine, { width: 140, height: 14, marginBottom: 20 }]} />
-                <View style={[styles.skeletonLine, { width: '100%', height: 48, borderRadius: 12, marginBottom: 14 }]} />
-                <View style={{ flexDirection: 'row', gap: 10 }}>
+                <View style={{ borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.06)', paddingTop: 10, marginBottom: 12 }}>
+                    <View style={[styles.skeletonLine, { width: 100, height: 11, marginBottom: 6 }]} />
+                    <View style={[styles.skeletonLine, { width: 140, height: 28, marginBottom: 6 }]} />
+                    <View style={[styles.skeletonLine, { width: 190, height: 16, borderRadius: 8 }]} />
+                </View>
+                <View style={[styles.skeletonLine, { width: '100%', height: 44, borderRadius: 12, marginBottom: 10 }]} />
+                <View style={{ flexDirection: 'row', gap: 8 }}>
                     <View style={[styles.skeletonLine, { flex: 1, height: 38, borderRadius: 10 }]} />
                     <View style={[styles.skeletonLine, { flex: 1, height: 38, borderRadius: 10 }]} />
                 </View>
@@ -255,6 +261,30 @@ export default function TenantBillingScreen() {
     const isCurrentPending = currentBill?.payment_status === 'pending_verification';
     const isCurrentOverdue = currentBill?.payment_status === 'overdue';
 
+    // 1. Cycle Header Status (specifies status of the statement or active cycle in the header)
+    let cycleStatusConfig;
+    if (hasCurrentBill) {
+        cycleStatusConfig = getStatusConfig(currentBill.payment_status || 'unpaid');
+    } else if (isCycleActive) {
+        cycleStatusConfig = {
+            color: COLORS.primary,
+            bg: 'rgba(16, 185, 129, 0.15)',
+            icon: 'pulse',
+            text: 'RECORDING',
+        };
+    } else if (grandTotal === 0 && !hasPendingVerificationBills) {
+        cycleStatusConfig = getStatusConfig('paid');
+    } else if (hasPendingVerificationBills) {
+        cycleStatusConfig = getStatusConfig('pending_verification');
+    } else if (firstActionableOverdue) {
+        cycleStatusConfig = getStatusConfig('overdue');
+    } else {
+        cycleStatusConfig = getStatusConfig('unpaid');
+    }
+
+    const heroStatusConfig = cycleStatusConfig;
+
+    // 2. Financial Balance Status (determines overdue alerts and pay actions)
     let displayStatus = 'unpaid';
     if (grandTotal === 0 && !hasPendingVerificationBills) {
         displayStatus = 'paid';
@@ -265,8 +295,6 @@ export default function TenantBillingScreen() {
     } else if (hasCurrentBill) {
         displayStatus = currentBill.payment_status;
     }
-
-    const heroStatusConfig = getStatusConfig(displayStatus);
 
     const formatDate = (dateStr, options = { month: 'short', day: 'numeric', year: 'numeric' }) => {
         if (!dateStr) return 'N/A';
@@ -354,31 +382,41 @@ export default function TenantBillingScreen() {
                     >
                         <CopilotView style={styles.heroHeaderRow}>
                             <View style={{ flex: 1, marginRight: 8 }}>
-                                <Text style={styles.heroInvoiceLabel}>
-                                    {hasCurrentBill ? 'STATEMENT INVOICE' : (isCycleActive ? 'CYCLE RECORDING' : 'ACCOUNT STATUS')}
-                                </Text>
+                                <View style={styles.heroCycleTagRow}>
+                                    <Ionicons
+                                        name={hasCurrentBill ? 'receipt-outline' : (isCycleActive ? 'pulse' : 'shield-checkmark-outline')}
+                                        size={12}
+                                        color={isCycleActive && !hasCurrentBill ? COLORS.primary : COLORS.textMuted}
+                                    />
+                                    <Text style={styles.heroInvoiceLabel}>
+                                        {hasCurrentBill ? 'STATEMENT INVOICE' : (isCycleActive ? 'CURRENT BILLING CYCLE' : 'ACCOUNT STATUS')}
+                                    </Text>
+                                </View>
                                 <Text style={styles.heroInvoiceNumber} numberOfLines={1}>
-                                    {hasCurrentBill ? currentBill.invoice_number || 'Current Statement' : (isCycleActive ? 'Live Meter Active' : 'No Current Dues')}
+                                    {hasCurrentBill
+                                        ? currentBill.invoice_number || 'Current Statement'
+                                        : (isCycleActive
+                                            ? `${formatDate(activeCycle.cycle_start, { month: 'short', day: 'numeric' })} – ${formatDate(activeCycle.cycle_end, { month: 'short', day: 'numeric', year: 'numeric' })}`
+                                            : 'No Current Dues')}
                                 </Text>
+                                {isCycleActive && !hasCurrentBill ? (
+                                    <Text style={styles.heroCycleSubtext} numberOfLines={1}>
+                                        Live meter recording • Bill generation {formatDate(activeCycle.cycle_end, { month: 'short', day: 'numeric' })}
+                                    </Text>
+                                ) : hasCurrentBill && currentBill.cycle_start ? (
+                                    <Text style={styles.heroCycleSubtext} numberOfLines={1}>
+                                        Period: {formatDate(currentBill.cycle_start, { month: 'short', day: 'numeric' })} – {formatDate(currentBill.cycle_end, { month: 'short', day: 'numeric', year: 'numeric' })}
+                                    </Text>
+                                ) : null}
                             </View>
-                            <View style={[styles.statusBadge, { backgroundColor: heroStatusConfig.bg }]}>
-                                <Ionicons name={heroStatusConfig.icon} size={12} color={heroStatusConfig.color} style={{ marginRight: 4 }} />
+                            <View style={[styles.statusBadge, { backgroundColor: heroStatusConfig.bg, borderColor: heroStatusConfig.color + '33' }]}>
+                                <Ionicons name={heroStatusConfig.icon} size={11} color={heroStatusConfig.color} style={{ marginRight: 4 }} />
                                 <Text style={[styles.statusText, { color: heroStatusConfig.color }]}>
                                     {heroStatusConfig.text}
                                 </Text>
                             </View>
                         </CopilotView>
                     </CopilotStep>
-
-                    {/* Active Cycle Meter Banner if recording */}
-                    {isCycleActive && !hasCurrentBill && (
-                        <View style={styles.activeRecordingBanner}>
-                            <View style={styles.pulseDot} />
-                            <Text style={styles.activeRecordingText} numberOfLines={1}>
-                                Submeter active: {formatDate(activeCycle.cycle_start)} – {formatDate(activeCycle.cycle_end)}
-                            </Text>
-                        </View>
-                    )}
 
                     {/* Step 20: Amount Due & Primary Payment Button */}
                     <CopilotStep
@@ -401,29 +439,42 @@ export default function TenantBillingScreen() {
                                 {displayStatus === 'overdue' ? (
                                     <View style={styles.heroOverdueWarning}>
                                         <Ionicons name="alert-circle" size={13} color={COLORS.danger} />
-                                        <Text style={styles.heroOverdueText}>
-                                            Overdue balance requires immediate settlement
+                                        <Text style={styles.heroOverdueText} numberOfLines={1}>
+                                            {isCycleActive && !hasCurrentBill && firstActionableOverdue
+                                                ? `Previous bill (${firstActionableOverdue.invoice_number || 'Past Statement'}) is overdue`
+                                                : hasCurrentBill && isCurrentOverdue
+                                                    ? 'Current statement balance is overdue'
+                                                    : 'Overdue balance requires immediate settlement'}
                                         </Text>
                                     </View>
                                 ) : hasCurrentBill && currentBill.due_date ? (
-                                    <Text style={styles.heroDueDateText}>
-                                        Payment Due: {formatDate(currentBill.due_date)}
-                                    </Text>
+                                    <View style={styles.heroDueNotice}>
+                                        <Ionicons name="calendar-outline" size={12} color={COLORS.textSecondary} />
+                                        <Text style={styles.heroDueDateText}>
+                                            Payment Due: {formatDate(currentBill.due_date)}
+                                        </Text>
+                                    </View>
                                 ) : isCycleActive ? (
-                                    <Text style={styles.heroDueDateText}>
-                                        Bill generation on {formatDate(activeCycle.cycle_end)}
-                                    </Text>
+                                    <View style={styles.heroDueNotice}>
+                                        <Ionicons name="time-outline" size={12} color={COLORS.textSecondary} />
+                                        <Text style={styles.heroDueDateText}>
+                                            Bill generation on {formatDate(activeCycle.cycle_end)}
+                                        </Text>
+                                    </View>
                                 ) : (
-                                    <Text style={[styles.heroDueDateText, { color: COLORS.success }]}>
-                                        All billing statements are fully settled
-                                    </Text>
+                                    <View style={styles.heroSettledNotice}>
+                                        <Ionicons name="checkmark-circle" size={12} color={COLORS.success} />
+                                        <Text style={[styles.heroDueDateText, { color: COLORS.success }]}>
+                                            All billing statements are fully settled
+                                        </Text>
+                                    </View>
                                 )}
                             </View>
 
                             {/* Single Primary Payment CTA */}
                             {grandTotal > 0 ? (
                                 <TouchableOpacity
-                                    style={styles.primaryPayBtn}
+                                    style={styles.primaryPayBtnWrap}
                                     onPress={handlePrimaryPayment}
                                     activeOpacity={0.85}
                                     accessible={true}
@@ -433,12 +484,19 @@ export default function TenantBillingScreen() {
                                         : `Pay Statement Balance of ${currentAmountDue.toFixed(2)} pesos`}
                                     accessibilityHint="Navigates to the payment submission form"
                                 >
-                                    <Ionicons name="card" size={16} color="#FFFFFF" />
-                                    <Text style={styles.primaryPayBtnText}>
-                                        {firstActionableOverdue
-                                            ? `Pay Overdue Balance • ₱${parseFloat(firstActionableOverdue.total_overdue).toFixed(2)}`
-                                            : `Pay Statement • ₱${currentAmountDue.toFixed(2)}`}
-                                    </Text>
+                                    <LinearGradient
+                                        colors={GRADIENTS.primary}
+                                        start={{ x: 0, y: 0 }}
+                                        end={{ x: 1, y: 0 }}
+                                        style={styles.primaryPayBtn}
+                                    >
+                                        <Ionicons name="card" size={16} color="#FFFFFF" />
+                                        <Text style={styles.primaryPayBtnText}>
+                                            {firstActionableOverdue
+                                                ? `Pay Overdue Balance • ₱${parseFloat(firstActionableOverdue.total_overdue).toFixed(2)}`
+                                                : `Pay Statement • ₱${currentAmountDue.toFixed(2)}`}
+                                        </Text>
+                                    </LinearGradient>
                                 </TouchableOpacity>
                             ) : pendingVerification > 0 ? (
                                 <TouchableOpacity
@@ -486,7 +544,7 @@ export default function TenantBillingScreen() {
                                 accessibilityLabel="Open Billing History"
                                 accessibilityHint="Navigates to previous payment statements and history"
                             >
-                                <Ionicons name="time-outline" size={15} color={COLORS.primary} />
+                                <Ionicons name="time-outline" size={14} color={COLORS.primary} />
                                 <Text style={styles.quickActionText}>Billing History</Text>
                             </TouchableOpacity>
 
@@ -499,7 +557,7 @@ export default function TenantBillingScreen() {
                                 accessibilityLabel="View Statement PDF"
                                 accessibilityHint="Opens the statement invoice document in the PDF viewer"
                             >
-                                <Ionicons name="document-text-outline" size={15} color={COLORS.primary} />
+                                <Ionicons name="document-text-outline" size={14} color={COLORS.primary} />
                                 <Text style={styles.quickActionText}>View Statement PDF</Text>
                             </TouchableOpacity>
                         </CopilotView>
@@ -631,8 +689,16 @@ export default function TenantBillingScreen() {
                                                 accessibilityLabel={`Pay overdue invoice ${item.invoice_number} amount ₱${parseFloat(item.total_overdue || 0).toFixed(2)}`}
                                                 accessibilityHint="Navigates to the payment submission form for this overdue invoice"
                                             >
-                                                <Ionicons name="card" size={14} color="#FFFFFF" />
-                                                <Text style={styles.overduePayNowBtnText}>Pay Overdue</Text>
+                                                <LinearGradient
+                                                    colors={GRADIENTS.danger}
+                                                    start={{ x: 0, y: 0 }}
+                                                    end={{ x: 1, y: 0 }}
+                                                    style={styles.overduePayNowGradient}
+                                                >
+                                                    <Ionicons name="card" size={14} color="#FFFFFF" />
+                                                    <Text style={styles.overduePayNowBtnText} numberOfLines={1}>Pay Overdue Balance</Text>
+                                                    <Ionicons name="arrow-forward" size={13} color="rgba(255, 255, 255, 0.85)" />
+                                                </LinearGradient>
                                             </TouchableOpacity>
                                         )}
                                     </View>
@@ -1252,8 +1318,10 @@ const styles = StyleSheet.create({
     heroCard: {
         padding: SPACING.md,
         marginBottom: 14,
+        borderRadius: RADIUS.xl,
         borderWidth: 1,
-        borderColor: 'rgba(16, 185, 129, 0.25)',
+        borderColor: 'rgba(255, 255, 255, 0.08)',
+        backgroundColor: 'rgba(15, 23, 42, 0.75)',
         width: '100%',
         overflow: 'hidden',
     },
@@ -1261,8 +1329,14 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'flex-start',
-        marginBottom: 12,
+        marginBottom: 10,
         width: '100%',
+    },
+    heroCycleTagRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 5,
+        marginBottom: 3,
     },
     heroInvoiceLabel: {
         fontSize: 10.5,
@@ -1271,17 +1345,25 @@ const styles = StyleSheet.create({
         fontWeight: '700',
     },
     heroInvoiceNumber: {
-        fontSize: 14,
+        fontSize: 15,
         fontWeight: '700',
         color: COLORS.textPrimary,
+        letterSpacing: -0.2,
+    },
+    heroCycleSubtext: {
+        fontSize: 11,
+        color: COLORS.textSecondary,
         marginTop: 2,
+        fontWeight: '500',
     },
     statusBadge: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: 10,
+        paddingHorizontal: 9,
         paddingVertical: 4,
         borderRadius: RADIUS.full,
+        borderWidth: 1,
+        borderColor: 'transparent',
         flexShrink: 0,
     },
     statusText: {
@@ -1318,14 +1400,20 @@ const styles = StyleSheet.create({
     },
 
     heroAmountBlock: {
-        marginBottom: 14,
+        marginTop: 6,
+        paddingTop: 10,
+        borderTopWidth: 1,
+        borderTopColor: 'rgba(255, 255, 255, 0.06)',
+        marginBottom: 12,
         width: '100%',
     },
     heroAmountLabel: {
-        fontSize: 12,
-        fontWeight: '600',
-        color: COLORS.textSecondary,
-        marginBottom: 4,
+        fontSize: 11,
+        fontWeight: '700',
+        color: '#94A3B8',
+        letterSpacing: 0.8,
+        textTransform: 'uppercase',
+        marginBottom: 2,
     },
     heroAmountRow: {
         flexDirection: 'row',
@@ -1333,45 +1421,73 @@ const styles = StyleSheet.create({
         gap: 3,
     },
     currencySymbol: {
-        fontSize: 22,
+        fontSize: 20,
         fontWeight: '700',
         color: COLORS.primary,
     },
     heroAmountValue: {
-        fontSize: 34,
+        fontSize: 28,
         fontWeight: '800',
         color: '#FFFFFF',
-        letterSpacing: -0.6,
+        letterSpacing: -0.5,
     },
-    heroDueDateText: {
-        fontSize: 12,
-        color: COLORS.textSecondary,
-        marginTop: 6,
-    },
-    heroOverdueWarning: {
+    heroDueNotice: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 5,
         marginTop: 6,
     },
+    heroSettledNotice: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 5,
+        marginTop: 6,
+    },
+    heroDueDateText: {
+        fontSize: 11.5,
+        color: COLORS.textSecondary,
+        fontWeight: '500',
+    },
+    heroOverdueWarning: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+        borderWidth: 1,
+        borderColor: 'rgba(239, 68, 68, 0.25)',
+        paddingHorizontal: 9,
+        paddingVertical: 4,
+        borderRadius: RADIUS.full,
+        marginTop: 6,
+        alignSelf: 'flex-start',
+    },
     heroOverdueText: {
-        fontSize: 12,
-        color: COLORS.danger,
+        fontSize: 11,
+        color: '#F87171',
         fontWeight: '600',
     },
 
+    primaryPayBtnWrap: {
+        width: '100%',
+        marginBottom: 10,
+        borderRadius: RADIUS.md,
+        overflow: 'hidden',
+        shadowColor: COLORS.primary,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 5,
+        elevation: 3,
+    },
     primaryPayBtn: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
         gap: 8,
-        backgroundColor: COLORS.primary,
-        paddingVertical: 12,
+        paddingVertical: 11,
         paddingHorizontal: SPACING.md,
         borderRadius: RADIUS.md,
         width: '100%',
-        minHeight: 46,
-        marginBottom: 12,
+        minHeight: 44,
     },
     primaryPayBtnText: {
         fontSize: 13,
@@ -1385,13 +1501,13 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         gap: 6,
         backgroundColor: 'rgba(245, 158, 11, 0.1)',
-        paddingVertical: 11,
+        paddingVertical: 10,
         borderRadius: RADIUS.md,
         borderWidth: 1,
         borderColor: 'rgba(245, 158, 11, 0.25)',
         width: '100%',
-        minHeight: 44,
-        marginBottom: 12,
+        minHeight: 42,
+        marginBottom: 10,
     },
     pendingActionText: {
         fontSize: 12,
@@ -1404,13 +1520,13 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         gap: 6,
         backgroundColor: 'rgba(16, 185, 129, 0.08)',
-        paddingVertical: 11,
+        paddingVertical: 10,
         borderRadius: RADIUS.md,
         borderWidth: 1,
         borderColor: 'rgba(16, 185, 129, 0.2)',
         width: '100%',
-        minHeight: 44,
-        marginBottom: 12,
+        minHeight: 42,
+        marginBottom: 10,
     },
     settledActionText: {
         fontSize: 12,
@@ -1430,12 +1546,12 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         gap: 6,
         backgroundColor: 'rgba(255, 255, 255, 0.04)',
-        paddingVertical: 9,
+        paddingVertical: 8,
         paddingHorizontal: 8,
-        borderRadius: RADIUS.sm,
+        borderRadius: RADIUS.md,
         borderWidth: 1,
         borderColor: 'rgba(255, 255, 255, 0.08)',
-        minHeight: 44,
+        minHeight: 38,
     },
     quickActionText: {
         fontSize: 11.5,
@@ -1862,10 +1978,11 @@ const styles = StyleSheet.create({
         color: COLORS.danger,
     },
     overdueCard: {
-        padding: 12,
-        marginBottom: 8,
+        padding: 14,
+        marginBottom: 10,
+        borderRadius: RADIUS.lg,
         borderWidth: 1,
-        borderColor: 'rgba(239, 68, 68, 0.3)',
+        borderColor: 'rgba(239, 68, 68, 0.25)',
         backgroundColor: 'rgba(239, 68, 68, 0.03)',
         width: '100%',
     },
@@ -1886,7 +2003,7 @@ const styles = StyleSheet.create({
         letterSpacing: 0.5,
     },
     overdueInvoiceNum: {
-        fontSize: 13,
+        fontSize: 13.5,
         fontWeight: '700',
         color: COLORS.textPrimary,
         marginTop: 1,
@@ -1901,7 +2018,9 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         gap: 3,
         backgroundColor: 'rgba(239, 68, 68, 0.15)',
-        paddingHorizontal: 7,
+        borderWidth: 1,
+        borderColor: 'rgba(239, 68, 68, 0.25)',
+        paddingHorizontal: 8,
         paddingVertical: 3,
         borderRadius: RADIUS.full,
     },
@@ -1915,7 +2034,9 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         gap: 3,
         backgroundColor: 'rgba(245, 158, 11, 0.15)',
-        paddingHorizontal: 7,
+        borderWidth: 1,
+        borderColor: 'rgba(245, 158, 11, 0.25)',
+        paddingHorizontal: 8,
         paddingVertical: 3,
         borderRadius: RADIUS.full,
     },
@@ -1931,6 +2052,8 @@ const styles = StyleSheet.create({
         padding: 10,
         borderRadius: RADIUS.sm,
         marginBottom: 10,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.04)',
     },
     gridCol: {
         flex: 1,
@@ -1954,53 +2077,66 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         gap: 8,
         width: '100%',
+        alignItems: 'center',
     },
     overdueDetailsBtn: {
-        flex: 1,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
         gap: 4,
-        paddingVertical: 8,
-        borderRadius: RADIUS.sm,
+        paddingVertical: 9,
+        paddingHorizontal: 12,
+        borderRadius: RADIUS.md,
         backgroundColor: 'rgba(255, 255, 255, 0.05)',
         borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.08)',
-        minHeight: 44,
+        borderColor: 'rgba(255, 255, 255, 0.1)',
+        minHeight: 42,
     },
     overdueDetailsBtnText: {
-        fontSize: 11,
+        fontSize: 11.5,
         fontWeight: '600',
         color: COLORS.textSecondary,
     },
     overduePayNowBtn: {
-        flex: 1.4,
+        flex: 1,
+        borderRadius: RADIUS.md,
+        overflow: 'hidden',
+        minHeight: 42,
+        shadowColor: '#EF4444',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.35,
+        shadowRadius: 5,
+        elevation: 3,
+    },
+    overduePayNowGradient: {
+        flex: 1,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 4,
-        paddingVertical: 8,
-        borderRadius: RADIUS.sm,
-        backgroundColor: '#DC2626',
-        minHeight: 44,
+        gap: 6,
+        paddingVertical: 9,
+        paddingHorizontal: 12,
+        minHeight: 42,
     },
     overduePayNowBtnText: {
-        fontSize: 11.5,
+        fontSize: 12,
         fontWeight: '700',
         color: '#FFFFFF',
+        letterSpacing: 0.2,
     },
     overdueAwaitingBtn: {
-        flex: 1.4,
+        flex: 1,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 4,
-        paddingVertical: 8,
-        borderRadius: RADIUS.sm,
-        backgroundColor: 'rgba(245, 158, 11, 0.15)',
+        gap: 5,
+        paddingVertical: 9,
+        paddingHorizontal: 12,
+        borderRadius: RADIUS.md,
+        backgroundColor: 'rgba(245, 158, 11, 0.12)',
         borderWidth: 1,
         borderColor: 'rgba(245, 158, 11, 0.3)',
-        minHeight: 44,
+        minHeight: 42,
     },
     overdueAwaitingBtnText: {
         fontSize: 11.5,

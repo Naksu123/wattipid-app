@@ -10,7 +10,6 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
-import GlassCard from '../../components/ui/GlassCard';
 import DynamicQRCode from '../../components/tenant/Billing/DynamicQRCode';
 import { COLORS, SPACING } from '../../styles/theme';
 import styles from '../../styles/tenant/payment.styles';
@@ -22,8 +21,8 @@ const PremiumAnimatedButton = ({ onPress, disabled, title, loading, type, icon }
     const handlePressIn = () => {
         if (!disabled && !loading) {
             Animated.timing(scale, {
-                toValue: 0.96,
-                duration: 120,
+                toValue: 0.97,
+                duration: 100,
                 useNativeDriver: true,
             }).start();
         }
@@ -32,23 +31,23 @@ const PremiumAnimatedButton = ({ onPress, disabled, title, loading, type, icon }
     const handlePressOut = () => {
         Animated.timing(scale, {
             toValue: 1,
-            duration: 150,
+            duration: 120,
             useNativeDriver: true,
         }).start();
     };
 
     const isPrimary = type === 'primary';
     const bgColor = disabled 
-        ? (isPrimary ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255, 255, 255, 0.02)')
-        : (isPrimary ? COLORS.primary : 'rgba(255, 255, 255, 0.05)');
+        ? (isPrimary ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255, 255, 255, 0.03)')
+        : (isPrimary ? '#10B981' : 'rgba(255, 255, 255, 0.05)');
         
     const borderColor = disabled
-        ? (isPrimary ? 'transparent' : 'rgba(255, 255, 255, 0.05)')
-        : (isPrimary ? 'rgba(255,255,255,0.1)' : 'rgba(255, 255, 255, 0.15)');
+        ? (isPrimary ? 'transparent' : 'rgba(255, 255, 255, 0.04)')
+        : (isPrimary ? '#10B981' : 'rgba(255, 255, 255, 0.1)');
         
     const textColor = disabled
-        ? (isPrimary ? 'rgba(255, 255, 255, 0.5)' : 'rgba(255, 255, 255, 0.4)')
-        : (isPrimary ? COLORS.white : COLORS.textPrimary);
+        ? (isPrimary ? 'rgba(255, 255, 255, 0.5)' : '#64748B')
+        : (isPrimary ? '#042F2E' : '#E2E8F0');
 
     return (
         <Animated.View style={{ flex: 1, transform: [{ scale }] }}>
@@ -62,29 +61,25 @@ const PremiumAnimatedButton = ({ onPress, disabled, title, loading, type, icon }
                     borderWidth: 1,
                     borderColor: borderColor,
                     borderRadius: 12,
-                    paddingVertical: 15,
+                    height: 44,
                     alignItems: 'center',
                     justifyContent: 'center',
                     flexDirection: 'row',
-                    shadowColor: isPrimary && !disabled ? COLORS.primary : '#000',
-                    shadowOffset: { width: 0, height: isPrimary ? 4 : 2 },
-                    shadowOpacity: isPrimary && !disabled ? 0.25 : 0.15,
-                    shadowRadius: isPrimary ? 8 : 4,
-                    elevation: isPrimary && !disabled ? 4 : 1,
+                    paddingHorizontal: 12,
                 }}
             >
                 {loading ? (
                     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
-                        <ActivityIndicator color={textColor} size="small" style={{ marginRight: 8, transform: [{ scale: 0.8 }] }} />
-                        <Text style={{ flexShrink: 1, color: textColor, fontWeight: '600', fontSize: 13, letterSpacing: 0 }} numberOfLines={1} adjustsFontSizeToFit>
+                        <ActivityIndicator color={textColor} size="small" style={{ marginRight: 6, transform: [{ scale: 0.8 }] }} />
+                        <Text style={{ color: textColor, fontWeight: '700', fontSize: 13.5, includeFontPadding: false }} numberOfLines={1}>
                             {typeof loading === 'string' ? loading : 'Submitting...'}
                         </Text>
                     </View>
                 ) : (
-                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', flexShrink: 1 }}>
-                        {icon === 'back' && <Ionicons name="arrow-back" size={16} color={textColor} style={{ marginRight: 4 }} />}
-                        <Text style={{ flexShrink: 1, color: textColor, fontWeight: '600', fontSize: 13, letterSpacing: 0 }} numberOfLines={1} adjustsFontSizeToFit>{title}</Text>
-                        {icon === 'submit' && <Ionicons name="checkmark-circle-outline" size={18} color={textColor} style={{ marginLeft: 4 }} />}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+                        {icon === 'back' && <Ionicons name="arrow-back" size={15} color={textColor} style={{ marginRight: 5 }} />}
+                        <Text style={{ color: textColor, fontWeight: '700', fontSize: 13.5, includeFontPadding: false }} numberOfLines={1}>{title}</Text>
+                        {icon === 'submit' && <Ionicons name="checkmark-circle-outline" size={16} color={textColor} style={{ marginLeft: 5 }} />}
                     </View>
                 )}
             </Pressable>
@@ -477,6 +472,36 @@ export default function TenantPaymentScreen() {
 
     return (
         <View style={styles.container}>
+            {/* Top Navigation Bar */}
+            <View style={styles.topBar}>
+                <TouchableOpacity 
+                    onPress={() => {
+                        if (step > 1) {
+                            setStep(s => s - 1);
+                        } else {
+                            if (router.canGoBack()) {
+                                router.back();
+                            } else {
+                                router.replace('/(tenant)/dashboard');
+                            }
+                        }
+                    }} 
+                    style={styles.topBackBtn} 
+                    activeOpacity={0.7}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                    <Ionicons name="arrow-back" size={18} color="#FFFFFF" />
+                </TouchableOpacity>
+                <Text style={styles.topBarTitle}>Payment</Text>
+                {(!isPending && !isPaid) ? (
+                    <View style={styles.topStepBadge}>
+                        <Text style={styles.topStepBadgeText}>Step {step} of 3</Text>
+                    </View>
+                ) : (
+                    <View style={{ width: 34 }} />
+                )}
+            </View>
+
             <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
                 
                 {/* INVOICE SWITCHER (if multiple unpaid invoices exist) */}
@@ -511,56 +536,68 @@ export default function TenantPaymentScreen() {
                     </View>
                 )}
 
-                {/* Hero Card for Target Bill */}
+                {/* Compact, Professional Invoice Summary Card */}
                 <View style={styles.heroCard}>
-                    <View style={[
-                        styles.targetBadge, 
-                        isPending 
-                            ? { backgroundColor: 'rgba(245, 158, 11, 0.15)' } 
-                            : (billType === 'overdue' ? styles.targetBadgeOverdue : styles.targetBadgeCurrent)
-                    ]}>
-                        <Ionicons 
-                            name={isPending ? "time-outline" : (billType === 'overdue' ? "warning-outline" : "shield-checkmark-outline")} 
-                            size={13} 
-                            color={isPending ? '#F59E0B' : (billType === 'overdue' ? COLORS.danger : COLORS.success)} 
-                        />
-                        <Text style={[
-                            styles.targetBadgeText, 
-                            { color: isPending ? '#F59E0B' : (billType === 'overdue' ? COLORS.danger : COLORS.success) }
+                    {/* Header Row: Badge & Status */}
+                    <View style={styles.heroHeaderRow}>
+                        <View style={[
+                            styles.targetBadge, 
+                            isPending 
+                                ? styles.targetBadgePending 
+                                : (billType === 'overdue' ? styles.targetBadgeOverdue : styles.targetBadgeCurrent)
                         ]}>
-                            {isPending ? 'Pending Verification' : (billType === 'overdue' ? 'Overdue Invoice' : 'Current Bill')}
-                        </Text>
+                            <Ionicons 
+                                name={isPending ? "time-outline" : (billType === 'overdue' ? "warning-outline" : "shield-checkmark-outline")} 
+                                size={12} 
+                                color={isPending ? '#F59E0B' : (billType === 'overdue' ? COLORS.danger : COLORS.success)} 
+                            />
+                            <Text style={[
+                                styles.targetBadgeText, 
+                                { color: isPending ? '#F59E0B' : (billType === 'overdue' ? COLORS.danger : COLORS.success) }
+                            ]}>
+                                {isPending ? 'Pending Review' : (billType === 'overdue' ? 'Overdue Invoice' : 'Current Bill')}
+                            </Text>
+                        </View>
+
+                        <View style={[styles.statusPill, isPaid && styles.statusPillPaid, isPending && styles.statusPillPending, billType === 'overdue' && !isPaid && !isPending && styles.statusPillOverdue]}>
+                            <Text style={[styles.statusPillText, isPaid && styles.statusPillTextPaid, isPending && styles.statusPillTextPending, billType === 'overdue' && !isPaid && !isPending && styles.statusPillTextOverdue]}>
+                                Status: <Text style={styles.statusPillBold}>{formatStatus(billingCycle.payment_status)}</Text>
+                            </Text>
+                        </View>
                     </View>
 
-                    <Text style={styles.targetInvoiceNumber}>
-                        Invoice #{billingCycle.invoice_number || invoiceNumber || billingCycle.id}
-                    </Text>
-                    {(billingCycle.cycle_start || billingCycle.start_date) && (billingCycle.cycle_end || billingCycle.end_date) && (
-                        <Text style={styles.targetPeriod}>
-                            {formatDate(billingCycle.cycle_start || billingCycle.start_date)} – {formatDate(billingCycle.cycle_end || billingCycle.end_date)}
+                    {/* Middle: Invoice Number & Period */}
+                    <View style={styles.heroMetaRow}>
+                        <Text style={styles.targetInvoiceNumber} numberOfLines={1}>
+                            Invoice #{billingCycle.invoice_number || invoiceNumber || billingCycle.id}
                         </Text>
-                    )}
+                        {(billingCycle.cycle_start || billingCycle.start_date) && (billingCycle.cycle_end || billingCycle.end_date) && (
+                            <Text style={styles.targetPeriod} numberOfLines={1}>
+                                {formatDate(billingCycle.cycle_start || billingCycle.start_date)} – {formatDate(billingCycle.cycle_end || billingCycle.end_date)}
+                            </Text>
+                        )}
+                    </View>
 
-                    <Text style={styles.heroTitle}>Amount To Pay</Text>
-                    <Text style={styles.heroAmount}>₱{targetDue.toFixed(2)}</Text>
-                    
-                    <View style={[styles.statusBox, isPaid && styles.statusBoxPaid, isPending && styles.statusBoxPending, { marginTop: 8 }]}>
-                        <Text style={[styles.statusText, isPaid && styles.statusTextPaid, isPending && styles.statusTextPending]}>
-                            Status: <Text style={styles.statusBold}>{formatStatus(billingCycle.payment_status)}</Text>
-                        </Text>
+                    {/* Divider */}
+                    <View style={styles.heroDivider} />
+
+                    {/* Bottom: Amount to Pay */}
+                    <View style={styles.heroAmountRow}>
+                        <Text style={styles.heroTitle}>Amount to Pay</Text>
+                        <Text style={styles.heroAmount}>₱{targetDue.toFixed(2)}</Text>
                     </View>
                 </View>
 
                 {(!isPending && !isPaid) && (
-                    <GlassCard style={styles.wizardCard}>
+                    <View style={styles.wizardCard}>
                         {/* WIZARD PROGRESS */}
                         <View style={styles.wizardProgress}>
                             <View style={[styles.stepCircle, step >= 1 && styles.stepCircleActive, step > 1 && styles.stepCircleCompleted]}>
-                                {step > 1 ? <Ionicons name="checkmark" size={16} color="#fff" /> : <Text style={[styles.stepText, step >= 1 && styles.stepTextActive]}>1</Text>}
+                                {step > 1 ? <Ionicons name="checkmark" size={13} color="#fff" /> : <Text style={[styles.stepText, step >= 1 && styles.stepTextActive]}>1</Text>}
                             </View>
                             <View style={[styles.stepLine, step >= 2 && styles.stepLineActive]} />
                             <View style={[styles.stepCircle, step >= 2 && styles.stepCircleActive, step > 2 && styles.stepCircleCompleted]}>
-                                {step > 2 ? <Ionicons name="checkmark" size={16} color="#fff" /> : <Text style={[styles.stepText, step >= 2 && styles.stepTextActive]}>2</Text>}
+                                {step > 2 ? <Ionicons name="checkmark" size={13} color="#fff" /> : <Text style={[styles.stepText, step >= 2 && styles.stepTextActive]}>2</Text>}
                             </View>
                             <View style={[styles.stepLine, step >= 3 && styles.stepLineActive]} />
                             <View style={[styles.stepCircle, step >= 3 && styles.stepCircleActive]}>
@@ -572,17 +609,56 @@ export default function TenantPaymentScreen() {
                         {step === 1 && (
                             <View>
                                 <Text style={styles.stepTitle}>Select Payment Method</Text>
-                                <TouchableOpacity style={[styles.methodBtn, paymentMethod === 'GCash' && styles.methodBtnGCashActive]} onPress={() => setPaymentMethod('GCash')}>
-                                    <Ionicons name="phone-portrait-outline" size={24} color={paymentMethod === 'GCash' ? '#3B82F6' : COLORS.textMuted} />
-                                    <Text style={[styles.methodBtnText, paymentMethod === 'GCash' && styles.methodBtnTextGCash]}>GCash</Text>
+                                
+                                <TouchableOpacity 
+                                    style={[styles.methodBtn, paymentMethod === 'GCash' && styles.methodBtnGCashActive]} 
+                                    onPress={() => setPaymentMethod('GCash')}
+                                    activeOpacity={0.7}
+                                >
+                                    <View style={[styles.methodIconWrap, { backgroundColor: 'rgba(59, 130, 246, 0.12)' }]}>
+                                        <Ionicons name="phone-portrait-outline" size={18} color="#3B82F6" />
+                                    </View>
+                                    <View style={styles.methodInfo}>
+                                        <Text style={[styles.methodBtnText, paymentMethod === 'GCash' && styles.methodBtnTextGCash]}>GCash</Text>
+                                        <Text style={styles.methodSubtext}>E-Wallet Instant Transfer</Text>
+                                    </View>
+                                    <View style={[styles.radioOuter, paymentMethod === 'GCash' && styles.radioOuterGCash]}>
+                                        {paymentMethod === 'GCash' && <View style={[styles.radioInner, { backgroundColor: '#3B82F6' }]} />}
+                                    </View>
                                 </TouchableOpacity>
-                                <TouchableOpacity style={[styles.methodBtn, paymentMethod === 'Maya' && styles.methodBtnMayaActive]} onPress={() => setPaymentMethod('Maya')}>
-                                    <Ionicons name="card-outline" size={24} color={paymentMethod === 'Maya' ? '#10B981' : COLORS.textMuted} />
-                                    <Text style={[styles.methodBtnText, paymentMethod === 'Maya' && styles.methodBtnTextMaya]}>Maya</Text>
+
+                                <TouchableOpacity 
+                                    style={[styles.methodBtn, paymentMethod === 'Maya' && styles.methodBtnMayaActive]} 
+                                    onPress={() => setPaymentMethod('Maya')}
+                                    activeOpacity={0.7}
+                                >
+                                    <View style={[styles.methodIconWrap, { backgroundColor: 'rgba(16, 185, 129, 0.12)' }]}>
+                                        <Ionicons name="card-outline" size={18} color="#10B981" />
+                                    </View>
+                                    <View style={styles.methodInfo}>
+                                        <Text style={[styles.methodBtnText, paymentMethod === 'Maya' && styles.methodBtnTextMaya]}>Maya</Text>
+                                        <Text style={styles.methodSubtext}>E-Wallet / Visa / Mastercard</Text>
+                                    </View>
+                                    <View style={[styles.radioOuter, paymentMethod === 'Maya' && styles.radioOuterMaya]}>
+                                        {paymentMethod === 'Maya' && <View style={[styles.radioInner, { backgroundColor: '#10B981' }]} />}
+                                    </View>
                                 </TouchableOpacity>
-                                <TouchableOpacity style={[styles.methodBtn, paymentMethod === 'Cash' && styles.methodBtnCashActive]} onPress={() => setPaymentMethod('Cash')}>
-                                    <Ionicons name="cash-outline" size={24} color={paymentMethod === 'Cash' ? COLORS.textPrimary : COLORS.textMuted} />
-                                    <Text style={[styles.methodBtnText, paymentMethod === 'Cash' && styles.methodBtnTextCash]}>Cash / Hand-Over</Text>
+
+                                <TouchableOpacity 
+                                    style={[styles.methodBtn, paymentMethod === 'Cash' && styles.methodBtnCashActive]} 
+                                    onPress={() => setPaymentMethod('Cash')}
+                                    activeOpacity={0.7}
+                                >
+                                    <View style={[styles.methodIconWrap, { backgroundColor: 'rgba(255, 255, 255, 0.08)' }]}>
+                                        <Ionicons name="cash-outline" size={18} color="#E2E8F0" />
+                                    </View>
+                                    <View style={styles.methodInfo}>
+                                        <Text style={[styles.methodBtnText, paymentMethod === 'Cash' && styles.methodBtnTextCash]}>Cash / Hand-Over</Text>
+                                        <Text style={styles.methodSubtext}>Direct to Landlord / Manager</Text>
+                                    </View>
+                                    <View style={[styles.radioOuter, paymentMethod === 'Cash' && styles.radioOuterCash]}>
+                                        {paymentMethod === 'Cash' && <View style={[styles.radioInner, { backgroundColor: '#FFFFFF' }]} />}
+                                    </View>
                                 </TouchableOpacity>
 
                                 <View style={styles.wizardFooter}>
@@ -602,47 +678,59 @@ export default function TenantPaymentScreen() {
                                 <Text style={styles.stepTitle}>Payment Instructions</Text>
                                 
                                 {paymentMethod === 'Cash' && (
-                                    <View style={styles.instructionsBox}>
-                                        <Ionicons name="cash-outline" size={48} color={COLORS.primary} style={styles.instructionsIcon} />
-                                        <Text style={styles.instructionsText}>Please hand over your cash payment directly to the landlord or facility manager.</Text>
-                                        <Text style={styles.instructionsText}>After handing over the cash, proceed to the next step to log your payment date for our records.</Text>
+                                    <View style={styles.cashInstructionsBox}>
+                                        <View style={styles.cashIconWrap}>
+                                            <Ionicons name="cash-outline" size={24} color="#10B981" />
+                                        </View>
+                                        <Text style={styles.instructionsTitle}>Cash Hand-Over</Text>
+                                        <Text style={styles.instructionsText}>
+                                            Please hand over your cash payment directly to the landlord or facility manager.
+                                        </Text>
+                                        <View style={styles.cashNoteBox}>
+                                            <Ionicons name="information-circle-outline" size={14} color="#10B981" style={{ marginRight: 6 }} />
+                                            <Text style={styles.cashNoteText}>
+                                                After handing over cash, proceed to the next step to log your payment date.
+                                            </Text>
+                                        </View>
                                     </View>
                                 )}
 
-                                {paymentMethod === 'GCash' && (
+                                {(paymentMethod === 'GCash' || paymentMethod === 'Maya') && (
                                     <View style={styles.instructionsBox}>
-                                        <Text style={styles.accountLabel}>GCash Name</Text>
-                                        <Text style={styles.accountValue}>{landlordInfo.gcash_name}</Text>
+                                        <View style={styles.accountCard}>
+                                            <View style={styles.accountRow}>
+                                                <Text style={styles.accountLabel}>{paymentMethod === 'GCash' ? 'GCash Name' : 'Maya Name'}</Text>
+                                                <Text style={styles.accountValue} numberOfLines={1}>
+                                                    {paymentMethod === 'GCash' ? landlordInfo.gcash_name : landlordInfo.maya_name}
+                                                </Text>
+                                            </View>
+                                            <View style={styles.accountDivider} />
+                                            <View style={styles.accountRow}>
+                                                <Text style={styles.accountLabel}>{paymentMethod === 'GCash' ? 'GCash Number' : 'Maya Number'}</Text>
+                                                <Text style={[styles.accountValue, styles.accountNumberHighlight]} numberOfLines={1}>
+                                                    {paymentMethod === 'GCash' ? landlordInfo.gcash_number : landlordInfo.maya_number}
+                                                </Text>
+                                            </View>
+                                        </View>
                                         
-                                        <Text style={styles.accountLabel}>GCash Number</Text>
-                                        <Text style={styles.accountValue}>{landlordInfo.gcash_number}</Text>
-                                        
-                                        {landlordInfo.gcash_qr ? (
+                                        {(paymentMethod === 'GCash' ? landlordInfo.gcash_qr : landlordInfo.maya_qr) ? (
                                             <View style={styles.qrContainer}>
-                                                <Text style={styles.accountLabel}>Scan Landlord QR Code</Text>
-                                                <Image source={{uri: landlordInfo.gcash_qr}} style={styles.qrImage} resizeMode="contain" />
+                                                <Text style={styles.qrHeaderLabel}>SCAN LANDLORD QR CODE</Text>
+                                                <View style={styles.qrImageFrame}>
+                                                    <Image 
+                                                        source={{ uri: paymentMethod === 'GCash' ? landlordInfo.gcash_qr : landlordInfo.maya_qr }} 
+                                                        style={styles.qrImage} 
+                                                        resizeMode="contain" 
+                                                    />
+                                                </View>
+                                                <Text style={styles.qrSubtext}>InstaPay / QR Ph Compatible</Text>
                                             </View>
                                         ) : (
-                                            <DynamicQRCode invoiceNumber={billingCycle.invoice_number || billingCycle.id} amount={targetDue} method="GCash" />
-                                        )}
-                                    </View>
-                                )}
-
-                                {paymentMethod === 'Maya' && (
-                                    <View style={styles.instructionsBox}>
-                                        <Text style={styles.accountLabel}>Maya Name</Text>
-                                        <Text style={styles.accountValue}>{landlordInfo.maya_name}</Text>
-                                        
-                                        <Text style={styles.accountLabel}>Maya Number</Text>
-                                        <Text style={styles.accountValue}>{landlordInfo.maya_number}</Text>
-                                        
-                                        {landlordInfo.maya_qr ? (
-                                            <View style={styles.qrContainer}>
-                                                <Text style={styles.accountLabel}>Scan Landlord QR Code</Text>
-                                                <Image source={{uri: landlordInfo.maya_qr}} style={styles.qrImage} resizeMode="contain" />
-                                            </View>
-                                        ) : (
-                                            <DynamicQRCode invoiceNumber={billingCycle.invoice_number || billingCycle.id} amount={targetDue} method="Maya" />
+                                            <DynamicQRCode 
+                                                invoiceNumber={billingCycle.invoice_number || billingCycle.id} 
+                                                amount={targetDue} 
+                                                method={paymentMethod} 
+                                            />
                                         )}
                                     </View>
                                 )}
@@ -668,39 +756,66 @@ export default function TenantPaymentScreen() {
                             <View>
                                 <Text style={styles.stepTitle}>Submit Payment Details</Text>
 
-                                <View style={styles.inputContainer}>
+                                <View style={styles.formGroup}>
                                     <Text style={styles.inputLabel}>Date of Payment (YYYY-MM-DD)</Text>
-                                    <TextInput 
-                                        style={styles.input} 
-                                        value={paymentDate}
-                                        onChangeText={setPaymentDate}
-                                        placeholder="YYYY-MM-DD"
-                                        placeholderTextColor={COLORS.textMuted}
-                                    />
+                                    <View style={styles.inputWrapper}>
+                                        <Ionicons name="calendar-outline" size={16} color="#94A3B8" style={{ marginRight: 8 }} />
+                                        <TextInput 
+                                            style={styles.inputField} 
+                                            value={paymentDate}
+                                            onChangeText={setPaymentDate}
+                                            placeholder="YYYY-MM-DD"
+                                            placeholderTextColor="#475569"
+                                        />
+                                    </View>
                                 </View>
 
                                 {paymentMethod !== 'Cash' && (
                                     <>
-                                        <View style={styles.inputContainer}>
+                                        <View style={styles.formGroup}>
                                             <Text style={styles.inputLabel}>Reference Number</Text>
-                                            <TextInput 
-                                                style={styles.input} 
-                                                placeholder="e.g. 123456789"
-                                                placeholderTextColor={COLORS.textMuted}
-                                                value={referenceNumber}
-                                                onChangeText={setReferenceNumber}
-                                            />
+                                            <View style={styles.inputWrapper}>
+                                                <Ionicons name="receipt-outline" size={16} color="#94A3B8" style={{ marginRight: 8 }} />
+                                                <TextInput 
+                                                    style={styles.inputField} 
+                                                    placeholder="e.g. 123456789"
+                                                    placeholderTextColor="#475569"
+                                                    value={referenceNumber}
+                                                    onChangeText={setReferenceNumber}
+                                                />
+                                            </View>
                                         </View>
 
-                                        <Text style={styles.inputLabel}>Proof of Payment (Screenshot)</Text>
-                                        <TouchableOpacity style={styles.uploadBtn} onPress={pickImage}>
-                                            <Ionicons name={proofUri ? "image-outline" : "cloud-upload-outline"} size={32} color={COLORS.primary} />
-                                            <Text style={styles.uploadText}>{proofUri ? 'Change Image' : 'Select Receipt Image'}</Text>
-                                        </TouchableOpacity>
+                                        <View style={styles.formGroup}>
+                                            <Text style={styles.inputLabel}>Proof of Payment (Screenshot)</Text>
+                                            <TouchableOpacity 
+                                                style={[styles.uploadBox, proofUri && styles.uploadBoxUploaded]} 
+                                                onPress={pickImage}
+                                                activeOpacity={0.7}
+                                            >
+                                                <View style={styles.uploadIconCircle}>
+                                                    <Ionicons 
+                                                        name={proofUri ? "checkmark-circle" : "cloud-upload-outline"} 
+                                                        size={18} 
+                                                        color="#10B981" 
+                                                    />
+                                                </View>
+                                                <View style={styles.uploadTextContainer}>
+                                                    <Text style={styles.uploadPrimaryText}>
+                                                        {proofUri ? 'Change Receipt Screenshot' : 'Select Receipt Image'}
+                                                    </Text>
+                                                    <Text style={styles.uploadSecondaryText}>
+                                                        JPG, PNG, or PDF screenshot
+                                                    </Text>
+                                                </View>
+                                            </TouchableOpacity>
 
-                                        {proofUri && proofBase64 !== 'fallback_no_image' && (
-                                            <Image source={{ uri: proofUri }} style={styles.previewImage} resizeMode="contain" />
-                                        )}
+                                            {proofUri && proofBase64 !== 'fallback_no_image' && (
+                                                <View style={styles.previewContainer}>
+                                                    <Image source={{ uri: proofUri }} style={styles.previewImage} resizeMode="contain" />
+                                                </View>
+                                            )}
+                                        </View>
                                     </>
                                 )}
 
@@ -723,19 +838,19 @@ export default function TenantPaymentScreen() {
                                 </View>
                             </View>
                         )}
-                    </GlassCard>
+                    </View>
                 )}
 
                 {isPending && (
-                    <GlassCard style={styles.pendingBox}>
-                        <Ionicons name="time-outline" size={48} color={COLORS.warning} />
+                    <View style={styles.pendingBox}>
+                        <Ionicons name="time-outline" size={32} color="#F59E0B" />
                         <Text style={styles.pendingText}>Your payment is currently under review by the landlord. We will notify you once verified.</Text>
-                    </GlassCard>
+                    </View>
                 )}
 
                 {isPaid && (
-                    <GlassCard style={styles.paidBox}>
-                        <Ionicons name="checkmark-circle-outline" size={48} color={COLORS.success} />
+                    <View style={styles.paidBox}>
+                        <Ionicons name="checkmark-circle-outline" size={32} color="#10B981" />
                         <Text style={styles.paidText}>This invoice has been fully paid and verified!</Text>
                         <TouchableOpacity 
                             style={styles.viewPdfBtn} 
@@ -745,10 +860,10 @@ export default function TenantPaymentScreen() {
                             })}
                             activeOpacity={0.8}
                         >
-                            <Ionicons name="document-text-outline" size={20} color="#fff" style={{ marginRight: 8 }} />
+                            <Ionicons name="document-text-outline" size={18} color="#042F2E" style={{ marginRight: 6 }} />
                             <Text style={styles.viewPdfBtnText}>View Invoice / Receipt (PDF)</Text>
                         </TouchableOpacity>
-                    </GlassCard>
+                    </View>
                 )}
             </ScrollView>
         </View>

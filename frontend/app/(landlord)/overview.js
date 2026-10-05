@@ -220,17 +220,17 @@ export default function OverviewScreen() {
         name="landlord_header_nav"
       >
         <CopilotView style={styles.header}>
-          <View style={styles.headerLeft}>
-            {/* Avatar with Initials - Tappable to open Settings */}
-            <TouchableOpacity
-              style={styles.avatarCircle}
-              onPress={() => router.push('/(landlord)/settings')}
-              activeOpacity={0.8}
-              accessibilityRole="button"
-              accessibilityLabel="Profile and settings"
-            >
+          {/* Tappable Profile (Avatar + Landlord Name) to open Settings */}
+          <TouchableOpacity
+            style={styles.headerLeft}
+            onPress={() => router.push('/(landlord)/settings')}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="Profile and settings"
+          >
+            <View style={styles.avatarCircle}>
               <Text style={styles.avatarText}>{initials}</Text>
-            </TouchableOpacity>
+            </View>
 
             <View style={styles.headerInfo}>
               <Text style={styles.greeting} numberOfLines={1}>
@@ -238,9 +238,9 @@ export default function OverviewScreen() {
               </Text>
               <Text style={styles.subtitle}>Real-Time Monitoring Dashboard</Text>
             </View>
-          </View>
+          </TouchableOpacity>
 
-          {/* Right Actions: Notification Bell + Settings Icon beside name */}
+          {/* Right Action: Notification Bell */}
           <View style={styles.headerRight}>
             <TouchableOpacity
               style={styles.headerActionBtn}
@@ -252,17 +252,6 @@ export default function OverviewScreen() {
             >
               <Ionicons name="notifications-outline" size={19} color="#FFFFFF" />
               {unreadCount > 0 && <View style={styles.notifBadgeDot} />}
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.headerActionBtn}
-              onPress={() => router.push('/(landlord)/settings')}
-              activeOpacity={0.75}
-              accessibilityRole="button"
-              accessibilityLabel="Settings"
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <Ionicons name="settings-outline" size={19} color="#FFFFFF" />
             </TouchableOpacity>
           </View>
         </CopilotView>

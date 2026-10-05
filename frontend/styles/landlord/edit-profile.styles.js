@@ -74,23 +74,24 @@ export default StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.3)',
+    backgroundColor: '#059669',
+    borderWidth: 1.5,
+    borderColor: '#10B981',
     justifyContent: 'center',
     alignItems: 'center',
   },
   avatarText: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '800',
-    color: COLORS.primary,
+    color: '#FFFFFF',
+    letterSpacing: 0.5,
   },
   profileName: {
     fontSize: 13,
     fontWeight: '700',
     color: COLORS.textPrimary,
   },
-  profileRoom: {
+  profileEmail: {
     fontSize: 11,
     color: COLORS.textSecondary,
     marginTop: 1,
@@ -104,9 +105,10 @@ export default StyleSheet.create({
     borderRadius: 6,
   },
   roleBadgeText: {
-    fontSize: 10,
+    fontSize: 9.5,
     fontWeight: '700',
     color: COLORS.primary,
+    letterSpacing: 0.5,
   },
 
   // Sections

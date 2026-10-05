@@ -36,6 +36,7 @@ function BudgetScreen() {
   const [compPeriod, setCompPeriod] = useState('weekly');
   const [activeTab, setActiveTab] = useState('monthly');
   const [editing, setEditing] = useState(false);
+  const [modalSaving, setModalSaving] = useState(false);
   const [billingCycle, setBillingCycle] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -43,6 +44,7 @@ function BudgetScreen() {
 
   const reqSeqRef = useRef(0);
   const scrollViewRef = useRef(null);
+  const inputRef = useRef(null);
 
   useTourAutoStart('budget', !loading, scrollViewRef);
 
@@ -184,6 +186,7 @@ function BudgetScreen() {
     }
     
     try {
+      setModalSaving(true);
       const result = await setBudget(roomId, val);
       const newBudgetObj = { 
         monthly_budget: val, 
@@ -194,6 +197,7 @@ function BudgetScreen() {
       };
       if (isMountedRef.current) {
         setBudgetData(newBudgetObj);
+        setMonthlyBudgetInput(String(Math.round(val)));
         setLoading(false);
         setEditing(false);
       }
@@ -208,6 +212,10 @@ function BudgetScreen() {
     } catch (err) {
       console.warn("Error setting budget:", err);
       showModal({ type: 'error', title: 'Error', message: 'Failed to save budget. Please try again.' });
+    } finally {
+      if (isMountedRef.current) {
+        setModalSaving(false);
+      }
     }
   };
 
@@ -376,7 +384,10 @@ function BudgetScreen() {
               >
                 <CopilotView style={{ width: '100%', marginTop: 8 }}>
                   <TouchableOpacity 
-                    onPress={() => setEditing(true)} 
+                    onPress={() => {
+                      setMonthlyBudgetInput('');
+                      setEditing(true);
+                    }} 
                     activeOpacity={0.8} 
                     style={s.emptyBudgetBtn}
                   >
@@ -455,7 +466,12 @@ function BudgetScreen() {
                 >
                   <CopilotView style={s.mainActionRow}>
                     <TouchableOpacity 
-                      onPress={() => setEditing(true)} 
+                      onPress={() => {
+                        if (budgetData?.monthly_budget) {
+                          setMonthlyBudgetInput(String(Math.round(budgetData.monthly_budget)));
+                        }
+                        setEditing(true);
+                      }} 
                       style={s.mainEditBtn} 
                       activeOpacity={0.8}
                     >
@@ -737,71 +753,121 @@ function BudgetScreen() {
         )}
       </ScrollView>
 
-      {/* ================= 6. MANUAL EDIT BUDGET MODAL (NO MIN/MAX RESTRICTIONS) ================= */}
-      <BaseModal visible={editing} onClose={() => setEditing(false)}>
+      {/* ================= 6. MANUAL EDIT BUDGET MODAL (FLOATING CENTERED) ================= */}
+      <BaseModal visible={editing} onClose={() => setEditing(false)} centered={true}>
         <ModalHeader 
-          title="Set Monthly Budget" 
+          title={budgetData ? "Edit Monthly Budget" : "Set Monthly Budget"} 
           icon="wallet" 
           iconColor="#10B981" 
-          onClose={budgetData ? () => setEditing(false) : null} 
+          onClose={() => setEditing(false)} 
         />
         <ModalBody scrollable={false}>
           <View style={s.budgetInputContainer}>
             {/* Current Budget Indicator */}
             {monthlyBudgetVal > 0 && (
               <View style={s.currentBudgetPill}>
+                <Ionicons name="information-circle-outline" size={13} color="#10B981" style={{ marginRight: 5 }} />
                 <Text style={s.currentBudgetText}>
-                  Current Budget: ₱{monthlyBudgetVal.toFixed(2)}
+                  Current: ₱{monthlyBudgetVal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </Text>
               </View>
             )}
 
-            {/* Custom Numeric Input (NO MIN / MAX RESTRICTIONS) */}
-            <View style={s.budgetInputWrap}>
+            {/* Custom Numeric Input Box */}
+            <TouchableOpacity 
+              style={s.budgetInputWrap}
+              activeOpacity={1}
+              onPress={() => inputRef.current?.focus()}
+            >
               <Text style={s.currencyLabel}>₱</Text>
               <TextInput 
+                ref={inputRef}
                 style={s.inputModal} 
                 placeholder="0.00" 
-                placeholderTextColor="#64748B"
+                placeholderTextColor="#475569"
                 value={monthlyBudget} 
                 onChangeText={setMonthlyBudgetInput} 
                 keyboardType="numeric" 
-                autoFocus={true}
+                selectionColor="#10B981"
               />
-            </View>
+            </TouchableOpacity>
 
             {/* Live Daily Preview Calculation */}
-            {parseFloat(monthlyBudget) > 0 ? (
-              <View style={s.livePreviewContainer}>
-                <Text style={s.livePreviewText}>
-                  ≈ ₱{(parseFloat(monthlyBudget) / (budgetData?.days_in_month || 30)).toFixed(2)} / day allowance
-                </Text>
-              </View>
-            ) : (
-              <View style={[s.livePreviewContainer, { opacity: 0 }]}>
-                <Text style={s.livePreviewText}>Placeholder</Text>
-              </View>
-            )}
+            <View style={s.livePreviewContainer}>
+              {parseFloat(monthlyBudget) > 0 ? (
+                <>
+                  <Ionicons name="sparkles" size={12} color="#10B981" style={{ marginRight: 5 }} />
+                  <Text style={s.livePreviewText}>
+                    ≈ ₱{(parseFloat(monthlyBudget) / (budgetData?.days_in_month || 30)).toFixed(2)} / day allowance
+                  </Text>
+                </>
+              ) : (
+                <Text style={s.livePreviewPlaceholder}>Tap quick presets or enter a custom amount</Text>
+              )}
+            </View>
 
-            {/* Quick Suggestion Chips (Purely for Convenience - NOT Min/Max bounds) */}
-            <View style={s.presetChipsContainer}>
-              {['500', '1000', '2000', '3000', '5000'].map(amount => (
-                <TouchableOpacity 
-                  key={amount}
-                  style={s.presetChip}
-                  onPress={() => setMonthlyBudgetInput(amount)}
-                  activeOpacity={0.7}
-                >
-                  <Text style={s.presetChipText}>₱{amount}</Text>
-                </TouchableOpacity>
-              ))}
+            {/* Quick Suggestion Chips (2 Clean Symmetrical Rows of 3) */}
+            <View style={s.presetGrid}>
+              <View style={s.presetRow}>
+                {['500', '1000', '1500'].map(amount => {
+                  const isSelected = Math.round(Number(monthlyBudget) || 0) === Number(amount);
+                  return (
+                    <TouchableOpacity 
+                      key={amount}
+                      style={[
+                        s.presetChip,
+                        isSelected && s.presetChipActive
+                      ]}
+                      onPress={() => {
+                        setMonthlyBudgetInput(amount);
+                        inputRef.current?.blur();
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[
+                        s.presetChipText,
+                        isSelected && s.presetChipTextActive
+                      ]}>
+                        ₱{Number(amount).toLocaleString()}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+              <View style={s.presetRow}>
+                {['2000', '3000', '5000'].map(amount => {
+                  const isSelected = Math.round(Number(monthlyBudget) || 0) === Number(amount);
+                  return (
+                    <TouchableOpacity 
+                      key={amount}
+                      style={[
+                        s.presetChip,
+                        isSelected && s.presetChipActive
+                      ]}
+                      onPress={() => {
+                        setMonthlyBudgetInput(amount);
+                        inputRef.current?.blur();
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[
+                        s.presetChipText,
+                        isSelected && s.presetChipTextActive
+                      ]}>
+                        ₱{Number(amount).toLocaleString()}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
             </View>
           </View>
         </ModalBody>
         <ModalFooter 
           primaryLabel={budgetData ? 'Update Budget' : 'Save Budget'}
+          primaryLoading={modalSaving}
           onPrimaryPress={handleSetBudget}
-          secondaryLabel={budgetData ? 'Cancel' : null}
+          secondaryLabel="Cancel"
           onSecondaryPress={() => setEditing(false)}
         />
       </BaseModal>

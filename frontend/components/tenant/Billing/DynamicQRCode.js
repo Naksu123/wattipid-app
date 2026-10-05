@@ -22,7 +22,7 @@ export default function DynamicQRCode({ invoiceNumber, amount, method = 'GCash' 
       <View style={styles.qrWrapper}>
         <QRCode
           value={qrPayload}
-          size={200}
+          size={160}
           color="#000"
           backgroundColor="white"
         />
@@ -41,43 +41,48 @@ export default function DynamicQRCode({ invoiceNumber, amount, method = 'GCash' 
 const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
-    padding: 20,
+    padding: 12,
     backgroundColor: '#fff',
-    borderRadius: 16,
-    marginVertical: 16,
+    borderRadius: 14,
+    marginVertical: 10,
     elevation: 2,
     shadowColor: '#000',
     shadowOpacity: 0.1,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 }
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    maxWidth: 220,
+    alignSelf: 'center',
+    width: '100%',
   },
   title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#000', // COLORS.text doesn't exist in new theme
-    marginBottom: 20,
-    textAlign: 'center'
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: '#000',
+    marginBottom: 10,
+    textAlign: 'center',
   },
   qrWrapper: {
-    padding: 16,
+    padding: 10,
     backgroundColor: '#fff',
-    borderRadius: 12,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: '#E2E8F0',
   },
   instructions: {
-    fontSize: 16,
-    color: '#666',
-    marginTop: 20,
+    fontSize: 12.5,
+    color: '#64748B',
+    marginTop: 10,
+    fontWeight: '500',
   },
   amount: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: COLORS.primary,
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#10B981',
   },
   subText: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 8,
+    fontSize: 11,
+    color: '#94A3B8',
+    marginTop: 4,
+    fontWeight: '600',
   }
 });

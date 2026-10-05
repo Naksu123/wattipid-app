@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { View, Text, ActivityIndicator, Platform, StatusBar as RNStatusBar } from 'react-native';
 import { AuthProvider , useAuth } from '@/contexts/AuthContext';
 import { getDatabase } from '../services/database';
+import { initApiEnvironment } from '../services/config';
 import { initNotifications, setupNotificationResponseHandler } from '../services/notificationService';
 import ErrorTracker from '../services/errorTracker';
 import { ThemeProvider, DarkTheme } from '@react-navigation/native';
@@ -132,6 +133,11 @@ export default function RootLayout() {
 
   useEffect(() => {
     const init = async () => {
+      try {
+        await initApiEnvironment();
+      } catch (e) {
+        console.warn('[Init] Failed to load saved API environment:', e.message);
+      }
       try {
         await getDatabase();
       } catch (e) {

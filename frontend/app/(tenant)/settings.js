@@ -9,8 +9,8 @@ import { useConsumption } from '../../contexts/ConsumptionContext';
 import { useModal } from '../../contexts/ModalContext';
 import { getDatabase } from '../../services/database';
 import { getAlertSettings, updateAlertSettings } from '../../services/notificationApi';
-import { getCurrentEnv, setApiEnvironment } from '../../services/config';
 import { BaseModal, ModalHeader, ModalBody, ModalFooter, SignOutModal } from '../../components/modals/BaseModal';
+import EditProfileModal from '@/components/tenant/EditProfileModal';
 import { COLORS } from '@/styles/theme';
 import s from '@/styles/tenant/settings.styles';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -25,6 +25,7 @@ export default function TenantSettings() {
 
   const [logoutVisible, setLogoutVisible] = useState(false);
   const [clearDataVisible, setClearDataVisible] = useState(false);
+  const [editProfileVisible, setEditProfileVisible] = useState(false);
 
   // Notification states
   const [notifEnabled, setNotifEnabled] = useState(true);
@@ -38,11 +39,8 @@ export default function TenantSettings() {
   
 
   // System & Support modals
-  const [env, setEnv] = useState('local');
   const [aboutVisible, setAboutVisible] = useState(false);
   const [helpVisible, setHelpVisible] = useState(false);
-  const [envVisible, setEnvVisible] = useState(false);
-  const [tempEnv, setTempEnv] = useState('local');
   const scrollViewRef = useRef(null);
 
   useTourAutoStart('settings', true, scrollViewRef);
@@ -66,14 +64,6 @@ export default function TenantSettings() {
       }
     } catch (error) {
       console.warn('[TenantSettings] Failed to load alert settings:', error);
-    }
-
-    try {
-      const currentEnv = await getCurrentEnv();
-      setEnv(currentEnv);
-      setTempEnv(currentEnv);
-    } catch (err) {
-      console.warn('[TenantSettings] Failed to get env:', err);
     }
   }, [user?.room_id]);
 
@@ -140,27 +130,6 @@ export default function TenantSettings() {
       console.warn('[TenantSettings] Clear history error:', err);
       showModal({ type: 'error', title: 'Error', message: 'Failed to clear consumption history' });
     }
-  };
-
-  const handleSwitchEnv = () => {
-    setTempEnv(env);
-    setEnvVisible(true);
-  };
-
-  const onConfirmSwitch = async () => {
-    await setApiEnvironment(tempEnv);
-    setEnv(tempEnv);
-    setEnvVisible(false);
-    
-    await AsyncStorage.multiRemove(['@auth_token', '@auth_user']);
-    logout(); 
-    
-    showModal({
-      type: 'success',
-      title: 'Environment Switched', 
-      message: `Connected to ${tempEnv === 'local' ? 'Local Server' : 'Production Server'}. Please log in again.`,
-      onPrimaryPress: () => router.replace('/(auth)/login')
-    });
   };
 
   // Compute initials for avatar (e.g., Alex Cruz -> AC)
@@ -276,7 +245,7 @@ export default function TenantSettings() {
               </View>
 
               <TouchableOpacity 
-                onPress={() => router.push('/(tenant)/edit-profile')} 
+                onPress={() => setEditProfileVisible(true)} 
                 style={s.editProfileRow}
                 activeOpacity={0.7}
               >
@@ -325,7 +294,7 @@ export default function TenantSettings() {
             icon="lock-closed-outline" 
             label="Change Password" 
             desc="Update your login password and credentials"
-            onPress={() => router.push('/(tenant)/edit-profile')} 
+            onPress={() => setEditProfileVisible(true)} 
             iconColor="#10B981"
             iconBg="rgba(16, 185, 129, 0.12)"
           />
@@ -390,18 +359,6 @@ export default function TenantSettings() {
                   <Ionicons name="trash-outline" size={17} color="#EF4444" />
                 </TouchableOpacity>
               </View>
-
-              <View style={s.divider} />
-
-              <SettingsRow 
-                icon="server-outline" 
-                label="API Environment" 
-                desc={`Connected to: ${env === 'local' ? 'Local Development' : 'Cloud Production'}`}
-                value={env.toUpperCase()}
-                onPress={handleSwitchEnv} 
-                iconColor="#64748B"
-                iconBg="rgba(255, 255, 255, 0.05)"
-              />
             </View>
           </CopilotView>
         </CopilotStep>
@@ -544,25 +501,11 @@ export default function TenantSettings() {
         />
       </BaseModal>
 
-      {/* Switch Environment Modal */}
-      <BaseModal visible={envVisible} onClose={() => setEnvVisible(false)}>
-        <ModalHeader title="Switch API Environment" icon="server" onClose={() => setEnvVisible(false)} />
-        <ModalBody scrollable={false}>
-          <Text style={s.envSubtitle}>Select the backend server to connect with.</Text>
-          <TouchableOpacity style={[s.envCard, tempEnv === 'local' && s.envCardActive]} onPress={() => setTempEnv('local')}>
-            <Text style={s.envCardTitle}>Local Development Server</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[s.envCard, tempEnv === 'production' && s.envCardActive]} onPress={() => setTempEnv('production')}>
-            <Text style={s.envCardTitle}>Production Cloud Server (Hostinger)</Text>
-          </TouchableOpacity>
-        </ModalBody>
-        <ModalFooter 
-          primaryLabel="Switch Now" 
-          onPrimaryPress={onConfirmSwitch} 
-          secondaryLabel="Cancel" 
-          onSecondaryPress={() => setEnvVisible(false)} 
-        />
-      </BaseModal>
+      {/* Edit Profile Floating Modal */}
+      <EditProfileModal
+        visible={editProfileVisible}
+        onClose={() => setEditProfileVisible(false)}
+      />
     </View>
   );
 }

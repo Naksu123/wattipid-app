@@ -103,8 +103,8 @@ export const ALL_TENANT_TOUR_STEPS = [
     screenId: 'dashboard',
     targetId: 'dashboard_settings_entry',
     order: 5,
-    title: 'Settings & Notifications',
-    description: 'Settings and notifications are located right here beside your profile in the top header, accessible anytime.'
+    title: 'Profile & Settings Access',
+    description: 'Tap your profile name or avatar anytime to access settings, and monitor live alerts via the notification bell.'
   },
 
   // ── Analytics (6-10) ──

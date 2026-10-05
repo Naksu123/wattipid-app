@@ -44,8 +44,9 @@ unsigned long lastMillis = 0;
 unsigned long lastSendMillis = 0;
 unsigned long lastPrefSaveMillis = 0;
 unsigned long lastWifiRetryMillis = 0;
-const unsigned long WIFI_RETRY_INTERVAL = 10000;      // 10-second non-blocking retry
-const unsigned long TELEMETRY_SEND_INTERVAL = 3000;   // 3-second telemetry interval to prevent DB flooding
+const unsigned long WIFI_RETRY_INTERVAL = 10000; // 10-second non-blocking retry
+const unsigned long TELEMETRY_SEND_INTERVAL =
+    3000; // 3-second telemetry interval to prevent DB flooding
 
 // =====================================================
 // MANUAL VOLTAGE READING
@@ -129,7 +130,8 @@ void loop() {
     unsigned long currentMillis = millis();
     if (currentMillis - lastWifiRetryMillis >= WIFI_RETRY_INTERVAL) {
       lastWifiRetryMillis = currentMillis;
-      Serial.println("[WIFI] Connection lost. Attempting non-blocking reconnect...");
+      Serial.println(
+          "[WIFI] Connection lost. Attempting non-blocking reconnect...");
       WiFi.disconnect();
       WiFi.reconnect();
     }
@@ -171,7 +173,8 @@ void loop() {
     rawCurrent = 0.0;
   }
 
-  // Removed all mathematical smoothing so the value jumps instantly (zero delay)
+  // Removed all mathematical smoothing so the value jumps instantly (zero
+  // delay)
   float current = rawCurrent;
 
   if (current < 0.05)
@@ -221,8 +224,10 @@ void loop() {
   totalKWh += (power * (seconds / 3600.0)) / 1000.0;
   lastMillis = now;
 
-  // --- PERSIST CUMULATIVE ENERGY (Prevent Flash Wear: save every 0.01 kWh or 60s) ---
-  if ((totalKWh - lastSavedKWh) >= 0.01f || (now - lastPrefSaveMillis >= 60000 && totalKWh != lastSavedKWh)) {
+  // --- PERSIST CUMULATIVE ENERGY (Prevent Flash Wear: save every 0.01 kWh or
+  // 60s) ---
+  if ((totalKWh - lastSavedKWh) >= 0.01f ||
+      (now - lastPrefSaveMillis >= 60000 && totalKWh != lastSavedKWh)) {
     preferences.putFloat("totalKWh", totalKWh);
     lastSavedKWh = totalKWh;
     lastPrefSaveMillis = now;

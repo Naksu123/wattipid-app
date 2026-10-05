@@ -8,7 +8,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useModal } from '../../contexts/ModalContext';
 import { getSetting, setSetting } from '../../services/database';
 import { updatePenaltySettings, getPenaltySettings } from '../../services/penaltyService';
-import { BaseModal, ModalHeader, ModalBody, ModalFooter, SignOutModal } from '../../components/modals/BaseModal';
+import { BaseModal, ModalHeader, SignOutModal } from '../../components/modals/BaseModal';
+import EditProfileModal from '@/components/landlord/EditProfileModal';
 import { COLORS } from '../../styles/theme';
 import styles from '../../styles/landlord/settings.styles';
 
@@ -16,7 +17,7 @@ const CopilotView = walkthroughable(View);
 
 export default function LandlordSettings() {
   const router = useRouter();
-  const { user, logout, updateProfile, changePassword } = useAuth();
+  const { user, logout } = useAuth();
   const { showModal } = useModal();
   const scrollViewRef = useRef(null);
 
@@ -27,21 +28,8 @@ export default function LandlordSettings() {
   const [rate, setRate] = useState('');
   const [newRate, setNewRate] = useState('');
 
-  // Profile state
+  // Edit Profile / Account Details state
   const [editing, setEditing] = useState(false);
-  const [name, setName] = useState(user?.name || '');
-  const [email, setEmail] = useState(user?.email || '');
-
-  // Change Password state
-  const [passwordModalVisible, setPasswordModalVisible] = useState(false);
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
-  const [showNewPassword, setShowNewPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [passwordLoading, setPasswordLoading] = useState(false);
-  const [passwordError, setPasswordError] = useState('');
 
   // Notifications state
   const [notifVisible, setNotifVisible] = useState(false);
@@ -115,64 +103,6 @@ export default function LandlordSettings() {
     setRate(val.toFixed(2));
     setRateVisible(false);
     showModal({ type: 'success', title: 'Updated', message: `Electricity rate updated to ₱${val.toFixed(2)}/kWh` });
-  };
-
-  const handleSaveProfile = async () => {
-    if (!name.trim()) { showModal({ type: 'error', title: 'Error', message: 'Name cannot be empty' }); return; }
-    const r = await updateProfile(name, email);
-    if (r.success) { showModal({ type: 'success', title: 'Success', message: 'Profile updated' }); setEditing(false); }
-    else showModal({ type: 'error', title: 'Error', message: r.message || 'Failed to update' });
-  };
-
-  const handleOpenPasswordModal = () => {
-    setCurrentPassword('');
-    setNewPassword('');
-    setConfirmPassword('');
-    setShowCurrentPassword(false);
-    setShowNewPassword(false);
-    setShowConfirmPassword(false);
-    setPasswordError('');
-    setPasswordModalVisible(true);
-  };
-
-  const handleSavePassword = async () => {
-    setPasswordError('');
-
-    if (!currentPassword) {
-      setPasswordError('Please enter your current password.');
-      return;
-    }
-    if (!newPassword) {
-      setPasswordError('Please enter a new password.');
-      return;
-    }
-    if (newPassword.length < 6) {
-      setPasswordError('New password must be at least 6 characters.');
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      setPasswordError('New passwords do not match.');
-      return;
-    }
-
-    try {
-      setPasswordLoading(true);
-      const res = await changePassword(currentPassword, newPassword);
-      if (res && res.success) {
-        setPasswordModalVisible(false);
-        showModal({
-          type: 'success',
-          title: 'Password Updated',
-          message: 'Your administrator login password has been changed successfully.',
-        });
-      } else {
-        setPasswordError(res?.message || 'Failed to update password. Please verify your current password.');
-      }
-    } catch (err) {
-      setPasswordError(err?.message || 'An unexpected error occurred while changing your password.');
-    } finally {
-      setPasswordLoading(false);
-    }
   };
 
   const handleLogout = () => setLogoutConfirmVisible(true);
@@ -307,7 +237,7 @@ export default function LandlordSettings() {
             icon="key-outline" 
             label="Change Password" 
             value="Update administrator login password" 
-            onPress={handleOpenPasswordModal} 
+            onPress={() => setEditing(true)} 
             iconColor="#10B981"
           />
         </View>
@@ -419,177 +349,325 @@ export default function LandlordSettings() {
       </ScrollView>
 
       {/* ================= MODALS ================= */}
-      {/* Rate Change Modal */}
-      <BaseModal visible={rateVisible} onClose={() => setRateVisible(false)}>
-        <ModalHeader title="Update Billing Rate" icon="cash" onClose={() => setRateVisible(false)} />
-        <ModalBody>
-          <View style={styles.form}>
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>RATE PER KWH (₱)</Text>
-              <TextInput 
-                style={styles.input} 
-                value={newRate} 
-                onChangeText={setNewRate} 
-                placeholder="e.g. 12.50" 
-                placeholderTextColor={COLORS.textMuted} 
-                keyboardType="numeric" 
+      {/* 1. Rate Change Modal (Floating Centered) */}
+      <BaseModal visible={rateVisible} onClose={() => setRateVisible(false)} centered={true}>
+        <ModalHeader title="Electricity Billing Rate" icon="flash" iconColor="#10B981" onClose={() => setRateVisible(false)} />
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          nestedScrollEnabled={true}
+          contentContainerStyle={{ paddingBottom: 4 }}
+        >
+          {/* Current Rate Pill */}
+          <View style={styles.modalPill}>
+            <Ionicons name="information-circle-outline" size={13} color="#10B981" style={{ marginRight: 6 }} />
+            <Text style={styles.modalPillText}>
+              Current Rate: ₱{rate || '12.50'} / kWh
+            </Text>
+          </View>
+
+          {/* Numeric Input with Currency & Unit */}
+          <Text style={styles.label}>NEW RATE PER KILOWATT-HOUR</Text>
+          <View style={styles.numericInputWrap}>
+            <Text style={styles.currencySymbol}>₱</Text>
+            <TextInput 
+              style={styles.numericInput} 
+              value={newRate} 
+              onChangeText={setNewRate} 
+              placeholder="12.50" 
+              placeholderTextColor="#475569" 
+              keyboardType="numeric" 
+              selectionColor="#10B981"
+            />
+            <Text style={styles.unitSymbol}>/ kWh</Text>
+          </View>
+
+          {/* Quick Preset Chips */}
+          <View style={styles.presetRow}>
+            {['10.00', '12.50', '15.00', '18.00'].map((preset) => {
+              const isSelected = newRate === preset;
+              return (
+                <TouchableOpacity
+                  key={preset}
+                  style={[styles.presetChip, isSelected && styles.presetChipActive]}
+                  onPress={() => setNewRate(preset)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.presetChipText, isSelected && styles.presetChipTextActive]}>
+                    ₱{preset}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          {/* Live Consumption Preview Hint */}
+          <View style={styles.calculationHint}>
+            <Ionicons name="sparkles" size={11} color="#10B981" />
+            <Text style={styles.calculationHintText}>
+              {parseFloat(newRate) > 0 
+                ? `100 kWh usage will cost ₱${(parseFloat(newRate) * 100).toFixed(2)}`
+                : 'Enter a valid rate to preview calculation'}
+            </Text>
+          </View>
+
+          {/* Action Row - Integrated safely inside modal box */}
+          <View style={styles.modalActionRow}>
+            <TouchableOpacity
+              style={styles.modalBtnSecondary}
+              onPress={() => setRateVisible(false)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.modalBtnSecondaryText}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.modalBtnPrimary}
+              onPress={handleSaveRate}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.modalBtnPrimaryText}>Save Rate</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </BaseModal>
+
+      {/* 2. Edit Account Details Floating Centered Modal */}
+      <EditProfileModal
+        visible={editing}
+        onClose={() => setEditing(false)}
+      />
+
+      {/* 3. Notifications Modal (Floating Centered) */}
+      <BaseModal visible={notifVisible} onClose={() => setNotifVisible(false)} centered={true}>
+        <ModalHeader title="Notification Alerts" icon="notifications" iconColor="#10B981" onClose={() => setNotifVisible(false)} />
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          nestedScrollEnabled={true}
+          contentContainerStyle={{ paddingBottom: 4 }}
+        >
+          <Text style={styles.helperText}>
+            Choose which dormitory events trigger real-time push alerts to your device.
+          </Text>
+
+          <View style={styles.toggleCard}>
+            <View style={styles.toggleRowItem}>
+              <View style={[styles.toggleIconWrap, { backgroundColor: 'rgba(245, 158, 11, 0.12)' }]}>
+                <Ionicons name="wallet-outline" size={15} color="#F59E0B" />
+              </View>
+              <View style={styles.toggleContent}>
+                <Text style={styles.toggleLabel}>Budget Exceeded</Text>
+                <Text style={styles.toggleDesc}>When a tenant exceeds allowance</Text>
+              </View>
+              <Switch
+                value={notifBudget}
+                onValueChange={setNotifBudget}
+                trackColor={{ false: 'rgba(255,255,255,0.1)', true: 'rgba(16,185,129,0.35)' }}
+                thumbColor={notifBudget ? '#10B981' : '#64748B'}
               />
-              <Text style={{ color: '#64748B', fontSize: 11, marginTop: 2 }}>This rate will be used for all future calculations.</Text>
             </View>
-          </View>
-        </ModalBody>
-        <ModalFooter primaryLabel="Save Rate" onPrimaryPress={handleSaveRate} secondaryLabel="Cancel" onSecondaryPress={() => setRateVisible(false)} />
-      </BaseModal>
 
-      {/* Edit Profile Modal */}
-      <BaseModal visible={editing} onClose={() => setEditing(false)}>
-        <ModalHeader title="Edit Profile" icon="person" onClose={() => setEditing(false)} />
-        <ModalBody>
-          <View style={styles.form}>
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>FULL NAME</Text>
-              <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="Name" placeholderTextColor={COLORS.textMuted} />
-            </View>
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>EMAIL ADDRESS</Text>
-              <TextInput style={styles.input} value={email} onChangeText={setEmail} placeholder="Email" placeholderTextColor={COLORS.textMuted} keyboardType="email-address" autoCapitalize="none" />
-            </View>
-          </View>
-        </ModalBody>
-        <ModalFooter primaryLabel="Save Changes" onPrimaryPress={handleSaveProfile} secondaryLabel="Cancel" onSecondaryPress={() => setEditing(false)} />
-      </BaseModal>
+            <View style={styles.toggleDivider} />
 
-      {/* Change Password Modal */}
-      <BaseModal visible={passwordModalVisible} onClose={() => !passwordLoading && setPasswordModalVisible(false)}>
-        <ModalHeader title="Change Password" icon="key" onClose={() => !passwordLoading && setPasswordModalVisible(false)} />
-        <ModalBody>
-          <View style={styles.form}>
-            {passwordError ? (
-              <View style={styles.passwordErrorBox}>
-                <Ionicons name="alert-circle" size={16} color="#EF4444" />
-                <Text style={styles.passwordErrorText}>{passwordError}</Text>
+            <View style={styles.toggleRowItem}>
+              <View style={[styles.toggleIconWrap, { backgroundColor: 'rgba(239, 68, 68, 0.12)' }]}>
+                <Ionicons name="flash-outline" size={15} color="#EF4444" />
               </View>
-            ) : null}
+              <View style={styles.toggleContent}>
+                <Text style={styles.toggleLabel}>High Consumption</Text>
+                <Text style={styles.toggleDesc}>When sudden power spikes occur</Text>
+              </View>
+              <Switch
+                value={notifHighCons}
+                onValueChange={setNotifHighCons}
+                trackColor={{ false: 'rgba(255,255,255,0.1)', true: 'rgba(16,185,129,0.35)' }}
+                thumbColor={notifHighCons ? '#10B981' : '#64748B'}
+              />
+            </View>
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>CURRENT PASSWORD</Text>
-              <View style={styles.passwordWrapper}>
-                <TextInput
-                  style={styles.passwordInput}
-                  value={currentPassword}
-                  onChangeText={(val) => { setCurrentPassword(val); setPasswordError(''); }}
-                  placeholder="Enter current password"
-                  placeholderTextColor={COLORS.textMuted}
-                  secureTextEntry={!showCurrentPassword}
-                  autoCapitalize="none"
-                />
+            <View style={styles.toggleDivider} />
+
+            <View style={styles.toggleRowItem}>
+              <View style={[styles.toggleIconWrap, { backgroundColor: 'rgba(16, 185, 129, 0.12)' }]}>
+                <Ionicons name="person-add-outline" size={15} color="#10B981" />
+              </View>
+              <View style={styles.toggleContent}>
+                <Text style={styles.toggleLabel}>New Tenant Registration</Text>
+                <Text style={styles.toggleDesc}>When a tenant signs up</Text>
+              </View>
+              <Switch
+                value={notifNewTenant}
+                onValueChange={setNotifNewTenant}
+                trackColor={{ false: 'rgba(255,255,255,0.1)', true: 'rgba(16,185,129,0.35)' }}
+                thumbColor={notifNewTenant ? '#10B981' : '#64748B'}
+              />
+            </View>
+
+            <View style={styles.toggleDivider} />
+
+            <View style={styles.toggleRowItem}>
+              <View style={[styles.toggleIconWrap, { backgroundColor: 'rgba(100, 116, 139, 0.12)' }]}>
+                <Ionicons name="person-remove-outline" size={15} color="#94A3B8" />
+              </View>
+              <View style={styles.toggleContent}>
+                <Text style={styles.toggleLabel}>Tenant Revocation</Text>
+                <Text style={styles.toggleDesc}>When access rights are removed</Text>
+              </View>
+              <Switch
+                value={notifRevoke}
+                onValueChange={setNotifRevoke}
+                trackColor={{ false: 'rgba(255,255,255,0.1)', true: 'rgba(16,185,129,0.35)' }}
+                thumbColor={notifRevoke ? '#10B981' : '#64748B'}
+              />
+            </View>
+          </View>
+
+          {/* Action Row - Integrated safely inside modal box */}
+          <View style={styles.modalActionRow}>
+            <TouchableOpacity
+              style={styles.modalBtnSecondary}
+              onPress={() => setNotifVisible(false)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.modalBtnSecondaryText}>Discard</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.modalBtnPrimary}
+              onPress={handleSaveNotifications}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.modalBtnPrimaryText}>Save Preferences</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </BaseModal>
+
+      {/* 4. Penalty Settings Modal (Floating Centered) */}
+      <BaseModal visible={penaltyVisible} onClose={() => setPenaltyVisible(false)} centered={true}>
+        <ModalHeader title="Penalty Settings" icon="warning" iconColor="#F59E0B" onClose={() => setPenaltyVisible(false)} />
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          nestedScrollEnabled={true}
+          contentContainerStyle={{ paddingBottom: 4 }}
+        >
+          {/* Policy Info Card */}
+          <View style={[styles.modalPill, styles.modalPillWarning]}>
+            <Ionicons name="shield-checkmark-outline" size={13} color="#F59E0B" style={{ marginRight: 6 }} />
+            <Text style={[styles.modalPillText, { color: '#F59E0B' }]}>
+              3-Day Settlement Policy Active
+            </Text>
+          </View>
+
+          <Text style={styles.helperText}>
+            Tenants receive a 3-day grace period from the billing date before late surcharges are applied.
+          </Text>
+
+          {/* Fixed Due Period Badge */}
+          <View style={styles.fixedPolicyRow}>
+            <View style={styles.fixedPolicyLeft}>
+              <Ionicons name="calendar-outline" size={15} color="#94A3B8" />
+              <View>
+                <Text style={styles.fixedPolicyTitle}>Settlement Window</Text>
+                <Text style={styles.fixedPolicySub}>Standard tenant policy</Text>
+              </View>
+            </View>
+            <View style={styles.fixedPolicyBadge}>
+              <Text style={styles.fixedPolicyBadgeText}>3 DAYS</Text>
+            </View>
+          </View>
+
+          {/* Penalty Rate Input */}
+          <Text style={[styles.label, { marginTop: 4 }]}>LATE PENALTY RATE (% OF BILL)</Text>
+          <View style={[styles.numericInputWrap, { borderColor: 'rgba(245, 158, 11, 0.35)' }]}>
+            <TextInput 
+              style={styles.numericInput} 
+              value={penaltyRate} 
+              onChangeText={setPenaltyRate} 
+              placeholder="2.00" 
+              placeholderTextColor="#475569" 
+              keyboardType="numeric" 
+              selectionColor="#F59E0B"
+            />
+            <Text style={[styles.unitSymbol, { color: '#F59E0B' }]}>%</Text>
+          </View>
+
+          {/* Quick Penalty Presets */}
+          <View style={styles.presetRow}>
+            {['1.00', '2.00', '3.00', '5.00'].map((preset) => {
+              const isSelected = penaltyRate === preset;
+              return (
                 <TouchableOpacity
-                  style={styles.passwordEye}
-                  onPress={() => setShowCurrentPassword(!showCurrentPassword)}
+                  key={preset}
+                  style={[styles.presetChip, isSelected && styles.presetChipActiveWarning]}
+                  onPress={() => setPenaltyRate(preset)}
+                  activeOpacity={0.7}
                 >
-                  <Ionicons name={showCurrentPassword ? 'eye-off-outline' : 'eye-outline'} size={18} color="#64748B" />
+                  <Text style={[styles.presetChipText, isSelected && { color: '#F59E0B', fontWeight: '800' }]}>
+                    {preset}%
+                  </Text>
                 </TouchableOpacity>
-              </View>
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>NEW PASSWORD</Text>
-              <View style={styles.passwordWrapper}>
-                <TextInput
-                  style={styles.passwordInput}
-                  value={newPassword}
-                  onChangeText={(val) => { setNewPassword(val); setPasswordError(''); }}
-                  placeholder="At least 6 characters"
-                  placeholderTextColor={COLORS.textMuted}
-                  secureTextEntry={!showNewPassword}
-                  autoCapitalize="none"
-                />
-                <TouchableOpacity
-                  style={styles.passwordEye}
-                  onPress={() => setShowNewPassword(!showNewPassword)}
-                >
-                  <Ionicons name={showNewPassword ? 'eye-off-outline' : 'eye-outline'} size={18} color="#64748B" />
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>CONFIRM NEW PASSWORD</Text>
-              <View style={styles.passwordWrapper}>
-                <TextInput
-                  style={styles.passwordInput}
-                  value={confirmPassword}
-                  onChangeText={(val) => { setConfirmPassword(val); setPasswordError(''); }}
-                  placeholder="Re-type new password"
-                  placeholderTextColor={COLORS.textMuted}
-                  secureTextEntry={!showConfirmPassword}
-                  autoCapitalize="none"
-                />
-                <TouchableOpacity
-                  style={styles.passwordEye}
-                  onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-                >
-                  <Ionicons name={showConfirmPassword ? 'eye-off-outline' : 'eye-outline'} size={18} color="#64748B" />
-                </TouchableOpacity>
-              </View>
-            </View>
+              );
+            })}
           </View>
-        </ModalBody>
-        <ModalFooter
-          primaryLabel={passwordLoading ? 'Updating...' : 'Update Password'}
-          onPrimaryPress={handleSavePassword}
-          primaryDisabled={passwordLoading}
-          secondaryLabel="Cancel"
-          onSecondaryPress={() => !passwordLoading && setPasswordModalVisible(false)}
-        />
+
+          {/* Live Penalty Preview */}
+          <View style={styles.calculationHint}>
+            <Ionicons name="calculator-outline" size={11} color="#F59E0B" />
+            <Text style={styles.calculationHintText}>
+              {parseFloat(penaltyRate) > 0 
+                ? `₱1,000 overdue bill incurs a ₱${((1000 * parseFloat(penaltyRate)) / 100).toFixed(2)} penalty`
+                : 'Enter a penalty percentage'}
+            </Text>
+          </View>
+
+          {/* Action Row - Integrated safely inside modal box */}
+          <View style={styles.modalActionRow}>
+            <TouchableOpacity
+              style={styles.modalBtnSecondary}
+              onPress={() => setPenaltyVisible(false)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.modalBtnSecondaryText}>Discard</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.modalBtnPrimary, { backgroundColor: '#F59E0B' }]}
+              onPress={handleSavePenalty}
+              activeOpacity={0.85}
+            >
+              <Text style={[styles.modalBtnPrimaryText, { color: '#451A03' }]}>Save Policy</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
       </BaseModal>
 
-      {/* Notifications Modal */}
-      <BaseModal visible={notifVisible} onClose={() => setNotifVisible(false)}>
-        <ModalHeader title="Notification Alerts" icon="notifications" onClose={() => setNotifVisible(false)} />
-        <ModalBody>
-          <Text style={{ color: '#94A3B8', marginBottom: 12, fontSize: 12.5 }}>Choose which events trigger alerts for you.</Text>
-          <View style={styles.toggleList}>
-            <ToggleRow label="Budget Exceeded" desc="When a tenant hits their limit" value={notifBudget} onToggle={setNotifBudget} />
-            <ToggleRow label="High Consumption" desc="When usage spikes unexpectedly" value={notifHighCons} onToggle={setNotifHighCons} />
-            <ToggleRow label="New Tenant" desc="When a new account is registered" value={notifNewTenant} onToggle={setNotifNewTenant} />
-            <ToggleRow label="Tenant Revoked" desc="When access is removed" value={notifRevoke} onToggle={setNotifRevoke} />
+      {/* 5. About System Modal (Floating Centered) */}
+      <BaseModal visible={aboutVisible} onClose={() => setAboutVisible(false)} centered={true}>
+        <ModalHeader title="Wattipid Smart System" icon="flash" iconColor="#10B981" onClose={() => setAboutVisible(false)} />
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 4 }}
+        >
+          <View style={styles.modalPill}>
+            <Ionicons name="shield-checkmark" size={13} color="#10B981" style={{ marginRight: 5 }} />
+            <Text style={styles.modalPillText}>v2.1.0 • Enterprise Cloud Architecture</Text>
           </View>
-        </ModalBody>
-        <ModalFooter primaryLabel="Save Preferences" onPrimaryPress={handleSaveNotifications} secondaryLabel="Discard" onSecondaryPress={() => setNotifVisible(false)} />
-      </BaseModal>
-
-      {/* Penalty Settings Modal */}
-      <BaseModal visible={penaltyVisible} onClose={() => setPenaltyVisible(false)}>
-        <ModalHeader title="Penalty Settings" icon="warning" iconColor="#EF4444" onClose={() => setPenaltyVisible(false)} />
-        <ModalBody>
-          <Text style={{ color: '#94A3B8', marginBottom: 12, fontSize: 12 }}>3-Day Payment Policy: Tenants must settle within 3 calendar days after receiving billing statement.</Text>
-          <View style={styles.form}>
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>PAYMENT DUE PERIOD (DAYS)</Text>
-              <TextInput style={[styles.input, { opacity: 0.5 }]} value="3" editable={false} keyboardType="numeric" />
-              <Text style={{ color: '#64748B', fontSize: 11, marginTop: 2 }}>Fixed at 3 days per billing policy</Text>
-            </View>
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>PENALTY RATE (% OF TOTAL BILL)</Text>
-              <TextInput style={styles.input} value={penaltyRate} onChangeText={setPenaltyRate} keyboardType="numeric" placeholder="2.00" placeholderTextColor={COLORS.textMuted} />
-              <Text style={{ color: '#64748B', fontSize: 11, marginTop: 2 }}>One-time flat penalty applied after due date</Text>
-            </View>
-          </View>
-        </ModalBody>
-        <ModalFooter primaryLabel="Save Policy" onPrimaryPress={handleSavePenalty} secondaryLabel="Cancel" onSecondaryPress={() => setPenaltyVisible(false)} />
-      </BaseModal>
-
-      {/* About System Modal */}
-      <BaseModal visible={aboutVisible} onClose={() => setAboutVisible(false)}>
-        <ModalHeader title="Wattipid Smart System" icon="flash" onClose={() => setAboutVisible(false)} />
-        <ModalBody>
-          <Text style={{ color: '#FFFFFF', fontWeight: 'bold', marginBottom: 8, fontSize: 13.5 }}>v2.1.0-prod • Cloud-Native Architecture</Text>
-          <Text style={{ color: '#94A3B8', lineHeight: 20, fontSize: 12.5 }}>
+          <Text style={{ color: '#94A3B8', lineHeight: 18, fontSize: 11.5, marginBottom: 8 }}>
             Wattipid is an enterprise-grade IoT electricity monitoring platform designed for modern rental facilities. It utilizes ESP32 microcontrollers, purely Cloud-Based synchronization, and real-time analytics to help landlords and tenants track consumption securely and efficiently without physical LAN restrictions.
           </Text>
-        </ModalBody>
-        <ModalFooter primaryLabel="Done" onPrimaryPress={() => setAboutVisible(false)} />
+          <Text style={{ color: '#64748B', fontSize: 10.5, fontWeight: '600', marginBottom: 10 }}>
+            © 2026 Wattipid Technologies • All Rights Reserved
+          </Text>
+          <View style={styles.modalActionRow}>
+            <TouchableOpacity
+              style={[styles.modalBtnPrimary, { flex: 1 }]}
+              onPress={() => setAboutVisible(false)}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.modalBtnPrimaryText}>Done</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
       </BaseModal>
 
       {/* Sign Out Modal */}

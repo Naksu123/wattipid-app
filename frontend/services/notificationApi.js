@@ -9,12 +9,12 @@ import { apiCall } from './api';
  */
 export async function getNotificationHistory(category = null, limit = 50, offset = 0) {
   try {
-    const data = await apiCall('getNotificationHistory', { category, limit: Number(limit), offset: Number(offset) });
+    const data = await apiCall('getNotificationHistory', { category, limit: Number(limit), offset: Number(offset) }, { suppressBridgeLog: true });
     return data || [];
   } catch (err) {
-    // Silently return empty — don't spam the console every 30s
+    // Silently return empty — don't spam the console
     if (!getNotificationHistory._errorLogged) {
-      console.warn('[API Bridge Error] getNotificationHistory:', err.message);
+      console.warn('[NotificationApi] getNotificationHistory:', err.diagnosticMessage || err.message);
       getNotificationHistory._errorLogged = true;
       // Reset after 5 minutes so we log again if still failing
       setTimeout(() => { getNotificationHistory._errorLogged = false; }, 300000);
@@ -36,9 +36,9 @@ export async function createFrontendAlert(roomId, type, category, severity, titl
       title,
       message,
       data: dataPayload
-    });
+    }, { suppressBridgeLog: true });
   } catch (err) {
-    console.warn('[API Bridge Error] createFrontendAlert:', err.message);
+    console.warn('[NotificationApi] createFrontendAlert:', err.diagnosticMessage || err.message);
   }
 }
 

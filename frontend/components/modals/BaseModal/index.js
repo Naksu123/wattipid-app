@@ -9,6 +9,7 @@ import {
   Platform,
   ScrollView,
   ActivityIndicator,
+  StyleSheet,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '@/styles/theme';
@@ -18,31 +19,42 @@ export function BaseModal({
   visible,
   onClose,
   children,
-  animationType = 'slide',
+  animationType,
+  centered = false,
 }) {
+  const animType = animationType || (centered ? 'fade' : 'slide');
+
   return (
     <Modal
       visible={visible}
       transparent
-      animationType={animationType}
+      animationType={animType}
       onRequestClose={onClose}
       statusBarTranslucent
     >
-      <TouchableWithoutFeedback onPress={onClose}>
-        <View style={s.overlay}>
-          <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
-            <KeyboardAvoidingView
-              behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-              style={s.keyboardView}
-            >
-              <View style={s.modalContainer}>
-                <View style={s.dragHandle} />
-                {children}
-              </View>
-            </KeyboardAvoidingView>
-          </TouchableWithoutFeedback>
-        </View>
-      </TouchableWithoutFeedback>
+      <View style={[s.overlay, centered && s.overlayCentered]}>
+        {/* Backdrop Touch Dismiss */}
+        <TouchableOpacity
+          style={StyleSheet.absoluteFill}
+          activeOpacity={1}
+          onPress={onClose}
+          accessibilityRole="button"
+          accessibilityLabel="Dismiss modal backdrop"
+        />
+
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={centered ? s.keyboardViewCentered : s.keyboardView}
+          pointerEvents="box-none"
+        >
+          <View 
+            style={centered ? s.modalContainerCentered : s.modalContainer}
+          >
+            {!centered && <View style={s.dragHandle} />}
+            {children}
+          </View>
+        </KeyboardAvoidingView>
+      </View>
     </Modal>
   );
 }
@@ -51,8 +63,8 @@ export function ModalHeader({ title, icon, iconColor, onClose }) {
   return (
     <View style={s.headerContainer}>
       {icon && (
-        <View style={[s.headerIconWrap, { backgroundColor: iconColor ? `${iconColor}15` : `${COLORS.primary}15` }]}>
-          <Ionicons name={icon} size={24} color={iconColor || COLORS.primary} />
+        <View style={[s.headerIconWrap, { backgroundColor: iconColor ? `${iconColor}18` : `${COLORS.primary}18`, borderColor: iconColor ? `${iconColor}35` : `${COLORS.primary}35`, borderWidth: 1 }]}>
+          <Ionicons name={icon} size={22} color={iconColor || COLORS.primary} />
         </View>
       )}
       <Text style={s.headerTitle} numberOfLines={1}>
@@ -60,7 +72,7 @@ export function ModalHeader({ title, icon, iconColor, onClose }) {
       </Text>
       {onClose && (
         <TouchableOpacity style={s.closeBtn} onPress={onClose} activeOpacity={0.7} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-          <Ionicons name="close" size={24} color={COLORS.textSecondary} />
+          <Ionicons name="close" size={18} color="#94A3B8" />
         </TouchableOpacity>
       )}
     </View>
