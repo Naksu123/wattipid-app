@@ -138,7 +138,7 @@ export default function DashboardScreen() {
             if (cached.billingCycle) setBillingCycle(cached.billingCycle);
             if (cached.budget) setBudgetData(cached.budget);
             if (cached.paymentInsights) setPaymentInsights(cached.paymentInsights);
-            if (cached.activities) setActivities(cached.activities);
+            if (Array.isArray(cached.activities)) setActivities(cached.activities);
             if (cached.randomTip) setRandomTip(cached.randomTip);
             if (cached.hourlyData) setHourlyData(cached.hourlyData);
             setLoading(false); // Render immediately from cache!
@@ -220,8 +220,20 @@ export default function DashboardScreen() {
 
       let freshActivities = null;
       if (notifsRes.status === 'fulfilled' && notifsRes.value) {
-        freshActivities = notifsRes.value.slice(0, 3);
+        const rawNotifs = notifsRes.value;
+        const normalizedNotifs = Array.isArray(rawNotifs)
+          ? rawNotifs
+          : Array.isArray(rawNotifs?.notifications)
+            ? rawNotifs.notifications
+            : Array.isArray(rawNotifs?.data)
+              ? rawNotifs.data
+              : Array.isArray(rawNotifs?.items)
+                ? rawNotifs.items
+                : [];
+        freshActivities = normalizedNotifs.slice(0, 3);
         setActivities(freshActivities);
+      } else if (notifsRes.status === 'rejected') {
+        freshActivities = [];
       }
 
       let freshTip = null;

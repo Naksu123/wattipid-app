@@ -10,7 +10,11 @@ import { apiCall } from './api';
 export async function getNotificationHistory(category = null, limit = 50, offset = 0) {
   try {
     const data = await apiCall('getNotificationHistory', { category, limit: Number(limit), offset: Number(offset) }, { suppressBridgeLog: true });
-    return data || [];
+    if (Array.isArray(data)) return data;
+    if (Array.isArray(data?.notifications)) return data.notifications;
+    if (Array.isArray(data?.data)) return data.data;
+    if (Array.isArray(data?.items)) return data.items;
+    return [];
   } catch (err) {
     // Silently return empty — don't spam the console
     if (!getNotificationHistory._errorLogged) {

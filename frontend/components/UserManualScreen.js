@@ -8,8 +8,8 @@ import { TENANT_MANUAL, LANDLORD_MANUAL } from '../data/userManualContent';
 import { COLORS } from '../styles/theme';
 import s from '../styles/userManual.styles';
 
-// Enable LayoutAnimation on Android
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+// Enable LayoutAnimation on legacy Android architecture only; in New Architecture (Fabric) it is enabled by default
+if (Platform.OS === 'android' && !global?.nativeFabricUIManager && UIManager?.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 

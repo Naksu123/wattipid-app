@@ -198,7 +198,7 @@ export const tipsService = {
   getAllTips: async (category = null) => {
     try {
       const response = await apiClient.post('/api.php?action=getElectricityTips');
-      if (category && response.data.success) {
+      if (category && response.data?.success && Array.isArray(response.data?.data)) {
         response.data.data = response.data.data.filter(t => t.category === category);
       }
       return response.data;

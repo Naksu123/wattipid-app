@@ -7,7 +7,7 @@ import { useTourAutoStart } from '@/contexts/TourContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useConsumption } from '@/contexts/ConsumptionContext';
 import { tipsService } from '@/services/tipsService';
-import { generateDynamicTips } from '@/services/tipsEngine';
+import { generateDynamicTips, STATIC_TIPS } from '@/services/tipsEngine';
 import { COLORS } from '@/styles/theme';
 import s from '@/styles/tenant/tips.styles';
 
@@ -42,7 +42,8 @@ export default function TipsScreen() {
 
   // Dynamic Categories derived from loaded tips
   const categories = useMemo(() => {
-    const rawCategories = allTips.map(t => t.category).filter(Boolean);
+    const safeTips = Array.isArray(allTips) ? allTips : [];
+    const rawCategories = safeTips.map(t => t?.category).filter(Boolean);
     const unique = Array.from(new Set(rawCategories)).sort();
     return ['All', ...unique];
   }, [allTips]);
@@ -109,10 +110,19 @@ export default function TipsScreen() {
 
       // 3. All Tips (General repository)
       let generalTipsList = [];
-      if (allTipsRes.status === 'fulfilled' && allTipsRes.value?.success && Array.isArray(allTipsRes.value?.data)) {
-        generalTipsList = allTipsRes.value.data;
-        setAllTips(generalTipsList);
-        hasTipsRef.current = true;
+      if (allTipsRes.status === 'fulfilled') {
+        const rawTips = allTipsRes.value?.data;
+        if (Array.isArray(rawTips)) {
+          generalTipsList = rawTips;
+        } else if (Array.isArray(allTipsRes.value?.data?.tips)) {
+          generalTipsList = allTipsRes.value.data.tips;
+        } else if (Array.isArray(allTipsRes.value)) {
+          generalTipsList = allTipsRes.value;
+        }
+        if (generalTipsList.length > 0) {
+          setAllTips(generalTipsList);
+          hasTipsRef.current = true;
+        }
       }
 
       // 4. Smart Insight based on real-time consumption data (no appliance-specific claims)
@@ -126,13 +136,20 @@ export default function TipsScreen() {
         } else {
           // Fallback to behavior recommendation
           const recRes = await tipsService.getSmartRecommendation({ user });
-          if (recRes.success && recRes.data) {
-            currentInsight = recRes.data;
+          if (recRes?.success && recRes?.data) {
+            currentInsight = Array.isArray(recRes.data) ? recRes.data[0] : recRes.data;
+            setSmartInsight(currentInsight);
+          } else if (Array.isArray(STATIC_TIPS) && STATIC_TIPS.length > 0) {
+            currentInsight = STATIC_TIPS[0];
             setSmartInsight(currentInsight);
           }
         }
       } catch (err) {
         console.warn('[TipsScreen] Smart insight generation fallback:', err);
+        if (!currentInsight && Array.isArray(STATIC_TIPS) && STATIC_TIPS.length > 0) {
+          currentInsight = STATIC_TIPS[0];
+          setSmartInsight(currentInsight);
+        }
       }
 
       // Save to cache
@@ -197,7 +214,7 @@ export default function TipsScreen() {
 
   // Filtered tips based on category and search query
   const filteredTips = useMemo(() => {
-    let result = [...allTips];
+    let result = Array.isArray(allTips) ? [...allTips] : [];
 
     if (selectedCategory !== 'All') {
       result = result.filter(tip => tip.category === selectedCategory);

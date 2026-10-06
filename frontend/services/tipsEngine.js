@@ -266,12 +266,31 @@ export async function generateDynamicTips(roomId, currentPower = 0, user = null)
   // Fallback if offline: Fetch all tips and select 3 diverse tips
   const allTipsRes = await tipsService.getAllTips();
   let library = [];
-  if (allTipsRes.success && allTipsRes.data) {
+  if (allTipsRes?.success && allTipsRes?.data) {
+    if (Array.isArray(allTipsRes.data)) {
+      library = allTipsRes.data;
+    } else if (Array.isArray(allTipsRes.data?.tips)) {
+      library = allTipsRes.data.tips;
+    } else if (Array.isArray(allTipsRes.data?.data)) {
+      library = allTipsRes.data.data;
+    }
+  } else if (Array.isArray(allTipsRes?.data)) {
     library = allTipsRes.data;
+  } else if (Array.isArray(allTipsRes)) {
+    library = allTipsRes;
   }
 
-  let relevantTips = library.filter(t => recommendedCategories.has(t.category));
-  if (relevantTips.length === 0) relevantTips = library;
+  // Fallback to built-in STATIC_TIPS if remote library is empty or unavailable
+  if (!Array.isArray(library) || library.length === 0) {
+    library = Array.isArray(STATIC_TIPS) ? [...STATIC_TIPS] : [];
+  }
+
+  const tipLibrary = Array.isArray(library) ? library : [];
+
+  let relevantTips = tipLibrary.filter(t => t && t.category && recommendedCategories.has(t.category));
+  if (relevantTips.length === 0) {
+    relevantTips = tipLibrary;
+  }
   
   return relevantTips.slice(0, 3).map(t => ({ ...t, isDynamic: true, generatedAt: new Date().toISOString() }));
 }

@@ -21,7 +21,8 @@ import GlassCard from '../../components/ui/GlassCard';
 import { COLORS } from '../../styles/theme';
 import styles from '../../styles/tenant/billing-history.styles';
 
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+// Enable LayoutAnimation on legacy Android architecture only; in New Architecture (Fabric) it is enabled by default
+if (Platform.OS === 'android' && !global?.nativeFabricUIManager && UIManager?.setLayoutAnimationEnabledExperimental) {
     UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
