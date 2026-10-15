@@ -398,10 +398,11 @@ export default function TenantSettings() {
               <SettingsRow 
                 icon="information-circle-outline" 
                 label="About Wattipid" 
-                value="v2.1.0" 
-                onPress={() => setAboutVisible(true)} 
-                iconColor="#64748B" 
-                iconBg="rgba(255, 255, 255, 0.05)" 
+                desc="System & Dormitory Business Profile"
+                value="v2.1.1" 
+                onPress={() => router.push('/about')} 
+                iconColor="#10B981" 
+                iconBg="rgba(16, 185, 129, 0.12)" 
               />
             </View>
           </CopilotView>
@@ -436,9 +437,15 @@ export default function TenantSettings() {
             </View>
             <Text style={s.modalDesc}>A comprehensive IoT-based Smart Electricity Monitoring System designed exclusively for student rental dormitories.</Text>
             <Text style={[s.modalDesc, { marginTop: 10, fontSize: 11.5, color: '#64748B' }]}>
-              Wattipid empowers tenants with real-time analytics, daily consumption breakdowns, and predictive budgeting to manage energy efficiently.
+              Wattipid monitors overall room electricity consumption and provides transparent analytics and official dormitory business records.
             </Text>
-            <Text style={[s.modalDesc, { marginTop: 14, fontSize: 11, fontWeight: '700' }]}>© 2026 Wattipid Technologies</Text>
+            <TouchableOpacity 
+              style={[s.modalCloseBtn, { backgroundColor: '#10B981', marginTop: 14, marginBottom: 8 }]} 
+              onPress={() => { setAboutVisible(false); router.push('/about'); }} 
+              activeOpacity={0.8}
+            >
+              <Text style={[s.modalCloseBtnText, { color: '#041F16', fontWeight: '800' }]}>View Dormitory & Business Info</Text>
+            </TouchableOpacity>
             <TouchableOpacity style={s.modalCloseBtn} onPress={() => setAboutVisible(false)} activeOpacity={0.7}>
               <Text style={s.modalCloseBtnText}>Close</Text>
             </TouchableOpacity>
@@ -459,11 +466,11 @@ export default function TenantSettings() {
             <View style={{ width: '100%', marginTop: 14, marginBottom: 6, gap: 10 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                 <Ionicons name="mail-outline" size={18} color="#10B981" />
-                <Text style={{ color: '#FFFFFF', fontSize: 12.5, flex: 1 }}>support@wattipid.com</Text>
+                <Text style={{ color: '#FFFFFF', fontSize: 12.5, flex: 1 }}>wattipid.noreply@gmail.com</Text>
               </View>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                 <Ionicons name="call-outline" size={18} color="#38BDF8" />
-                <Text style={{ color: '#FFFFFF', fontSize: 12.5, flex: 1 }}>0917-123-4567 (Globe)</Text>
+                <Text style={{ color: '#FFFFFF', fontSize: 12.5, flex: 1 }}>0928-772-6793 (Smart)</Text>
               </View>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                 <Ionicons name="business-outline" size={18} color="#F59E0B" />

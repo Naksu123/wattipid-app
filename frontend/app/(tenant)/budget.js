@@ -67,7 +67,7 @@ function BudgetScreen() {
         if (cachedBc && isMounted) {
           setBillingCycle(JSON.parse(cachedBc));
         }
-        const cachedComp = await AsyncStorage.getItem(`cached_budget_comp_${roomId}`);
+        const cachedComp = await AsyncStorage.getItem(`cached_budget_comp_${roomId}_${compPeriod}`);
         if (cachedComp && isMounted) {
           setComparison(JSON.parse(cachedComp));
         }
@@ -159,9 +159,22 @@ function BudgetScreen() {
       const comp = await getConsumptionComparison(roomId, period, user?.name);
       if (!isMountedRef.current || seq !== compSeqRef.current) return;
       if (comp) {
+        if (__DEV__) {
+          console.log(`[Budget Comparison Debug]
+Selected Period: ${period}
+Current ${period}:
+  Start: ${comp?.current?.start || 'N/A'}
+  End: ${comp?.current?.end || 'N/A'}
+  Data: ${comp?.current?.totalEnergy?.toFixed(4)} kWh | ₱${comp?.current?.totalCost?.toFixed(2)} (hasData: ${comp?.current?.hasData})
+Previous ${period}:
+  Start: ${comp?.previous?.start || 'N/A'}
+  End: ${comp?.previous?.end || 'N/A'}
+  Data: ${comp?.previous?.totalEnergy?.toFixed(4)} kWh | ₱${comp?.previous?.totalCost?.toFixed(2)} (hasData: ${comp?.previous?.hasData})
+Change: ${comp?.costPctChange?.toFixed(1)}%`);
+        }
         compCacheRef.current[period] = comp;
         setComparison(comp);
-        AsyncStorage.setItem(`cached_budget_comp_${roomId}`, JSON.stringify(comp)).catch(() => {});
+        AsyncStorage.setItem(`cached_budget_comp_${roomId}_${period}`, JSON.stringify(comp)).catch(() => {});
       }
     } catch (e) {
       console.warn('[Budget] fetchComparison error:', e?.message || e);
@@ -172,10 +185,20 @@ function BudgetScreen() {
     fetchComparison(compPeriod);
   }, [compPeriod, fetchComparison]);
 
-  const handleCompPeriodChange = useCallback((newPeriod) => {
+  const handleCompPeriodChange = useCallback(async (newPeriod) => {
     if (newPeriod === compPeriod) return;
     setCompPeriod(newPeriod);
-  }, [compPeriod]);
+    if (compCacheRef.current[newPeriod]) {
+      setComparison(compCacheRef.current[newPeriod]);
+    } else {
+      try {
+        const cached = await AsyncStorage.getItem(`cached_budget_comp_${roomId}_${newPeriod}`);
+        if (cached) {
+          setComparison(JSON.parse(cached));
+        }
+      } catch (_e) {}
+    }
+  }, [compPeriod, roomId]);
 
   // ─── 4. Set Budget Handler (NO MIN / MAX RESTRICTIONS) ───────
   const handleSetBudget = async () => {
@@ -660,12 +683,21 @@ function BudgetScreen() {
                   <Text style={s.compColLabel} numberOfLines={1}>
                     Previous {compPeriod === 'daily' ? 'Day' : compPeriod === 'weekly' ? 'Week' : 'Month'}
                   </Text>
-                  <Text style={s.compColVal}>
-                    ₱{Number.isFinite(Number(comparison?.previous?.totalCost)) ? Number(comparison.previous.totalCost).toFixed(2) : '0.00'}
-                  </Text>
-                  <Text style={s.compColSub}>
-                    {Number.isFinite(Number(comparison?.previous?.totalEnergy)) ? Number(comparison.previous.totalEnergy).toFixed(2) : '0.00'} kWh
-                  </Text>
+                  {comparison?.previous?.hasData === false ? (
+                    <>
+                      <Text style={[s.compColVal, { color: '#94A3B8' }]}>No Data</Text>
+                      <Text style={s.compColSub}>—</Text>
+                    </>
+                  ) : (
+                    <>
+                      <Text style={s.compColVal}>
+                        ₱{Number.isFinite(Number(comparison?.previous?.totalCost)) ? Number(comparison.previous.totalCost).toFixed(2) : '0.00'}
+                      </Text>
+                      <Text style={s.compColSub}>
+                        {Number.isFinite(Number(comparison?.previous?.totalEnergy)) ? Number(comparison.previous.totalEnergy).toFixed(2) : '0.00'} kWh
+                      </Text>
+                    </>
+                  )}
                 </View>
 
                 <View style={s.compArrow}>
@@ -676,23 +708,51 @@ function BudgetScreen() {
                   <Text style={s.compColLabel} numberOfLines={1}>
                     Current {compPeriod === 'daily' ? 'Day' : compPeriod === 'weekly' ? 'Week' : 'Month'}
                   </Text>
-                  <Text style={s.compColVal}>
-                    ₱{Number.isFinite(Number(comparison?.current?.totalCost)) ? Number(comparison.current.totalCost).toFixed(2) : '0.00'}
-                  </Text>
-                  <Text style={s.compColSub}>
-                    {Number.isFinite(Number(comparison?.current?.totalEnergy)) ? Number(comparison.current.totalEnergy).toFixed(2) : '0.00'} kWh
-                  </Text>
+                  {comparison?.current?.hasData === false ? (
+                    <>
+                      <Text style={[s.compColVal, { color: '#94A3B8' }]}>No Data</Text>
+                      <Text style={s.compColSub}>—</Text>
+                    </>
+                  ) : (
+                    <>
+                      <Text style={s.compColVal}>
+                        ₱{Number.isFinite(Number(comparison?.current?.totalCost)) ? Number(comparison.current.totalCost).toFixed(2) : '0.00'}
+                      </Text>
+                      <Text style={s.compColSub}>
+                        {Number.isFinite(Number(comparison?.current?.totalEnergy)) ? Number(comparison.current.totalEnergy).toFixed(2) : '0.00'} kWh
+                      </Text>
+                    </>
+                  )}
                 </View>
               </View>
 
               {/* Trend Indicator Badge */}
               {(() => {
+                const prevHasData = comparison?.previous?.hasData !== false;
+                const currHasData = comparison?.current?.hasData !== false;
                 const pct = Number(comparison?.costPctChange);
-                const hasChange = Number.isFinite(pct) && pct !== 0;
+                const hasChange = prevHasData && currHasData && Number.isFinite(pct) && pct !== 0;
+                const periodLabel = compPeriod === 'daily' ? 'day' : compPeriod === 'weekly' ? 'week' : 'month';
+
+                if (!prevHasData) {
+                  return (
+                    <View 
+                      style={[
+                        s.compBadge, 
+                        { backgroundColor: 'rgba(56, 189, 248, 0.08)', borderColor: 'rgba(56, 189, 248, 0.2)' }
+                      ]}
+                    >
+                      <Ionicons name="information-circle-outline" size={15} color="#38BDF8" />
+                      <Text style={[s.compBadgeText, { color: '#38BDF8' }]}>
+                        No historical data recorded for previous {periodLabel}.
+                      </Text>
+                    </View>
+                  );
+                }
+
                 if (hasChange) {
                   const isHigher = pct > 0;
                   const absPct = Math.abs(pct).toFixed(1);
-                  const periodLabel = compPeriod === 'daily' ? 'day' : compPeriod === 'weekly' ? 'week' : 'month';
                   return (
                     <View 
                       style={[
@@ -705,7 +765,7 @@ function BudgetScreen() {
                     >
                       <Ionicons 
                         name={isHigher ? 'trending-up' : 'trending-down'} 
-                        size={15}
+                        size={15} 
                         color={isHigher ? '#EF4444' : '#10B981'} 
                       />
                       <Text style={[s.compBadgeText, { color: isHigher ? '#EF4444' : '#10B981' }]}>

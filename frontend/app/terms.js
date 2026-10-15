@@ -1,8 +1,9 @@
 import { SafeAreaView } from 'react-native-safe-area-context';
-import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, Platform, KeyboardAvoidingView, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, Platform, KeyboardAvoidingView, ActivityIndicator, BackHandler } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useAuth } from '../contexts/AuthContext';
 import { COLORS } from '../styles/theme';
 import styles from '../styles/terms.styles';
 import { getActiveTerms } from '../services/termsApi';
@@ -43,6 +44,27 @@ const DEFAULT_SECTIONS = [
 
 export default function TermsAndConditionsScreen() {
   const router = useRouter();
+  const { user } = useAuth();
+  const isLandlord = user?.role === 'landlord';
+
+  // Back Navigation Handler
+  // Strictly navigates back to Settings page (Settings -> Terms -> Back -> Settings)
+  // Uses replace to respect navigation history without creating duplicate stack entries
+  const handleGoBack = useCallback(() => {
+    const target = isLandlord ? '/(landlord)/settings' : '/(tenant)/settings';
+    router.replace(target);
+  }, [isLandlord, router]);
+
+  // Handle Android physical hardware back button
+  useEffect(() => {
+    const onBackPress = () => {
+      handleGoBack();
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [handleGoBack]);
+
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedIds, setExpandedIds] = useState(new Set(['1'])); // Default expand first section (as shown in Screenshot 1)
   const [accepted, setAccepted] = useState(false);
@@ -97,19 +119,7 @@ export default function TermsAndConditionsScreen() {
 
   const handleAccept = () => {
     if (accepted) {
-      if (router.canGoBack()) {
-        router.back();
-      } else {
-        router.replace('/(tenant)/settings');
-      }
-    }
-  };
-
-  const handleGoBack = () => {
-    if (router.canGoBack()) {
-      router.back();
-    } else {
-      router.replace('/(tenant)/settings');
+      handleGoBack();
     }
   };
 

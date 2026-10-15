@@ -1,6 +1,6 @@
 import { SafeAreaView } from 'react-native-safe-area-context';
-import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, LayoutAnimation } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, LayoutAnimation, BackHandler } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../styles/theme';
 import styles from '../../styles/landlord/manual.styles';
@@ -98,6 +98,23 @@ export default function UserManualScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedId, setExpandedId] = useState(null);
 
+  // Back Navigation Handler
+  // Strictly navigates back to Landlord Settings page (Landlord Dashboard -> Settings -> Manual -> Back -> Settings)
+  // Uses replace to respect navigation history without creating duplicate stack entries
+  const handleGoBack = useCallback(() => {
+    router.replace('/(landlord)/settings');
+  }, []);
+
+  // Handle Android physical hardware back button
+  useEffect(() => {
+    const onBackPress = () => {
+      handleGoBack();
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [handleGoBack]);
+
   const toggleExpand = (id) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setExpandedId(expandedId === id ? null : id);
@@ -112,7 +129,14 @@ export default function UserManualScreen() {
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+        <TouchableOpacity 
+          style={styles.backBtn} 
+          onPress={handleGoBack}
+          activeOpacity={0.7}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          accessibilityRole="button"
+          accessibilityLabel="Back to Settings"
+        >
           <Ionicons name="arrow-back" size={24} color={COLORS.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>User Manual</Text>

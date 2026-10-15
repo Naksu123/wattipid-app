@@ -9,6 +9,7 @@ import {
   StatusBar,
   Switch,
   Platform,
+  BackHandler,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -99,6 +100,27 @@ export default function ManageTipsScreen() {
     icon: 'snow-outline',
     isActive: 1,
   });
+
+  // Back Navigation Handler
+  // Strictly navigates back to Landlord Settings page (Landlord Dashboard -> Settings -> Manage Tips -> Back -> Settings)
+  // Uses replace to respect navigation history without creating duplicate stack entries
+  const handleGoBack = useCallback(() => {
+    if (modalVisible) {
+      setModalVisible(false);
+      return;
+    }
+    router.replace('/(landlord)/settings');
+  }, [modalVisible, router]);
+
+  // Handle Android physical hardware back button
+  useEffect(() => {
+    const onBackPress = () => {
+      handleGoBack();
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [handleGoBack]);
 
   // Instant Cache Restoration (Stale-While-Revalidate)
   useEffect(() => {
@@ -284,12 +306,12 @@ export default function ManageTipsScreen() {
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <TouchableOpacity 
-            onPress={() => router.back()} 
+            onPress={handleGoBack} 
             style={styles.backBtn}
             activeOpacity={0.7}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             accessibilityRole="button"
-            accessibilityLabel="Go back"
+            accessibilityLabel="Back to Settings"
           >
             <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
           </TouchableOpacity>

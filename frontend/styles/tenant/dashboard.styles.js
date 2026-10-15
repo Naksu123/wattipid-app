@@ -783,10 +783,11 @@ export default StyleSheet.create({
     marginBottom: 6,
   },
   billingBoxKwh: {
-    fontSize: 20,
-    fontWeight: '800',
+    fontSize: 15,
+    fontWeight: '700',
     color: '#FFFFFF',
-    marginBottom: 4,
+    marginBottom: 3,
+    letterSpacing: -0.2,
   },
   billingBoxCostToday: {
     fontSize: 14.5,

@@ -696,10 +696,10 @@ export default function DashboardScreen() {
                 {/* Box 1: Today's Usage */}
                 <View style={ms.billingBox}>
                   <Text style={ms.billingBoxLabel}>{"Today's Usage"}</Text>
-                  <Text style={ms.billingBoxKwh}>
+                  <Text style={ms.billingBoxKwh} numberOfLines={1} adjustsFontSizeToFit>
                     {(Number(todayUsage?.totalEnergy || 0) || 0).toFixed(2)} kWh
                   </Text>
-                  <Text style={ms.billingBoxCostToday}>
+                  <Text style={ms.billingBoxCostToday} numberOfLines={1}>
                     ₱{Number(todayUsage.totalCost || 0).toFixed(2)}
                   </Text>
                 </View>
@@ -707,10 +707,10 @@ export default function DashboardScreen() {
                 {/* Box 2: Current Cycle */}
                 <View style={ms.billingBox}>
                   <Text style={ms.billingBoxLabel}>Current Cycle</Text>
-                  <Text style={ms.billingBoxKwh}>
+                  <Text style={ms.billingBoxKwh} numberOfLines={1} adjustsFontSizeToFit>
                     {(Number(totalEnergyKwh) || 0).toFixed(2)} kWh
                   </Text>
-                  <Text style={ms.billingBoxCostCycle}>
+                  <Text style={ms.billingBoxCostCycle} numberOfLines={1}>
                     ₱{Number(currentCycleTotal || 0).toFixed(2)}
                   </Text>
                 </View>

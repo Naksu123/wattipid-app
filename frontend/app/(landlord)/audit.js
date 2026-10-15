@@ -1,6 +1,6 @@
 import { SafeAreaView } from 'react-native-safe-area-context';
-import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, ScrollView, ActivityIndicator, TouchableOpacity, RefreshControl, Modal  } from 'react-native';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { View, Text, ScrollView, ActivityIndicator, TouchableOpacity, RefreshControl, Modal, BackHandler } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { CopilotStep, walkthroughable } from 'react-native-copilot';
@@ -18,6 +18,27 @@ export default function AuditLogsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [selectedLog, setSelectedLog] = useState(null);
   const scrollViewRef = useRef(null);
+
+  // Back Navigation Handler
+  // Strictly navigates back to Landlord Settings page (Landlord Dashboard -> Settings -> Audit Logs -> Back -> Settings)
+  // Uses replace to respect navigation history without creating duplicate stack entries
+  const handleGoBack = useCallback(() => {
+    if (selectedLog) {
+      setSelectedLog(null);
+      return;
+    }
+    router.replace('/(landlord)/settings');
+  }, [selectedLog]);
+
+  // Handle Android physical hardware back button
+  useEffect(() => {
+    const onBackPress = () => {
+      handleGoBack();
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [handleGoBack]);
 
   useTourAutoStart('audit', !loading, scrollViewRef, 'landlord');
 
@@ -106,6 +127,20 @@ export default function AuditLogsScreen() {
   if (loading && (!logs || logs.length === 0)) {
     return (
       <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity 
+            style={styles.backBtn} 
+            onPress={handleGoBack}
+            activeOpacity={0.7}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            accessibilityRole="button"
+            accessibilityLabel="Back to Settings"
+          >
+            <Ionicons name="arrow-back" size={24} color={COLORS.textPrimary} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>System Audit Logs</Text>
+          <View style={{ width: 24 }} />
+        </View>
         <View style={styles.center}>
           <ActivityIndicator size="large" color={COLORS.primary} />
           <Text style={styles.loadingText}>Fetching immutable audit trails...</Text>
@@ -117,7 +152,14 @@ export default function AuditLogsScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+        <TouchableOpacity 
+          style={styles.backBtn} 
+          onPress={handleGoBack}
+          activeOpacity={0.7}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          accessibilityRole="button"
+          accessibilityLabel="Back to Settings"
+        >
           <Ionicons name="arrow-back" size={24} color={COLORS.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>System Audit Logs</Text>

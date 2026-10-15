@@ -1,11 +1,10 @@
-import React, { useState, useCallback, useMemo } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, LayoutAnimation, Platform, UIManager } from 'react-native';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, LayoutAnimation, Platform, UIManager, BackHandler } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useAuth } from '../contexts/AuthContext';
 import { useTourContext } from '../contexts/TourContext';
 import { TENANT_MANUAL, LANDLORD_MANUAL } from '../data/userManualContent';
-import { COLORS } from '../styles/theme';
 import s from '../styles/userManual.styles';
 
 // Enable LayoutAnimation on legacy Android architecture only; in New Architecture (Fabric) it is enabled by default
@@ -14,8 +13,27 @@ if (Platform.OS === 'android' && !global?.nativeFabricUIManager && UIManager?.se
 }
 
 export default function UserManualScreen() {
+  const router = useRouter();
   const { user } = useAuth();
   const isLandlord = user?.role === 'landlord';
+
+  // Back Navigation Handler
+  // Strictly navigates back to Settings page (Settings -> User Manual & FAQ -> Back -> Settings)
+  // Uses replace to respect navigation history without creating duplicate stack entries
+  const handleGoBack = useCallback(() => {
+    const target = isLandlord ? '/(landlord)/settings' : '/(tenant)/settings';
+    router.replace(target);
+  }, [isLandlord, router]);
+
+  // Handle Android physical hardware back button
+  useEffect(() => {
+    const onBackPress = () => {
+      handleGoBack();
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [handleGoBack]);
 
   const manualData = isLandlord ? LANDLORD_MANUAL : TENANT_MANUAL;
   const roleLabel = isLandlord ? 'Landlord' : 'Tenant';
@@ -122,15 +140,17 @@ export default function UserManualScreen() {
       <View style={s.header}>
         <TouchableOpacity
           style={s.backBtn}
-          onPress={() => router.back()}
+          onPress={handleGoBack}
+          activeOpacity={0.7}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           accessibilityRole="button"
-          accessibilityLabel="Go back"
+          accessibilityLabel="Back to Settings"
         >
           <Ionicons name="arrow-back" size={18} color="#FFFFFF" />
         </TouchableOpacity>
 
         <View style={s.headerTitleWrap}>
-          <Text style={s.headerTitle}>User Manual</Text>
+          <Text style={s.headerTitle} numberOfLines={1}>User Manual & FAQ</Text>
           <Text style={s.headerSubtitle}>
             {roleLabel} Guide • {filteredSections.length} sections
           </Text>

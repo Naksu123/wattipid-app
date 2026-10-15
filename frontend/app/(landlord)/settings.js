@@ -38,9 +38,6 @@ export default function LandlordSettings() {
   const [notifNewTenant, setNotifNewTenant] = useState(true);
   const [notifRevoke, setNotifRevoke] = useState(true);
 
-  // About state
-  const [aboutVisible, setAboutVisible] = useState(false);
-
   // Penalty Config Modal
   const [penaltyVisible, setPenaltyVisible] = useState(false);
   const [penaltyGrace, setPenaltyGrace] = useState('3');
@@ -330,10 +327,10 @@ export default function LandlordSettings() {
               <View style={styles.divider} />
               <MenuItem 
                 icon="information-circle-outline" 
-                label="About System" 
-                value="Wattipid v2.1.0-prod" 
-                onPress={() => setAboutVisible(true)} 
-                iconColor="#64748B"
+                label="About Wattipid & Business Profile" 
+                value="System specs & dormitory legal profile" 
+                onPress={() => router.push('/about')} 
+                iconColor="#10B981"
               />
             </View>
           </CopilotView>
@@ -362,7 +359,7 @@ export default function LandlordSettings() {
           <View style={styles.modalPill}>
             <Ionicons name="information-circle-outline" size={13} color="#10B981" style={{ marginRight: 6 }} />
             <Text style={styles.modalPillText}>
-              Current Rate: ₱{rate || '12.50'} / kWh
+              Current Rate: ₱{rate || '14.25'} / kWh
             </Text>
           </View>
 
@@ -374,7 +371,7 @@ export default function LandlordSettings() {
               style={styles.numericInput} 
               value={newRate} 
               onChangeText={setNewRate} 
-              placeholder="12.50" 
+              placeholder="14.25" 
               placeholderTextColor="#475569" 
               keyboardType="numeric" 
               selectionColor="#10B981"
@@ -641,34 +638,7 @@ export default function LandlordSettings() {
         </ScrollView>
       </BaseModal>
 
-      {/* 5. About System Modal (Floating Centered) */}
-      <BaseModal visible={aboutVisible} onClose={() => setAboutVisible(false)} centered={true}>
-        <ModalHeader title="Wattipid Smart System" icon="flash" iconColor="#10B981" onClose={() => setAboutVisible(false)} />
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: 4 }}
-        >
-          <View style={styles.modalPill}>
-            <Ionicons name="shield-checkmark" size={13} color="#10B981" style={{ marginRight: 5 }} />
-            <Text style={styles.modalPillText}>v2.1.0 • Enterprise Cloud Architecture</Text>
-          </View>
-          <Text style={{ color: '#94A3B8', lineHeight: 18, fontSize: 11.5, marginBottom: 8 }}>
-            Wattipid is an enterprise-grade IoT electricity monitoring platform designed for modern rental facilities. It utilizes ESP32 microcontrollers, purely Cloud-Based synchronization, and real-time analytics to help landlords and tenants track consumption securely and efficiently without physical LAN restrictions.
-          </Text>
-          <Text style={{ color: '#64748B', fontSize: 10.5, fontWeight: '600', marginBottom: 10 }}>
-            © 2026 Wattipid Technologies • All Rights Reserved
-          </Text>
-          <View style={styles.modalActionRow}>
-            <TouchableOpacity
-              style={[styles.modalBtnPrimary, { flex: 1 }]}
-              onPress={() => setAboutVisible(false)}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.modalBtnPrimaryText}>Done</Text>
-            </TouchableOpacity>
-          </View>
-        </ScrollView>
-      </BaseModal>
+
 
       {/* Sign Out Modal */}
       <SignOutModal

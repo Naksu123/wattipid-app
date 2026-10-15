@@ -240,36 +240,56 @@ export async function getConsumptionComparison(roomId, period = 'weekly', tenant
     const prevEnergy = parseFloat(data?.previous?.totalEnergy);
     const prevCost = parseFloat(data?.previous?.electricityCharge !== undefined ? data?.previous?.electricityCharge : data?.previous?.totalCost);
 
+    const prevHasData = data?.previous?.hasData !== undefined ? !!data.previous.hasData : (Number.isFinite(prevEnergy) && (prevEnergy > 0 || prevCost > 0));
+    const currHasData = data?.current?.hasData !== undefined ? !!data.current.hasData : (Number.isFinite(currEnergy) && (currEnergy > 0 || currCost > 0));
+
     const current = {
       totalEnergy: Number.isFinite(currEnergy) ? Math.max(0, currEnergy) : 0,
-      totalCost: Number.isFinite(currCost) ? Math.max(0, currCost) : 0
+      totalCost: Number.isFinite(currCost) ? Math.max(0, currCost) : 0,
+      hasData: currHasData,
+      start: data?.current?.start || null,
+      end: data?.current?.end || null,
+      cycle_id: data?.current?.cycle_id || null
     };
     
     const previous = {
       totalEnergy: Number.isFinite(prevEnergy) ? Math.max(0, prevEnergy) : 0,
-      totalCost: Number.isFinite(prevCost) ? Math.max(0, prevCost) : 0
+      totalCost: Number.isFinite(prevCost) ? Math.max(0, prevCost) : 0,
+      hasData: prevHasData,
+      start: data?.previous?.start || null,
+      end: data?.previous?.end || null,
+      cycle_id: data?.previous?.cycle_id || null
     };
 
-    const costDiff = current.totalCost - previous.totalCost;
-    const energyDiff = current.totalEnergy - previous.totalEnergy;
+    const costDiff = Number.isFinite(Number(data?.costDiff)) ? Number(data.costDiff) : (current.totalCost - previous.totalCost);
+    const energyDiff = Number.isFinite(Number(data?.energyDiff)) ? Number(data.energyDiff) : (current.totalEnergy - previous.totalEnergy);
     
-    let costPctChange = 0;
-    if (previous.totalCost > 0) {
-      costPctChange = (costDiff / previous.totalCost) * 100;
-    } else if (current.totalCost > 0) {
-      costPctChange = 100; // New spending from zero
+    let costPctChange = Number(data?.costPctChange);
+    if (!Number.isFinite(costPctChange)) {
+      if (prevHasData && previous.totalCost > 0) {
+        costPctChange = (costDiff / previous.totalCost) * 100;
+      } else if (prevHasData && previous.totalCost === 0 && current.totalCost > 0) {
+        costPctChange = 100;
+      } else {
+        costPctChange = 0;
+      }
     }
     if (!Number.isFinite(costPctChange)) costPctChange = 0;
 
-    let energyPctChange = 0;
-    if (previous.totalEnergy > 0) {
-      energyPctChange = (energyDiff / previous.totalEnergy) * 100;
-    } else if (current.totalEnergy > 0) {
-      energyPctChange = 100; // New energy from zero
+    let energyPctChange = Number(data?.energyPctChange);
+    if (!Number.isFinite(energyPctChange)) {
+      if (prevHasData && previous.totalEnergy > 0) {
+        energyPctChange = (energyDiff / previous.totalEnergy) * 100;
+      } else if (prevHasData && previous.totalEnergy === 0 && current.totalEnergy > 0) {
+        energyPctChange = 100;
+      } else {
+        energyPctChange = 0;
+      }
     }
     if (!Number.isFinite(energyPctChange)) energyPctChange = 0;
 
     return { 
+      period: data?.period || period,
       current, 
       previous, 
       costDiff: Number.isFinite(costDiff) ? costDiff : 0, 
@@ -282,8 +302,9 @@ export async function getConsumptionComparison(roomId, period = 'weekly', tenant
   } catch (err) {
     console.warn('[getConsumptionComparison] error:', err?.message || err);
     return {
-      current: { totalEnergy: 0, totalCost: 0 },
-      previous: { totalEnergy: 0, totalCost: 0 },
+      period,
+      current: { totalEnergy: 0, totalCost: 0, hasData: false, start: null, end: null },
+      previous: { totalEnergy: 0, totalCost: 0, hasData: false, start: null, end: null },
       costDiff: 0,
       energyDiff: 0,
       costPctChange: 0,
@@ -439,4 +460,14 @@ export async function verifyAccessCodeAPI(email, accessCode) {
     };
   }
 }
+
+// ============ DORMITORY BUSINESS INFO & DOCUMENTS ============
+export { 
+  getDormitoryBusinessInfo, 
+  updateDormitoryBusinessInfo, 
+  getDormitoryDocuments, 
+  saveDormitoryDocument, 
+  deleteDormitoryDocument, 
+  verifyDormitoryDocument 
+} from './dormitoryService';
 

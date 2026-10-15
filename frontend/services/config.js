@@ -3,7 +3,7 @@ import Constants from 'expo-constants';
 import { DeviceEventEmitter, NativeModules } from 'react-native';
 
 // Current active development machine IP (updated for your current hotspot)
-const FALLBACK_LOCAL_IP = '172.20.10.12';
+const FALLBACK_LOCAL_IP = '192.168.254.109';
 const STORAGE_KEY = '@wattipid_api_env';
 const CUSTOM_IP_KEY = '@wattipid_custom_local_ip';
 

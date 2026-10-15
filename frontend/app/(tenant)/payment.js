@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, TouchableOpacity, Image, ActivityIndicator, ScrollView, TextInput, Pressable, Animated } from 'react-native';
+import { View, Text, TouchableOpacity, Image, ActivityIndicator, ScrollView, TextInput, Pressable, Animated, BackHandler } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { getAvailableBillingCycles, getMultipleSettings } from '../../services/database';
@@ -11,7 +11,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import DynamicQRCode from '../../components/tenant/Billing/DynamicQRCode';
-import { COLORS, SPACING } from '../../styles/theme';
+import { COLORS } from '../../styles/theme';
 import styles from '../../styles/tenant/payment.styles';
 
 // --- Premium Buttons ---
@@ -145,6 +145,30 @@ export default function TenantPaymentScreen() {
 
     // Landlord Settings
     const [landlordInfo, setLandlordInfo] = useState({});
+
+    const isPending = billingCycle?.payment_status === 'pending_verification';
+    const isPaid = billingCycle?.payment_status === 'paid';
+
+    // Back Navigation Handler
+    // Strictly navigates back to Payment Dashboard (Dashboard -> Payment -> Payment Gateway -> Back -> Payment Dashboard)
+    // Uses replace to respect navigation history without creating duplicate stack entries
+    const handleGoBack = useCallback(() => {
+        if (!isPending && !isPaid && step > 1) {
+            setStep(s => s - 1);
+            return;
+        }
+        router.replace('/(tenant)/billing');
+    }, [isPending, isPaid, step, router]);
+
+    // Handle Android physical hardware back button
+    useEffect(() => {
+        const onBackPress = () => {
+            handleGoBack();
+            return true;
+        };
+        const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+        return () => sub.remove();
+    }, [handleGoBack]);
 
     const calculateCycleAmount = useCallback((cycle, forcedType = null) => {
         if (!cycle) return 0;
@@ -330,7 +354,7 @@ export default function TenantPaymentScreen() {
                 return true;
             }
             return false;
-        } catch (e) {
+        } catch (_e) {
             return false;
         }
     };
@@ -448,47 +472,80 @@ export default function TenantPaymentScreen() {
 
     if (error && !billingCycle) {
         return (
-            <View style={[styles.container, styles.center]}>
-                <Ionicons name="alert-circle-outline" size={48} color={COLORS.danger} />
-                <Text style={styles.errorText}>{error}</Text>
-                <TouchableOpacity style={styles.retryBtn} onPress={() => { setError(null); setLoading(true); fetchData(); }}>
-                    <Text style={styles.retryBtnText}>Retry</Text>
-                </TouchableOpacity>
+            <View style={styles.container}>
+                <View style={styles.topBar}>
+                    <TouchableOpacity 
+                        onPress={handleGoBack} 
+                        style={styles.topBackBtn} 
+                        activeOpacity={0.7}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                        accessibilityRole="button"
+                        accessibilityLabel="Back to Payment Dashboard"
+                    >
+                        <Ionicons name="arrow-back" size={18} color="#FFFFFF" />
+                    </TouchableOpacity>
+                    <Text style={styles.topBarTitle}>Payment</Text>
+                    <View style={{ width: 34 }} />
+                </View>
+                <View style={[styles.center, { flex: 1 }]}>
+                    <Ionicons name="alert-circle-outline" size={48} color={COLORS.danger} />
+                    <Text style={styles.errorText}>{error}</Text>
+                    <View style={{ flexDirection: 'row', gap: 10, marginTop: 16 }}>
+                        <TouchableOpacity style={styles.retryBtn} onPress={() => { setError(null); setLoading(true); fetchData(); }}>
+                            <Text style={styles.retryBtnText}>Retry</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={[styles.retryBtn, { backgroundColor: 'rgba(255,255,255,0.08)' }]} onPress={handleGoBack}>
+                            <Text style={styles.retryBtnText}>Back</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
             </View>
         );
     }
 
     if (!billingCycle) {
         return (
-            <View style={[styles.container, styles.center]}>
-                <Ionicons name="checkmark-circle-outline" size={48} color={COLORS.primary} />
-                <Text style={styles.noPendingText}>No pending invoices found.</Text>
+            <View style={styles.container}>
+                <View style={styles.topBar}>
+                    <TouchableOpacity 
+                        onPress={handleGoBack} 
+                        style={styles.topBackBtn} 
+                        activeOpacity={0.7}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                        accessibilityRole="button"
+                        accessibilityLabel="Back to Payment Dashboard"
+                    >
+                        <Ionicons name="arrow-back" size={18} color="#FFFFFF" />
+                    </TouchableOpacity>
+                    <Text style={styles.topBarTitle}>Payment</Text>
+                    <View style={{ width: 34 }} />
+                </View>
+                <View style={[styles.center, { flex: 1 }]}>
+                    <Ionicons name="checkmark-circle-outline" size={48} color={COLORS.primary} />
+                    <Text style={styles.noPendingText}>No pending invoices found.</Text>
+                    <TouchableOpacity 
+                        style={[styles.retryBtn, { marginTop: 16 }]} 
+                        onPress={handleGoBack}
+                        activeOpacity={0.7}
+                    >
+                        <Text style={styles.retryBtnText}>Back to Payment Dashboard</Text>
+                    </TouchableOpacity>
+                </View>
             </View>
         );
     }
-
-    const isPending = billingCycle.payment_status === 'pending_verification';
-    const isPaid = billingCycle.payment_status === 'paid';
 
     return (
         <View style={styles.container}>
             {/* Top Navigation Bar */}
             <View style={styles.topBar}>
                 <TouchableOpacity 
-                    onPress={() => {
-                        if (step > 1) {
-                            setStep(s => s - 1);
-                        } else {
-                            if (router.canGoBack()) {
-                                router.back();
-                            } else {
-                                router.replace('/(tenant)/dashboard');
-                            }
-                        }
-                    }} 
+                    onPress={handleGoBack} 
                     style={styles.topBackBtn} 
                     activeOpacity={0.7}
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    accessibilityRole="button"
+                    accessibilityLabel="Back to Payment Dashboard"
                 >
                     <Ionicons name="arrow-back" size={18} color="#FFFFFF" />
                 </TouchableOpacity>
@@ -845,6 +902,14 @@ export default function TenantPaymentScreen() {
                     <View style={styles.pendingBox}>
                         <Ionicons name="time-outline" size={32} color="#F59E0B" />
                         <Text style={styles.pendingText}>Your payment is currently under review by the landlord. We will notify you once verified.</Text>
+                        <TouchableOpacity 
+                            style={[styles.viewPdfBtn, { backgroundColor: 'rgba(245, 158, 11, 0.15)', borderColor: 'rgba(245, 158, 11, 0.3)', marginTop: 14 }]} 
+                            onPress={handleGoBack}
+                            activeOpacity={0.8}
+                        >
+                            <Ionicons name="arrow-back" size={16} color="#F59E0B" style={{ marginRight: 6 }} />
+                            <Text style={[styles.viewPdfBtnText, { color: '#F59E0B' }]}>Return to Payment Dashboard</Text>
+                        </TouchableOpacity>
                     </View>
                 )}
 
