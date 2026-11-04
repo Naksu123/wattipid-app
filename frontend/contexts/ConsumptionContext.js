@@ -166,6 +166,13 @@ export const ConsumptionProvider = ({ children }) => {
               lastCumulativeEnergyRef.current = currentEnergy;
             }
 
+            const isSim = sensorData.is_simulated === true || sensorData.source === 'simulation';
+            const normalizedData = {
+              ...sensorData,
+              is_simulated: isSim,
+              source: sensorData.source || (isSim ? 'simulation' : 'hardware')
+            };
+
             if (!sensorData.online) {
               setData(prev => {
                 if (prev && !prev.online && prev.energy === (sensorData.energy || 0) && prev.power === 0) {
@@ -177,23 +184,26 @@ export const ConsumptionProvider = ({ children }) => {
                   power: 0,
                   energy: sensorData.energy || 0,
                   powerFactor: 0,
-                  online: false
+                  online: false,
+                  is_simulated: isSim,
+                  source: normalizedData.source
                 };
               });
             } else {
               setData(prev => {
                 if (
                   prev &&
-                  prev.power === sensorData.power &&
-                  prev.energy === sensorData.energy &&
-                  prev.voltage === sensorData.voltage &&
-                  prev.current === sensorData.current &&
-                  prev.powerFactor === sensorData.powerFactor &&
-                  prev.online === sensorData.online
+                  prev.power === normalizedData.power &&
+                  prev.energy === normalizedData.energy &&
+                  prev.voltage === normalizedData.voltage &&
+                  prev.current === normalizedData.current &&
+                  prev.powerFactor === normalizedData.powerFactor &&
+                  prev.online === normalizedData.online &&
+                  prev.is_simulated === normalizedData.is_simulated
                 ) {
                   return prev; // Identical readings — skip triggering re-renders across the app!
                 }
-                return sensorData;
+                return normalizedData;
               });
             }
           }
@@ -202,7 +212,7 @@ export const ConsumptionProvider = ({ children }) => {
         console.warn('Real-time fetch error:', err);
       } finally {
         if (!isCancelled) {
-          pollingTimerRef.current = setTimeout(runPollingLoop, 2000);
+          pollingTimerRef.current = setTimeout(runPollingLoop, 1000); // Smooth 1-second cadence (no congestion)
         }
       }
     };

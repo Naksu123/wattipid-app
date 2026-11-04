@@ -12,12 +12,31 @@ export default StyleSheet.create({
     paddingBottom: 40 
   },
 
-  // Control Panel Header (Matches landlord-settings.png)
+  // Control Panel Header
   headerRow: { 
     flexDirection: 'row', 
     alignItems: 'center', 
     justifyContent: 'space-between', 
     marginBottom: 16 
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  backBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 11,
+    backgroundColor: '#0C1322',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTitleWrap: {
+    flex: 1,
   },
   subtitle: { 
     fontSize: 11, 
@@ -34,8 +53,8 @@ export default StyleSheet.create({
     letterSpacing: -0.4 
   },
   gearBtn: { 
-    width: 36, 
-    height: 36, 
+    width: 38, 
+    height: 38, 
     borderRadius: 11, 
     backgroundColor: '#0C1322', 
     borderWidth: 1, 

@@ -599,12 +599,22 @@ export default function DashboardScreen() {
 
               {/* Right Actions: Live Online badge and Notification Bell */}
               <View style={ms.headerRight}>
-                <View style={[ms.liveOnlineBadge, offline && ms.liveOnlineBadgeOffline]}>
-                  <View style={[ms.liveOnlineDot, offline && ms.liveOnlineDotOffline]} />
-                  <Text style={[ms.liveOnlineText, offline && ms.liveOnlineTextOffline]}>
-                    {offline ? 'Offline' : 'Live Online'}
+                <View style={[
+                  ms.liveOnlineBadge, 
+                  offline ? ms.liveOnlineBadgeOffline : (data.is_simulated ? ms.liveOnlineBadgeSim : null)
+                ]}>
+                  <View style={[
+                    ms.liveOnlineDot, 
+                    offline ? ms.liveOnlineDotOffline : (data.is_simulated ? ms.liveOnlineDotSim : null)
+                  ]} />
+                  <Text style={[
+                    ms.liveOnlineText, 
+                    offline ? ms.liveOnlineTextOffline : (data.is_simulated ? ms.liveOnlineTextSim : null)
+                  ]}>
+                    {offline ? 'Offline' : (data.is_simulated ? 'Demo Simulation' : 'Live Online')}
                   </Text>
                 </View>
+
 
                 <TouchableOpacity 
                   style={ms.headerActionBtn} 
@@ -639,6 +649,7 @@ export default function DashboardScreen() {
                 unit="W" 
                 size={270} 
                 isOffline={offline} 
+                isSimulated={data.is_simulated} 
               />
 
               {/* Card Divider */}

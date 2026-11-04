@@ -184,11 +184,23 @@ export default function LandlordSettings() {
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
       >
-        {/* ================= HEADER (Matches landlord-settings.png) ================= */}
+        {/* ================= HEADER ================= */}
         <View style={styles.headerRow}>
-          <View>
-            <Text style={styles.subtitle}>Control Panel</Text>
-            <Text style={styles.title}>Settings</Text>
+          <View style={styles.headerLeft}>
+            <TouchableOpacity 
+              style={styles.backBtn}
+              onPress={() => router.canGoBack() ? router.back() : router.replace('/(landlord)/overview')}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              activeOpacity={0.7}
+              accessibilityLabel="Back to Overview"
+              accessibilityRole="button"
+            >
+              <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
+            </TouchableOpacity>
+            <View style={styles.headerTitleWrap}>
+              <Text style={styles.subtitle}>Control Panel</Text>
+              <Text style={styles.title}>Settings</Text>
+            </View>
           </View>
           <View style={styles.gearBtn}>
             <Ionicons name="settings-outline" size={18} color="#10B981" />

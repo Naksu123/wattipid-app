@@ -11,7 +11,8 @@ export default function PowerGauge({
   label = 'Power', 
   size = 260,
   isOffline = false,
-  statusText = null
+  statusText = null,
+  isSimulated = false
 }) {
   const strokeWidth = 14;
   const width = size;
@@ -57,19 +58,32 @@ export default function PowerGauge({
 
   const safeOffset = arcLength * (1 - Math.min(Math.max(currentProgress, 0), 1));
 
-  // Determine display status (no icons as requested)
+  // Determine display status according to Section 1 & Section 5 & Section 6 requirements:
+  // - Offline: genuinely disconnected / communication lost
+  // - Demo Simulation: simulation mode active (distinct indicator)
+  // - Zero Consumption: 0 W valid reading (NOT standby or disconnected)
+  // - Active Monitoring: any valid wattage > 0 W (5W, 9W, 15W, 75W, etc.)
   let subStatus = statusText;
-  if (!subStatus) {
-    if (isOffline) {
-      subStatus = 'Offline';
-    } else if (numericVal > 15) {
-      subStatus = 'Power Active';
-    } else {
-      subStatus = 'Standby';
-    }
-  }
+  let badgeStyle = styles.subBadgeActive;
+  let badgeTextStyle = styles.subBadgeTextActive;
 
-  const isPowerActive = !isOffline && numericVal > 15;
+  if (isOffline) {
+    subStatus = subStatus || 'Offline';
+    badgeStyle = styles.subBadgeOffline;
+    badgeTextStyle = styles.subBadgeTextOffline;
+  } else if (isSimulated) {
+    subStatus = subStatus || (numericVal <= 0.05 ? 'Zero Consumption (Simulated)' : 'Demo Simulation');
+    badgeStyle = styles.subBadgeSimulation || styles.subBadgeActive;
+    badgeTextStyle = styles.subBadgeTextSimulation || styles.subBadgeTextActive;
+  } else if (numericVal <= 0.05) {
+    subStatus = subStatus || 'Zero Consumption';
+    badgeStyle = styles.subBadgeZero || styles.subBadgeStandby;
+    badgeTextStyle = styles.subBadgeTextZero || styles.subBadgeTextStandby;
+  } else {
+    subStatus = subStatus || 'Active Monitoring';
+    badgeStyle = styles.subBadgeActive;
+    badgeTextStyle = styles.subBadgeTextActive;
+  }
 
   return (
     <View style={[styles.container, { width, height }]}>
@@ -117,8 +131,8 @@ export default function PowerGauge({
         </View>
 
         {/* Sub-badge: Text only, NO icons */}
-        <View style={[styles.subBadge, isOffline ? styles.subBadgeOffline : (isPowerActive ? styles.subBadgeActive : styles.subBadgeStandby)]}>
-          <Text style={[styles.subBadgeText, isOffline ? styles.subBadgeTextOffline : (isPowerActive ? styles.subBadgeTextActive : styles.subBadgeTextStandby)]}>
+        <View style={[styles.subBadge, badgeStyle]}>
+          <Text style={[styles.subBadgeText, badgeTextStyle]}>
             {subStatus}
           </Text>
         </View>

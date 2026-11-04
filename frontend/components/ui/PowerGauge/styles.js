@@ -46,10 +46,20 @@ export default StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(100, 116, 139, 0.25)',
   },
+  subBadgeZero: {
+    backgroundColor: 'rgba(100, 116, 139, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(100, 116, 139, 0.30)',
+  },
   subBadgeOffline: {
     backgroundColor: 'rgba(239, 68, 68, 0.12)',
     borderWidth: 1,
     borderColor: 'rgba(239, 68, 68, 0.28)',
+  },
+  subBadgeSimulation: {
+    backgroundColor: 'rgba(59, 130, 246, 0.14)',
+    borderWidth: 1,
+    borderColor: 'rgba(59, 130, 246, 0.35)',
   },
   subBadgeText: {
     fontSize: 11.5,
@@ -62,8 +72,14 @@ export default StyleSheet.create({
   subBadgeTextStandby: {
     color: '#94A3B8',
   },
+  subBadgeTextZero: {
+    color: '#94A3B8',
+  },
   subBadgeTextOffline: {
     color: '#EF4444',
+  },
+  subBadgeTextSimulation: {
+    color: '#60A5FA',
   },
 });
 

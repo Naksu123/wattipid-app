@@ -17,7 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { CopilotStep, walkthroughable } from 'react-native-copilot';
 import { useTourAutoStart } from '@/contexts/TourContext';
-import { getOverdueAccounts } from '../../services/penaltyService';
+import { getOverdueAccounts, triggerPenaltyCalculation } from '../../services/penaltyService';
 import { sendManualReminder } from '../../services/paymentService';
 import styles from '../../styles/landlord/penalties.styles';
 
@@ -115,6 +115,11 @@ export default function PenaltyCenterScreen() {
 
   const onRefresh = async () => {
     setRefreshing(true);
+    try {
+      await triggerPenaltyCalculation();
+    } catch (calcErr) {
+      console.warn('[penalties] triggerPenaltyCalculation error:', calcErr);
+    }
     await loadData();
     setRefreshing(false);
   };

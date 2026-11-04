@@ -669,6 +669,16 @@ export default StyleSheet.create({
   liveOnlineTextOffline: {
     color: '#EF4444',
   },
+  liveOnlineBadgeSim: {
+    backgroundColor: 'rgba(59, 130, 246, 0.14)',
+    borderColor: 'rgba(59, 130, 246, 0.35)',
+  },
+  liveOnlineDotSim: {
+    backgroundColor: '#3B82F6',
+  },
+  liveOnlineTextSim: {
+    color: '#60A5FA',
+  },
   headerActionBtn: {
     width: 38,
     height: 38,
