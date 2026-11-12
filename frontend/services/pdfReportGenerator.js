@@ -25,6 +25,12 @@ export function buildAnalyticsReportHtml(options) {
     forecastOver = 0,
     footnote = '',
     activeCycle = null,
+    roomNumber = '',
+    highestDayStr = '',
+    lowestDayStr = '',
+    averageDailyStr = '',
+    insights = [],
+    roomComparisons = null,
   } = options;
 
   const effectiveRate = parseFloat(rate || 12.50);
@@ -598,7 +604,7 @@ export function buildAnalyticsReportHtml(options) {
           <div class="info-banner">
             <div class="info-col">
               <div class="info-label">Room Identifier</div>
-              <div class="info-value">${roomId}</div>
+              <div class="info-value">${roomId}${roomNumber ? ` • Unit ${roomNumber}` : ''}</div>
             </div>
             <div class="info-col">
               <div class="info-label">Account Tenant</div>
@@ -627,16 +633,23 @@ export function buildAnalyticsReportHtml(options) {
               <div class="card-subtext" style="color:#047857;">Based on ₱${effectiveRate.toFixed(2)}/kWh</div>
             </div>
             <div class="metric-card">
-              <div class="card-label">Average / Interval</div>
-              <div class="card-value">${avgEnergy.toFixed(3)} <span style="font-size:11px;font-weight:600;color:#64748B;">kWh</span></div>
-              <div class="card-subtext">₱${avgCost.toFixed(2)} per interval</div>
+              <div class="card-label">Average Daily / Interval</div>
+              <div class="card-value">${averageDailyStr ? averageDailyStr.split(' ')[0] : avgEnergy.toFixed(3)} <span style="font-size:11px;font-weight:600;color:#64748B;">kWh</span></div>
+              <div class="card-subtext">${averageDailyStr || `₱${avgCost.toFixed(2)} per interval`}</div>
             </div>
             <div class="metric-card">
-              <div class="card-label">Peak Usage</div>
-              <div class="card-value" style="font-size:13px;word-break:break-word;">${peakDetailStr}</div>
-              <div class="card-subtext">Highest recorded interval</div>
+              <div class="card-label">Highest Usage Day</div>
+              <div class="card-value" style="font-size:12.5px;word-break:break-word;">${highestDayStr || peakDetailStr}</div>
+              <div class="card-subtext">Peak consumption recorded</div>
             </div>
           </div>
+
+          ${lowestDayStr ? `
+            <div style="background:#F8FAFC; border:1px solid #E2E8F0; border-radius:8px; padding:8px 12px; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center;">
+              <span style="font-size:9.5px; font-weight:700; color:#475569; text-transform:uppercase;">Lowest Consumption Day</span>
+              <span style="font-size:11px; font-weight:700; color:#0284C7;">${lowestDayStr}</span>
+            </div>
+          ` : ''}
 
           <!-- ── Comparative Analysis & Forecast ───────────────────── -->
           <div class="intel-row">
@@ -660,11 +673,61 @@ export function buildAnalyticsReportHtml(options) {
             </div>
           </div>
 
-          <!-- ── Smart Insight Footnote ─────────────────────────────── -->
-          ${footnote ? `
+          <!-- ── Smart Insight Footnote & Observations ─────────────── -->
+          ${insights && insights.length > 0 ? `
+            <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 10px 14px; margin-bottom: 12px;">
+              <div style="font-size: 9.5px; font-weight: 800; color: #059669; letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 6px;">
+                ⚡ Automated Consumption Observations & Insights
+              </div>
+              <ul style="margin: 0; padding-left: 18px; color: #334155; font-size: 9.5px; line-height: 1.55;">
+                ${insights.map(ins => `<li style="margin-bottom: 3px;">${ins}</li>`).join('')}
+              </ul>
+            </div>
+          ` : (footnote ? `
             <div class="insight-box">
               <div class="insight-dot"></div>
               <div class="insight-text">${footnote}</div>
+            </div>
+          ` : '')}
+
+          <!-- ── Room Comparison Section (If Available) ─────────────── -->
+          ${roomComparisons && roomComparisons.rooms && roomComparisons.rooms.length > 0 ? `
+            <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 10px 14px; margin-bottom: 12px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 6px;">
+                <span style="font-size: 9.5px; font-weight: 800; color: #0284C7; letter-spacing: 0.5px; text-transform: uppercase;">
+                  🏢 Managed Rooms Consumption Comparison
+                </span>
+                <span style="font-size: 9px; color: #64748B;">
+                  Property Avg: ${(roomComparisons.avgPropertyEnergy || 0).toFixed(2)} kWh (₱${(roomComparisons.avgPropertyCost || 0).toFixed(2)})
+                </span>
+              </div>
+              <table class="data-table" style="font-size: 9px; margin-top: 4px;">
+                <thead>
+                  <tr>
+                    <th>Room</th>
+                    <th>Tenant</th>
+                    <th class="num">Consumption (kWh)</th>
+                    <th class="num">Cost (PHP)</th>
+                    <th class="num">Comparison</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${roomComparisons.rooms.slice(0, 8).map(rm => {
+                    const isCurr = rm.room_id === roomId;
+                    const diff = totalPeriodEnergy > 0 ? (((rm.totalEnergy - totalPeriodEnergy) / totalPeriodEnergy) * 100) : 0;
+                    const diffStr = isCurr ? 'Selected Room' : (diff > 0 ? `+${diff.toFixed(1)}%` : `${diff.toFixed(1)}%`);
+                    return `
+                      <tr style="${isCurr ? 'background:#E0F2FE; font-weight:700;' : ''}">
+                        <td>${rm.room_id}${rm.room_number ? ` (Unit ${rm.room_number})` : ''}</td>
+                        <td>${rm.tenant_name || 'Vacant'}</td>
+                        <td class="num">${Number(rm.totalEnergy || 0).toFixed(3)}</td>
+                        <td class="num">₱${Number(rm.totalCost || 0).toFixed(2)}</td>
+                        <td class="num" style="color:${isCurr ? '#0284C7' : (diff > 0 ? '#DC2626' : '#16A34A')}">${diffStr}</td>
+                      </tr>
+                    `;
+                  }).join('')}
+                </tbody>
+              </table>
             </div>
           ` : ''}
 

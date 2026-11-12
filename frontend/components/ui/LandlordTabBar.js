@@ -27,6 +27,7 @@ const HIDDEN_ROUTES = [
   'manual',
   'payment-settings',
   'user-manual',
+  'room-analytics',
 ];
 
 const TabBarItem = ({ isFocused, onPress, onLongPress, routeName }) => {

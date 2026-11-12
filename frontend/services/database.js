@@ -231,6 +231,16 @@ export async function getAvailableBillingCycles(roomId, options = {}) {
   return await apiCall('getAvailableBillingCycles', { roomId }, options) || [];
 }
 
+export async function getRoomsConsumptionComparison(period = 'weekly', dateStr = null, year = null, month = null, options = {}) {
+  try {
+    const data = await apiCall('getRoomsConsumptionComparison', { period, dateStr, year, month }, options);
+    return data;
+  } catch (err) {
+    console.warn('[getRoomsConsumptionComparison] error:', err?.message || err);
+    return null;
+  }
+}
+
 export async function getConsumptionComparison(roomId, period = 'weekly', tenantName = null, options = {}) {
   try {
     const data = await apiCall('getConsumptionComparison', { roomId, period, tenantName }, options);

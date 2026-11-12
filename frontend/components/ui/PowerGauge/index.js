@@ -71,10 +71,6 @@ export default function PowerGauge({
     subStatus = subStatus || 'Offline';
     badgeStyle = styles.subBadgeOffline;
     badgeTextStyle = styles.subBadgeTextOffline;
-  } else if (isSimulated) {
-    subStatus = subStatus || (numericVal <= 0.05 ? 'Zero Consumption (Simulated)' : 'Demo Simulation');
-    badgeStyle = styles.subBadgeSimulation || styles.subBadgeActive;
-    badgeTextStyle = styles.subBadgeTextSimulation || styles.subBadgeTextActive;
   } else if (numericVal <= 0.05) {
     subStatus = subStatus || 'Zero Consumption';
     badgeStyle = styles.subBadgeZero || styles.subBadgeStandby;

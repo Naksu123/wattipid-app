@@ -17,6 +17,7 @@ export default function RoomActionMenuModal({
   room,
   onGenerateReport,
   onViewHistory,
+  onViewAnalytics,
   onLogCashPayment,
   onTransferTenant,
   onRemoveTenant,
@@ -118,6 +119,18 @@ export default function RoomActionMenuModal({
                         <Ionicons name="time" size={17} color="#10B981" />
                       </View>
                       <Text style={s.actionRowLabel}>View History</Text>
+                      <Ionicons name="chevron-forward" size={16} color="#64748B" />
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={s.actionRowItem}
+                      onPress={() => handleAction(onViewAnalytics)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={[s.actionIconBadge, { backgroundColor: 'rgba(6, 182, 212, 0.12)' }]}>
+                        <Ionicons name="bar-chart" size={17} color="#06B6D4" />
+                      </View>
+                      <Text style={s.actionRowLabel}>View Analytics</Text>
                       <Ionicons name="chevron-forward" size={16} color="#64748B" />
                     </TouchableOpacity>
 

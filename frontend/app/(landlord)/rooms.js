@@ -40,6 +40,7 @@ import RoomCard from '../../components/RoomManagement/RoomCard';
 import RoomActionMenuModal from '../../components/RoomManagement/RoomActionMenuModal';
 import RoomFormModal from '../../components/RoomManagement/RoomFormModal';
 import RoomHistoryModal from '../../components/landlord/RoomHistoryModal';
+import RoomAnalyticsModal from '../../components/landlord/RoomAnalyticsModal';
 import ArchiveModal from '../../components/RoomManagement/ArchiveModal';
 import { CopilotStep, walkthroughable } from 'react-native-copilot';
 import { useTourAutoStart } from '@/contexts/TourContext';
@@ -100,6 +101,10 @@ export default function RoomsScreen() {
   // History Modal
   const [historyModalVisible, setHistoryModalVisible] = useState(false);
   const [historyRoomId, setHistoryRoomId] = useState(null);
+
+  // Analytics Modal
+  const [analyticsModalVisible, setAnalyticsModalVisible] = useState(false);
+  const [analyticsRoom, setAnalyticsRoom] = useState(null);
 
   // Transfer Modal
   const [transferModalVisible, setTransferModalVisible] = useState(false);
@@ -338,6 +343,10 @@ export default function RoomsScreen() {
     setHistoryModalVisible(false);
     setHistoryRoomId(null);
 
+    // Analytics Modal
+    setAnalyticsModalVisible(false);
+    setAnalyticsRoom(null);
+
     // Log Cash Payment Modal
     setCashModalVisible(false);
     setCashRoom(null);
@@ -403,6 +412,13 @@ export default function RoomsScreen() {
   const handleCloseHistory = useCallback(() => {
     setHistoryModalVisible(false);
     setHistoryRoomId(null);
+    setActionMenuVisible(false);
+    setActionMenuRoom(null);
+  }, []);
+
+  const handleCloseAnalytics = useCallback(() => {
+    setAnalyticsModalVisible(false);
+    setAnalyticsRoom(null);
     setActionMenuVisible(false);
     setActionMenuRoom(null);
   }, []);
@@ -626,6 +642,14 @@ export default function RoomsScreen() {
     setActionMenuRoom(null);
     setHistoryRoomId(room.room_id);
     setHistoryModalVisible(true);
+  };
+
+  // View Analytics
+  const handleOpenAnalytics = (room) => {
+    setActionMenuVisible(false);
+    setActionMenuRoom(null);
+    setAnalyticsRoom(room);
+    setAnalyticsModalVisible(true);
   };
 
   // Cash Payment
@@ -1012,6 +1036,7 @@ export default function RoomsScreen() {
         onClose={handleCloseActionMenu}
         onGenerateReport={handleOpenReport}
         onViewHistory={handleOpenHistory}
+        onViewAnalytics={handleOpenAnalytics}
         onLogCashPayment={handleOpenCashPayment}
         onTransferTenant={handleOpenTransfer}
         onRemoveTenant={handleOpenRevoke}
@@ -1049,6 +1074,14 @@ export default function RoomsScreen() {
         visible={historyModalVisible}
         onClose={handleCloseHistory}
         roomId={historyRoomId}
+      />
+
+      {/* ── Room Analytics Modal ── */}
+      <RoomAnalyticsModal
+        visible={analyticsModalVisible}
+        room={analyticsRoom}
+        defaultRate={rate}
+        onClose={handleCloseAnalytics}
       />
 
       {/* ── Send Invitation Modal ── */}

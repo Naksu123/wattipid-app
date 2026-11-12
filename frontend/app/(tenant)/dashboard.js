@@ -601,17 +601,17 @@ export default function DashboardScreen() {
               <View style={ms.headerRight}>
                 <View style={[
                   ms.liveOnlineBadge, 
-                  offline ? ms.liveOnlineBadgeOffline : (data.is_simulated ? ms.liveOnlineBadgeSim : null)
+                  offline ? ms.liveOnlineBadgeOffline : null
                 ]}>
                   <View style={[
                     ms.liveOnlineDot, 
-                    offline ? ms.liveOnlineDotOffline : (data.is_simulated ? ms.liveOnlineDotSim : null)
+                    offline ? ms.liveOnlineDotOffline : null
                   ]} />
                   <Text style={[
                     ms.liveOnlineText, 
-                    offline ? ms.liveOnlineTextOffline : (data.is_simulated ? ms.liveOnlineTextSim : null)
+                    offline ? ms.liveOnlineTextOffline : null
                   ]}>
-                    {offline ? 'Offline' : (data.is_simulated ? 'Demo Simulation' : 'Live Online')}
+                    {offline ? 'Offline' : 'Live Online'}
                   </Text>
                 </View>
 

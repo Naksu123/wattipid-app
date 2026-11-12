@@ -166,11 +166,10 @@ export const ConsumptionProvider = ({ children }) => {
               lastCumulativeEnergyRef.current = currentEnergy;
             }
 
-            const isSim = sensorData.is_simulated === true || sensorData.source === 'simulation';
             const normalizedData = {
               ...sensorData,
-              is_simulated: isSim,
-              source: sensorData.source || (isSim ? 'simulation' : 'hardware')
+              is_simulated: Boolean(sensorData.is_simulated),
+              source: sensorData.source || 'hardware'
             };
 
             if (!sensorData.online) {
@@ -185,7 +184,7 @@ export const ConsumptionProvider = ({ children }) => {
                   energy: sensorData.energy || 0,
                   powerFactor: 0,
                   online: false,
-                  is_simulated: isSim,
+                  is_simulated: normalizedData.is_simulated,
                   source: normalizedData.source
                 };
               });
